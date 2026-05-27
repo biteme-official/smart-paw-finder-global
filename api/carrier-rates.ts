@@ -182,6 +182,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    // Log full request body for debugging
+    console.log('[Carrier Rates] FULL BODY:', JSON.stringify(req.body));
+
     const { rate } = req.body || {};
     if (!rate) return res.status(400).json({ rates: [] });
 
@@ -190,19 +193,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const country = dest.country || '';
     const province = dest.province || '';
 
-    console.log('[Carrier Rates] destination:', JSON.stringify(dest));
-    console.log('[Carrier Rates] items count:', items.length);
-    items.forEach((item: any, i: number) => {
-      console.log(`[Carrier Rates] item[${i}]:`, JSON.stringify({ variant_id: item.variant_id, grams: item.grams, price: item.price, quantity: item.quantity, properties: item.properties }));
-    });
+    // Detect test/B2B customer via customer tag lookup
+    let isTaggedCustomer = false;
+    const customerEmail = dest.email || rate.customer?.email || '';
+    const customerCompany = dest.company_name || '';
 
-    // Check B2B flag from line item properties
-    const isB2B = items.some((item: any) =>
-      item.properties?._b2b === 'true' || item.properties?._b2b === true
-    );
-    console.log('[Carrier Rates] isB2B:', isB2B);
+    if (customerEmail) {
+      try {
+        const data = await adminGql(`query($q: String!) {
+          customers(first: 1, query: $q) {
+            edges { node { tags } }
+          }
+        }`, { q: `email:${customerEmail}` });
+        const tags: string[] = data?.customers?.edges?.[0]?.node?.tags || [];
+        isTaggedCustomer = tags.some(t => t.toLowerCase() === 'test' || t.toLowerCase() === 'b2b');
+        console.log('[Carrier Rates] email:', customerEmail, 'tags:', tags, 'isTagged:', isTaggedCustomer);
+      } catch (e: any) {
+        console.error('[Carrier Rates] Tag lookup failed:', e.message);
+      }
+    } else {
+      console.log('[Carrier Rates] No customer email in callback');
+    }
 
-    if (!isB2B) {
+    if (!isTaggedCustomer) {
       // B2C: flat rate ($10/$50 threshold logic)
       const totalPrice = items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0) / 100;
       const isKorean = country === 'KR';
@@ -210,7 +223,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       return res.status(200).json({
         rates: [{
-          service_name: isKorean ? 'Free Shipping (Korea)' : (totalPrice >= 150 ? 'Standard Shipping' : 'Standard Shipping'),
+          service_name: isKorean ? 'Free Shipping (Korea)' : 'Standard Shipping',
           service_code: 'standard',
           total_price: shippingCents,
           currency: 'USD',
@@ -220,7 +233,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // B2B: volumetric weight-based FedEx rate
+    // Tagged customer (test/B2B): volumetric weight-based FedEx rate
     const zone = countryToZone(country, province);
     if (!zone) {
       return res.status(200).json({
