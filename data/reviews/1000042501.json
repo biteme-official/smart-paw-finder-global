@@ -1,8 +1,88 @@
 {
   "product_cd": "1000042501",
   "scraped_at": "2026-05-07T13:01:00.094Z",
-  "total": 50,
+  "total": 55,
   "reviews": [
+    {
+      "id": "global-buddy-bone-kkomi",
+      "rating": 5,
+      "name": "Kkomi's Mom",
+      "content": "My pup is usually very picky with toys, but Buddy Bone instantly caught his attention the moment I opened it 🦴🤍\nThe beef scent kept him curious, and he's been chewing and carrying it around the house nonstop ever since! I also love that it feels durable while still being safe and gentle enough for small dogs. Definitely one of our favorite daily toys now!",
+      "content_en": "My pup is usually very picky with toys, but Buddy Bone instantly caught his attention the moment I opened it 🦴🤍\nThe beef scent kept him curious, and he's been chewing and carrying it around the house nonstop ever since! I also love that it feels durable while still being safe and gentle enough for small dogs. Definitely one of our favorite daily toys now!",
+      "date": "2026-05-27T00:00:00+09:00",
+      "images": [
+        "/reviews/buddy-bone/kkomi-1.jpg",
+        "/reviews/buddy-bone/kkomi-2.jpg",
+        "/reviews/buddy-bone/kkomi-3.jpg",
+        "/reviews/buddy-bone/kkomi-4.jpg"
+      ],
+      "videos": [
+        "/reviews/buddy-bone/kkomi-1.mp4"
+      ]
+    },
+    {
+      "id": "global-buddy-bone-papkon",
+      "rating": 5,
+      "name": "Papkon's Mom",
+      "content": "We've tried so many chew toys before, but most of them were either too hard or didn't last long enough. Buddy Bone feels like the perfect balance ✨\nIt keeps my dog entertained for such a long time and helps with boredom during indoor playtime. Plus, the design is honestly adorable!",
+      "content_en": "We've tried so many chew toys before, but most of them were either too hard or didn't last long enough. Buddy Bone feels like the perfect balance ✨\nIt keeps my dog entertained for such a long time and helps with boredom during indoor playtime. Plus, the design is honestly adorable!",
+      "date": "2026-05-27T00:00:00+09:00",
+      "images": [
+        "/reviews/buddy-bone/papkon-1.jpg",
+        "/reviews/buddy-bone/papkon-2.jpg",
+        "/reviews/buddy-bone/papkon-3.jpg"
+      ],
+      "videos": [
+        "/reviews/buddy-bone/papkon-1.mp4",
+        "/reviews/buddy-bone/papkon-2.mp4"
+      ]
+    },
+    {
+      "id": "global-buddy-bone-gama",
+      "rating": 5,
+      "name": "Gama's Dad",
+      "content": "My dog normally loses interest in toys pretty quickly, but Buddy Bone has become his new obsession 🐶\nHe keeps coming back to it throughout the day, especially because of the scent and texture. It's great for teething, stress relief, and keeping energetic pups busy. So happy we found this toy!",
+      "content_en": "My dog normally loses interest in toys pretty quickly, but Buddy Bone has become his new obsession 🐶\nHe keeps coming back to it throughout the day, especially because of the scent and texture. It's great for teething, stress relief, and keeping energetic pups busy. So happy we found this toy!",
+      "date": "2026-05-27T00:00:00+09:00",
+      "images": [
+        "/reviews/buddy-bone/gama-1.jpg",
+        "/reviews/buddy-bone/gama-2.jpg",
+        "/reviews/buddy-bone/gama-3.jpg",
+        "/reviews/buddy-bone/gama-4.jpg",
+        "/reviews/buddy-bone/gama-5.jpg"
+      ],
+      "videos": []
+    },
+    {
+      "id": "global-buddy-bone-kkuru",
+      "rating": 5,
+      "name": "Kkuru's Mom",
+      "content": "Buddy Bone is seriously one of the cutest and most practical toys we own 🤍\nThe material feels safe and durable, and it's lightweight enough for small dogs to comfortably carry around. My pup loves chewing on it after walks or before bedtime — it's become part of our everyday routine now!",
+      "content_en": "Buddy Bone is seriously one of the cutest and most practical toys we own 🤍\nThe material feels safe and durable, and it's lightweight enough for small dogs to comfortably carry around. My pup loves chewing on it after walks or before bedtime — it's become part of our everyday routine now!",
+      "date": "2026-05-27T00:00:00+09:00",
+      "images": [
+        "/reviews/buddy-bone/kkuru-1.jpg",
+        "/reviews/buddy-bone/kkuru-2.jpg",
+        "/reviews/buddy-bone/kkuru-3.jpg"
+      ],
+      "videos": []
+    },
+    {
+      "id": "global-buddy-bone-prin",
+      "rating": 5,
+      "name": "Prin's Mom",
+      "content": "My puppy was going through a heavy teething phase and kept chewing on furniture, slippers, and literally everything at home 😭\nBuddy Bone honestly helped so much during that time 🦴\nThe texture kept my pup interested, and it gave him a safe way to chew and relieve stress instead of biting household items. It's durable, safe, and perfect for puppies who are teething. I'd highly recommend this to anyone going through the same phase!",
+      "content_en": "My puppy was going through a heavy teething phase and kept chewing on furniture, slippers, and literally everything at home 😭\nBuddy Bone honestly helped so much during that time 🦴\nThe texture kept my pup interested, and it gave him a safe way to chew and relieve stress instead of biting household items. It's durable, safe, and perfect for puppies who are teething. I'd highly recommend this to anyone going through the same phase!",
+      "date": "2026-05-27T00:00:00+09:00",
+      "images": [
+        "/reviews/buddy-bone/prin-1.jpg",
+        "/reviews/buddy-bone/prin-2.jpg"
+      ],
+      "videos": [
+        "/reviews/buddy-bone/prin-1.mov",
+        "/reviews/buddy-bone/prin-2.mov"
+      ]
+    },
     {
       "id": "598497",
       "rating": 5,
