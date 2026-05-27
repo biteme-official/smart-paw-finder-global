@@ -256,19 +256,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const cappedKg = Math.min(finalKg, 20);
     const rateKRW = zone ? lookupRate(cappedKg, zone) : null;
     const rateUSD = rateKRW ? Math.ceil(rateKRW / KRW_TO_USD) : 50;
-    const serviceName = boxName
-      ? `FedEx International Priority (${boxName}, ${finalKg.toFixed(1)}kg)`
-      : `FedEx International Priority (${finalKg.toFixed(1)}kg)`;
+    const desc = boxName ? `${boxName}, ${finalKg.toFixed(1)}kg` : `${finalKg.toFixed(1)}kg`;
 
     console.log('[Carrier Rates] OK — zone:', zone, 'kg:', finalKg, 'rate: $' + rateUSD);
     lastCall = { time: new Date().toISOString(), country, items: items.length, result: `$${rateUSD} (${zone})` };
 
     return res.status(200).json({
       rates: [{
-        service_name: serviceName,
+        service_name: 'FedEx International Priority',
         service_code: 'fedex_b2b',
         total_price: String(rateUSD * 100),
+        description: desc,
         currency: 'USD',
+        min_delivery_date: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
+        max_delivery_date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
       }],
     });
   } catch (err: any) {
@@ -276,9 +277,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       rates: [{
         service_name: 'FedEx International Priority',
-        service_code: 'fedex_b2b_fallback',
+        service_code: 'fedex_b2b',
         total_price: '5000',
+        description: 'Fallback rate',
         currency: 'USD',
+        min_delivery_date: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
+        max_delivery_date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
       }],
     });
   }
