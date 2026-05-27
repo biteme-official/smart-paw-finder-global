@@ -74,6 +74,9 @@
     { "source": "/api/analytics", "destination": "/api/analytics" },
     { "source": "/api/shopify-analytics", "destination": "/api/analytics?type=shopify" },
     { "source": "/api/customer-analytics", "destination": "/api/analytics?type=customer" },
+    { "source": "/api/customer-tags", "destination": "/api/customer?action=tags" },
+    { "source": "/api/customer-token", "destination": "/api/customer?action=token" },
+    { "source": "/api/carrier-rates", "destination": "/api/carrier-rates" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
