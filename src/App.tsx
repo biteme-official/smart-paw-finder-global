@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { trackPageView } from "@/lib/ga4-pageview";
+import { useAuthStore } from "@/stores/authStore";
 import Index from "./pages/Index";
 import ProductDetail from "./pages/ProductDetail";
 import CheckoutReturn from "./pages/CheckoutReturn";
@@ -47,11 +48,26 @@ function GA4PageViewTracker() {
   return null;
 }
 
+function B2BTestMode() {
+  const location = useLocation();
+  const setB2B = useAuthStore((s) => s.setB2B);
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('b2b_test') === 'true') {
+      setB2B(true);
+    } else if (params.get('b2b_test') === 'false') {
+      setB2B(false);
+    }
+  }, [location.search, setB2B]);
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <BrowserRouter>
         <GA4PageViewTracker />
+        <B2BTestMode />
         <Toaster />
         <Sonner closeButton />
         <Routes>
