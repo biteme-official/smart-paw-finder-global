@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ChevronRight, ShoppingCart, Heart } from "lucide-react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { ChevronRight, ChevronLeft, ShoppingCart, Heart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ShopifyProduct, fetchNewProducts } from "@/lib/shopify";
 import { PriceTag } from "@/components/ui/PriceTag";
@@ -15,6 +15,35 @@ export function NewProducts() {
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
   const { toggleFavorite, checkFavorite } = useFavoriteAction();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollButtons = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 0);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  }, []);
+
+  useEffect(() => {
+    updateScrollButtons();
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", updateScrollButtons, { passive: true });
+    window.addEventListener("resize", updateScrollButtons);
+    return () => {
+      el.removeEventListener("scroll", updateScrollButtons);
+      window.removeEventListener("resize", updateScrollButtons);
+    };
+  }, [products, updateScrollButtons]);
+
+  const scroll = (direction: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const amount = el.clientWidth * 0.8;
+    el.scrollBy({ left: direction === "left" ? -amount : amount, behavior: "smooth" });
+  };
 
   useEffect(() => {
     fetchNewProducts(12)
@@ -66,7 +95,10 @@ export function NewProducts() {
       <div className="flex items-center justify-between px-4 mb-3">
         <h2 className="text-base font-bold text-foreground">New Products</h2>
         <button
-          onClick={() => navigate("/?sort=created_at_desc")}
+          onClick={() => {
+            const grid = document.getElementById("product-grid");
+            if (grid) grid.scrollIntoView({ behavior: "smooth" });
+          }}
           className="flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           View All
@@ -74,7 +106,11 @@ export function NewProducts() {
         </button>
       </div>
 
-      <div className="flex gap-3 md:gap-4 px-4 overflow-x-auto pb-2 scrollbar-hide">
+      <div className="relative group">
+      <div
+        ref={scrollRef}
+        className="flex gap-3 md:gap-4 px-4 overflow-x-auto pb-2 scrollbar-hide"
+      >
         {products.slice(0, 6).map((product) => {
           const image = product.node.images.edges[0]?.node;
           const price = product.node.priceRange.minVariantPrice;
@@ -132,6 +168,24 @@ export function NewProducts() {
             </div>
           );
         })}
+      </div>
+
+      {canScrollLeft && (
+        <button
+          onClick={() => scroll("left")}
+          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 z-10 bg-white/90 shadow-md rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <ChevronLeft className="h-5 w-5 text-foreground" />
+        </button>
+      )}
+      {canScrollRight && (
+        <button
+          onClick={() => scroll("right")}
+          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 z-10 bg-white/90 shadow-md rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <ChevronRight className="h-5 w-5 text-foreground" />
+        </button>
+      )}
       </div>
 
       <ProductOptionDialog
