@@ -1,0 +1,34 @@
+name: Slack PR Merge Notify
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: >
+      github.event.pull_request.merged == true &&
+      !contains(fromJSON('["bmhayoung"]'), github.event.pull_request.user.login)
+    steps:
+      - name: Send Slack notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOY_WEBHOOK_URL }}
+        run: |
+          REPO="${{ github.event.repository.name }}"
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          MERGED_BY="${{ github.event.pull_request.merged_by.login }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+
+          MESSAGE="✅ 머지 완료 — ${REPO} #${PR_NUMBER}
+          ${PR_TITLE}
+          👤 @${PR_AUTHOR} → merged by @${MERGED_BY}
+          🔗 ${PR_URL}"
+
+          PAYLOAD=$(jq -n --arg text "$MESSAGE" '{text: $text}')
+          curl -s -X POST -H 'Content-type: application/json' \
+            --data "$PAYLOAD" \
+            "$SLACK_WEBHOOK_URL"
