@@ -11,7 +11,7 @@ concurrency:
 jobs:
   notify:
     runs-on: ubuntu-latest
-    if: ${{ !contains(fromJSON('["bmahsang", "bmhayoung"]'), github.event.pull_request.user.login) }}
+    if: ${{ !contains(fromJSON('["bmhayoung"]'), github.event.pull_request.user.login) }}
     steps:
       - name: Send Slack notification
         env:
