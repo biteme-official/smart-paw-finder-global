@@ -553,7 +553,7 @@ export async function fetchBanners(first: number = 10): Promise<ShopifyBanner[]>
   const data = await storefrontApiRequest(GET_BANNERS_QUERY, { first });
   if (!data) return [];
 
-  return (data.data?.metaobjects?.edges || []).map((edge: any) => {
+  const banners = (data.data?.metaobjects?.edges || []).map((edge: any) => {
     const node = edge.node;
     const fields: Record<string, string> = {};
     let image: { url: string; altText: string | null } | null = null;
@@ -578,6 +578,16 @@ export async function fetchBanners(first: number = 10): Promise<ShopifyBanner[]>
 
     return { id: node.id, handle: node.handle, image, linkUrl, fields };
   });
+
+  banners.sort((a, b) => {
+    const aOrder = a.fields.sort_order;
+    const bOrder = b.fields.sort_order;
+    if (aOrder == null || aOrder === '') return 1;
+    if (bOrder == null || bOrder === '') return -1;
+    return Number(aOrder) - Number(bOrder);
+  });
+
+  return banners;
 }
 
 export interface ProductsResponse {
