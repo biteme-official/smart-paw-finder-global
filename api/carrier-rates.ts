@@ -165,7 +165,8 @@ async function fetchVariantDimensions(variantIds: string[]): Promise<Map<string,
       const h = parseFloat(metas.find((m: any) => m.key === 'height')?.value || '0');
       if (w > 0 && d > 0 && h > 0) {
         const numericId = node.id.replace('gid://shopify/ProductVariant/', '');
-        result.set(numericId, { w, d, h });
+        // Metafield values are in mm, convert to cm
+        result.set(numericId, { w: w / 10, d: d / 10, h: h / 10 });
       }
     }
   }
