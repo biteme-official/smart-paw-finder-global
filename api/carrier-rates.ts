@@ -247,7 +247,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       rates: [{
         service_name: serviceName,
         service_code: 'fedex_b2b',
-        total_price: rateUSD * 100,
+        total_price: String(rateUSD * 100),
         currency: 'USD',
         min_delivery_date: null,
         max_delivery_date: null,
@@ -260,7 +260,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       rates: [{
         service_name: 'FedEx International Priority',
         service_code: 'fedex_b2b_fallback',
-        total_price: 5000,
+        total_price: '5000',
         currency: 'USD',
         min_delivery_date: null,
         max_delivery_date: null,
