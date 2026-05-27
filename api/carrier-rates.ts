@@ -176,8 +176,20 @@ async function fetchVariantDimensions(variantIds: string[]): Promise<Map<string,
 
 const KRW_TO_USD = 1350;
 
+// ── Diagnostic: track last call ──
+let lastCall: { time: string; country: string; items: number; result: string } | null = null;
+
 // ── Handler ──
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // GET = diagnostic check (was Shopify calling us?)
+  if (req.method === 'GET') {
+    return res.status(200).json({
+      status: 'alive',
+      lastCall,
+      serverTime: new Date().toISOString(),
+    });
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -249,6 +261,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : `FedEx International Priority (${finalKg.toFixed(1)}kg)`;
 
     console.log('[Carrier Rates] OK — zone:', zone, 'kg:', finalKg, 'rate: $' + rateUSD);
+    lastCall = { time: new Date().toISOString(), country, items: items.length, result: `$${rateUSD} (${zone})` };
 
     return res.status(200).json({
       rates: [{
