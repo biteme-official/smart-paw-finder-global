@@ -9,7 +9,7 @@ jobs:
     if: |
       github.event.ref_type == 'branch' &&
       !contains(fromJSON('["main", "master", "develop", "dev", "staging"]'), github.event.ref) &&
-      !contains(fromJSON('["bmhayoung"]'), github.actor)
+      !contains(fromJSON('["bmahsang", "bmhayoung"]'), github.actor)
     steps:
       - name: Send Slack notification
         env:

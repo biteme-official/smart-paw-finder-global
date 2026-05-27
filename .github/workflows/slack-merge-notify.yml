@@ -1,17 +1,15 @@
-name: Slack PR Push Notify
+name: Slack PR Merge Notify
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
-
-concurrency:
-  group: pr-push-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+    types: [closed]
 
 jobs:
   notify:
     runs-on: ubuntu-latest
-    if: ${{ !contains(fromJSON('["bmahsang", "bmhayoung"]'), github.event.pull_request.user.login) }}
+    if: >
+      github.event.pull_request.merged == true &&
+      !contains(fromJSON('["bmhayoung"]'), github.event.pull_request.user.login)
     steps:
       - name: Send Slack notification
         env:
@@ -22,12 +20,12 @@ jobs:
           PR_NUMBER="${{ github.event.pull_request.number }}"
           PR_TITLE="${{ github.event.pull_request.title }}"
           PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          MERGED_BY="${{ github.event.pull_request.merged_by.login }}"
           PR_URL="${{ github.event.pull_request.html_url }}"
 
-          MESSAGE="🔄 ${REPO} / ${BRANCH}
-          변경 내역:
-          • #${PR_NUMBER} ${PR_TITLE} (@${PR_AUTHOR})
-
+          MESSAGE="✅ 머지 완료 — ${REPO} #${PR_NUMBER}
+          ${PR_TITLE}
+          👤 @${PR_AUTHOR} → merged by @${MERGED_BY}
           🔗 ${PR_URL}"
 
           PAYLOAD=$(jq -n --arg text "$MESSAGE" '{text: $text}')
