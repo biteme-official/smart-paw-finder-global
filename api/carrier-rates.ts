@@ -182,8 +182,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    console.log('[Carrier Rates] Request received');
-
     const { rate } = req.body || {};
     if (!rate) return res.status(400).json({ rates: [] });
 
@@ -192,86 +190,66 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const country = dest.country || '';
     const province = dest.province || '';
 
-    // FedEx volumetric weight-based rate
+    console.log('[Carrier Rates] country:', country, 'items:', items.length);
+
+    // Step 1: Determine FedEx zone
     const zone = countryToZone(country, province);
-    if (!zone) {
-      return res.status(200).json({
-        rates: [{
-          service_name: 'FedEx International Priority',
-          service_code: 'fedex_b2b',
-          total_price: 5000,
-          currency: 'USD',
-          min_delivery_date: null,
-          max_delivery_date: null,
-        }],
-      });
-    }
+    console.log('[Carrier Rates] zone:', zone);
 
-    // Get variant dimensions
-    const variantIds = items.map((item: any) => String(item.variant_id)).filter(Boolean);
-    const dimsMap = await fetchVariantDimensions(variantIds);
-
-    // Calculate total volume
-    let totalVolCm3 = 0;
+    // Step 2: Calculate weight from Shopify grams (no Admin API call needed)
     let totalWeightKg = 0;
-    let hasMissingDims = false;
-
     for (const item of items) {
-      const dims = dimsMap.get(String(item.variant_id));
-      if (dims) {
-        totalVolCm3 += dims.w * dims.d * dims.h * item.quantity;
-      } else {
-        hasMissingDims = true;
-      }
       totalWeightKg += (item.grams || 0) / 1000 * item.quantity;
     }
+    const chargeableKg = Math.max(totalWeightKg, 0.5);
+    console.log('[Carrier Rates] weight:', chargeableKg, 'kg');
 
-    // If no dimension data at all, use weight-only fallback
-    if (totalVolCm3 === 0) {
-      const fallbackKg = Math.max(totalWeightKg, 0.5);
-      const fallbackRate = lookupRate(fallbackKg, zone);
-      const usd = fallbackRate ? Math.ceil(fallbackRate / KRW_TO_USD) : 50;
+    // Step 3: Try to fetch dimensions for volumetric weight (optional, non-blocking)
+    let finalKg = chargeableKg;
+    let boxName = '';
+    try {
+      const variantIds = items.map((item: any) => String(item.variant_id)).filter(Boolean);
+      const dimsMap = await fetchVariantDimensions(variantIds);
 
-      return res.status(200).json({
-        rates: [{
-          service_name: 'FedEx International Priority (B2B)',
-          service_code: 'fedex_b2b',
-          total_price: usd * 100,
-          currency: 'USD',
-          min_delivery_date: null,
-          max_delivery_date: null,
-        }],
-      });
+      let totalVolCm3 = 0;
+      for (const item of items) {
+        const dims = dimsMap.get(String(item.variant_id));
+        if (dims) totalVolCm3 += dims.w * dims.d * dims.h * item.quantity;
+      }
+
+      if (totalVolCm3 > 0) {
+        const box = selectBox(totalVolCm3);
+        const boxVolKg = (box.w * box.d * box.h) / 5000;
+        finalKg = Math.max(boxVolKg, totalWeightKg);
+        boxName = box.name;
+        console.log('[Carrier Rates] box:', boxName, 'volKg:', boxVolKg, 'finalKg:', finalKg);
+      }
+    } catch (dimErr: any) {
+      console.warn('[Carrier Rates] Dimension lookup failed, using weight only:', dimErr.message);
     }
 
-    // Select box and calculate chargeable weight
-    const box = selectBox(totalVolCm3);
-    const boxVolKg = (box.w * box.d * box.h) / 5000;
-    const chargeableKg = Math.max(boxVolKg, totalWeightKg);
-
-    if (chargeableKg > 20) {
+    // Step 4: Lookup rate
+    if (finalKg > 20) {
+      console.log('[Carrier Rates] Over 20kg');
       return res.status(200).json({
         rates: [{
-          service_name: 'FedEx International Priority (B2B) — Over 20kg, contact us',
+          service_name: 'FedEx International Priority — Over 20kg, contact us',
           service_code: 'fedex_b2b_over',
           total_price: 0,
           currency: 'USD',
-          description: 'Weight exceeds 20kg. Please contact us for a quote.',
           min_delivery_date: null,
           max_delivery_date: null,
         }],
       });
     }
 
-    const rateKRW = lookupRate(chargeableKg, zone);
-    if (!rateKRW) {
-      return res.status(200).json({ rates: [] });
-    }
+    const rateKRW = zone ? lookupRate(finalKg, zone) : null;
+    const rateUSD = rateKRW ? Math.ceil(rateKRW / KRW_TO_USD) : 50;
+    const serviceName = boxName
+      ? `FedEx International Priority — ${boxName}, ${finalKg.toFixed(1)}kg`
+      : `FedEx International Priority — ${finalKg.toFixed(1)}kg`;
 
-    const rateUSD = Math.ceil(rateKRW / KRW_TO_USD);
-    const serviceName = hasMissingDims
-      ? `FedEx International Priority (B2B) — ${box.name} box`
-      : `FedEx International Priority (B2B) — ${box.name} box, ${chargeableKg.toFixed(1)}kg`;
+    console.log('[Carrier Rates] rate:', rateUSD, 'USD');
 
     return res.status(200).json({
       rates: [{
@@ -284,7 +262,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }],
     });
   } catch (err: any) {
-    console.error('[Carrier Rates] Error:', err.message);
-    return res.status(200).json({ rates: [] });
+    console.error('[Carrier Rates] FATAL:', err.message, err.stack);
+    // Return fallback rate instead of empty (empty = "shipping not available")
+    return res.status(200).json({
+      rates: [{
+        service_name: 'FedEx International Priority',
+        service_code: 'fedex_b2b_fallback',
+        total_price: 5000,
+        currency: 'USD',
+        min_delivery_date: null,
+        max_delivery_date: null,
+      }],
+    });
   }
 }
