@@ -46,7 +46,7 @@ export function NewProducts() {
   };
 
   useEffect(() => {
-    fetchNewProducts(12)
+    fetchNewProducts(24)
       .then((result) => {
         const available = result.filter(p =>
           p.node.variants.edges.some(e =>
@@ -95,10 +95,7 @@ export function NewProducts() {
       <div className="flex items-center justify-between px-4 mb-3">
         <h2 className="text-base font-bold text-foreground">New Products</h2>
         <button
-          onClick={() => {
-            const grid = document.getElementById("product-grid");
-            if (grid) grid.scrollIntoView({ behavior: "smooth" });
-          }}
+          onClick={() => navigate("/new-products")}
           className="flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           View All
@@ -111,7 +108,7 @@ export function NewProducts() {
         ref={scrollRef}
         className="flex gap-3 md:gap-4 px-4 overflow-x-auto pb-2 scrollbar-hide"
       >
-        {products.slice(0, 6).map((product) => {
+        {products.slice(0, 20).map((product) => {
           const image = product.node.images.edges[0]?.node;
           const price = product.node.priceRange.minVariantPrice;
 
