@@ -190,10 +190,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const country = dest.country || '';
     const province = dest.province || '';
 
+    console.log('[Carrier Rates] destination:', JSON.stringify(dest));
+    console.log('[Carrier Rates] items count:', items.length);
+    items.forEach((item: any, i: number) => {
+      console.log(`[Carrier Rates] item[${i}]:`, JSON.stringify({ variant_id: item.variant_id, grams: item.grams, price: item.price, quantity: item.quantity, properties: item.properties }));
+    });
+
     // Check B2B flag from line item properties
     const isB2B = items.some((item: any) =>
       item.properties?._b2b === 'true' || item.properties?._b2b === true
     );
+    console.log('[Carrier Rates] isB2B:', isB2B);
 
     if (!isB2B) {
       // B2C: flat rate ($10/$50 threshold logic)
