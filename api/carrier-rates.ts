@@ -228,26 +228,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.warn('[Carrier Rates] Dimension lookup failed, using weight only:', dimErr.message);
     }
 
-    // Step 4: Lookup rate
-    if (finalKg > 20) {
-      console.log('[Carrier Rates] Over 20kg');
-      return res.status(200).json({
-        rates: [{
-          service_name: 'FedEx International Priority — Over 20kg, contact us',
-          service_code: 'fedex_b2b_over',
-          total_price: 0,
-          currency: 'USD',
-          min_delivery_date: null,
-          max_delivery_date: null,
-        }],
-      });
-    }
+    // Step 4: Lookup rate (cap at 20kg for table, flag if over)
+    const cappedKg = Math.min(finalKg, 20);
+    const isOver20 = finalKg > 20;
+    if (isOver20) console.log('[Carrier Rates] Over 20kg, capping to 20kg for rate lookup');
 
-    const rateKRW = zone ? lookupRate(finalKg, zone) : null;
+    const rateKRW = zone ? lookupRate(cappedKg, zone) : null;
     const rateUSD = rateKRW ? Math.ceil(rateKRW / KRW_TO_USD) : 50;
+    const overNote = isOver20 ? ' (20kg+, contact for exact quote)' : '';
     const serviceName = boxName
-      ? `FedEx International Priority — ${boxName}, ${finalKg.toFixed(1)}kg`
-      : `FedEx International Priority — ${finalKg.toFixed(1)}kg`;
+      ? `FedEx International Priority — ${boxName}, ${finalKg.toFixed(1)}kg${overNote}`
+      : `FedEx International Priority — ${finalKg.toFixed(1)}kg${overNote}`;
 
     console.log('[Carrier Rates] rate:', rateUSD, 'USD');
 
