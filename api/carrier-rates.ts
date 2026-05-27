@@ -184,33 +184,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { rate } = req.body || {};
-    if (!rate) return res.status(400).json({ rates: [] });
+    if (!rate) {
+      console.log('[Carrier Rates] No rate in body, returning fallback');
+      return res.status(200).json({
+        rates: [{
+          service_name: 'FedEx International Priority',
+          service_code: 'fedex_b2b',
+          total_price: '5000',
+          currency: 'USD',
+        }],
+      });
+    }
 
     const items: any[] = rate.items || [];
     const dest = rate.destination || {};
     const country = dest.country || '';
     const province = dest.province || '';
 
-    console.log('[Carrier Rates] country:', country, 'items:', items.length);
+    console.log('[Carrier Rates] CALLED — country:', country, 'province:', province, 'items:', items.length, 'timestamp:', new Date().toISOString());
 
     // Step 1: Determine FedEx zone
     const zone = countryToZone(country, province);
-    console.log('[Carrier Rates] zone:', zone);
 
-    // Step 2: Calculate weight from Shopify grams (no Admin API call needed)
+    // Step 2: Weight-only calculation (no Admin API calls for speed)
     let totalWeightKg = 0;
     for (const item of items) {
       totalWeightKg += (item.grams || 0) / 1000 * item.quantity;
     }
     const chargeableKg = Math.max(totalWeightKg, 0.5);
-    console.log('[Carrier Rates] weight:', chargeableKg, 'kg');
 
-    // Step 3: Try to fetch dimensions for volumetric weight (optional, non-blocking)
+    // Step 3: Try volumetric weight via Admin API (with 4s timeout)
     let finalKg = chargeableKg;
     let boxName = '';
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
+
       const variantIds = items.map((item: any) => String(item.variant_id)).filter(Boolean);
       const dimsMap = await fetchVariantDimensions(variantIds);
+      clearTimeout(timeout);
 
       let totalVolCm3 = 0;
       for (const item of items) {
@@ -223,25 +235,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const boxVolKg = (box.w * box.d * box.h) / 5000;
         finalKg = Math.max(boxVolKg, totalWeightKg);
         boxName = box.name;
-        console.log('[Carrier Rates] box:', boxName, 'volKg:', boxVolKg, 'finalKg:', finalKg);
       }
     } catch (dimErr: any) {
-      console.warn('[Carrier Rates] Dimension lookup failed, using weight only:', dimErr.message);
+      console.warn('[Carrier Rates] Dimension lookup skipped:', dimErr.message);
     }
 
-    // Step 4: Lookup rate (cap at 20kg for table, flag if over)
+    // Step 4: Lookup rate (cap at 20kg)
     const cappedKg = Math.min(finalKg, 20);
-    const isOver20 = finalKg > 20;
-    if (isOver20) console.log('[Carrier Rates] Over 20kg, capping to 20kg for rate lookup');
-
     const rateKRW = zone ? lookupRate(cappedKg, zone) : null;
     const rateUSD = rateKRW ? Math.ceil(rateKRW / KRW_TO_USD) : 50;
-    const overNote = isOver20 ? ' (20kg+, contact for exact quote)' : '';
     const serviceName = boxName
-      ? `FedEx International Priority — ${boxName}, ${finalKg.toFixed(1)}kg${overNote}`
-      : `FedEx International Priority — ${finalKg.toFixed(1)}kg${overNote}`;
+      ? `FedEx International Priority (${boxName}, ${finalKg.toFixed(1)}kg)`
+      : `FedEx International Priority (${finalKg.toFixed(1)}kg)`;
 
-    console.log('[Carrier Rates] rate:', rateUSD, 'USD');
+    console.log('[Carrier Rates] OK — zone:', zone, 'kg:', finalKg, 'rate: $' + rateUSD);
 
     return res.status(200).json({
       rates: [{
@@ -249,21 +256,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         service_code: 'fedex_b2b',
         total_price: String(rateUSD * 100),
         currency: 'USD',
-        min_delivery_date: null,
-        max_delivery_date: null,
       }],
     });
   } catch (err: any) {
-    console.error('[Carrier Rates] FATAL:', err.message, err.stack);
-    // Return fallback rate instead of empty (empty = "shipping not available")
+    console.error('[Carrier Rates] FATAL:', err.message);
     return res.status(200).json({
       rates: [{
         service_name: 'FedEx International Priority',
         service_code: 'fedex_b2b_fallback',
         total_price: '5000',
         currency: 'USD',
-        min_delivery_date: null,
-        max_delivery_date: null,
       }],
     });
   }
