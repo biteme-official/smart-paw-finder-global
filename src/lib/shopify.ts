@@ -833,9 +833,11 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
    items: { variantId: string; quantity: number }[],
    discountCode: string | null
  ): Promise<string> {
+  const isB2B = useAuthStore.getState().isB2B;
   const lines = items.map(item => ({
     quantity: item.quantity,
     merchandiseId: item.variantId,
+    ...(isB2B ? { attributes: [{ key: '_b2b', value: 'true' }] } : {}),
   }));
 
    // Build cart input with buyer identity if logged in
