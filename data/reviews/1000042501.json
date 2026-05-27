@@ -1,7 +1,7 @@
 {
   "product_cd": "1000042501",
   "scraped_at": "2026-05-27T00:00:00.000Z",
-  "total": 5,
+  "total": 15,
   "reviews": [
     {
       "id": "global-buddy-bone-kkomi",
@@ -82,6 +82,106 @@
         "/reviews/buddy-bone/prin-1.mov",
         "/reviews/buddy-bone/prin-2.mov"
       ]
+    },
+    {
+      "id": "global-buddy-bone-text-01",
+      "rating": 5,
+      "name": "Sophie W.",
+      "content": "My pup loves how easy Buddy Bone is to hold and chew 🦴\nCute design, safe material, and perfect for daily playtime!",
+      "content_en": "My pup loves how easy Buddy Bone is to hold and chew 🦴\nCute design, safe material, and perfect for daily playtime!",
+      "date": "2026-05-20T00:00:00+09:00",
+      "images": [],
+      "videos": []
+    },
+    {
+      "id": "global-buddy-bone-text-02",
+      "rating": 5,
+      "name": "Mia L.",
+      "content": "The smiley bone shape is so adorable 🤍\nMy dog keeps chewing on it instead of our furniture now!",
+      "content_en": "The smiley bone shape is so adorable 🤍\nMy dog keeps chewing on it instead of our furniture now!",
+      "date": "2026-05-19T00:00:00+09:00",
+      "images": [],
+      "videos": []
+    },
+    {
+      "id": "global-buddy-bone-text-03",
+      "rating": 5,
+      "name": "Rachel K.",
+      "content": "Perfect size for small dogs!\nEasy to grab, lightweight, and feels very safe and durable.",
+      "content_en": "Perfect size for small dogs!\nEasy to grab, lightweight, and feels very safe and durable.",
+      "date": "2026-05-17T00:00:00+09:00",
+      "images": [],
+      "videos": []
+    },
+    {
+      "id": "global-buddy-bone-text-04",
+      "rating": 5,
+      "name": "Jenny P.",
+      "content": "My puppy instantly fell in love with Buddy Bone 🐶\nThe design is cute, and I feel safe letting him chew on it every day.",
+      "content_en": "My puppy instantly fell in love with Buddy Bone 🐶\nThe design is cute, and I feel safe letting him chew on it every day.",
+      "date": "2026-05-15T00:00:00+09:00",
+      "images": [],
+      "videos": []
+    },
+    {
+      "id": "global-buddy-bone-text-05",
+      "rating": 5,
+      "name": "Emma T.",
+      "content": "Finally found a chew toy that's both cute and practical ✨\nMy dog can hold it comfortably and stay entertained for a long time.",
+      "content_en": "Finally found a chew toy that's both cute and practical ✨\nMy dog can hold it comfortably and stay entertained for a long time.",
+      "date": "2026-05-12T00:00:00+09:00",
+      "images": [],
+      "videos": []
+    },
+    {
+      "id": "global-buddy-bone-text-06",
+      "rating": 5,
+      "name": "Chloe M.",
+      "content": "Buddy Bone is perfect for teething puppies 🦴\nSafe, durable, and much better than letting them chew random things at home!",
+      "content_en": "Buddy Bone is perfect for teething puppies 🦴\nSafe, durable, and much better than letting them chew random things at home!",
+      "date": "2026-05-10T00:00:00+09:00",
+      "images": [],
+      "videos": []
+    },
+    {
+      "id": "global-buddy-bone-text-07",
+      "rating": 5,
+      "name": "Hannah B.",
+      "content": "The quality feels really nice and sturdy!\nMy pup loves carrying it around because it's easy to bite and hold.",
+      "content_en": "The quality feels really nice and sturdy!\nMy pup loves carrying it around because it's easy to bite and hold.",
+      "date": "2026-05-08T00:00:00+09:00",
+      "images": [],
+      "videos": []
+    },
+    {
+      "id": "global-buddy-bone-text-08",
+      "rating": 5,
+      "name": "Lily C.",
+      "content": "Such a cute chew toy with a thoughtful design 🤍\nIt keeps my dog busy while giving me peace of mind about safety.",
+      "content_en": "Such a cute chew toy with a thoughtful design 🤍\nIt keeps my dog busy while giving me peace of mind about safety.",
+      "date": "2026-05-06T00:00:00+09:00",
+      "images": [],
+      "videos": []
+    },
+    {
+      "id": "global-buddy-bone-text-09",
+      "rating": 5,
+      "name": "Olivia R.",
+      "content": "My dog usually gets bored quickly, but Buddy Bone keeps him entertained every day ✨\nEasy to chew, durable, and super puppy-friendly!",
+      "content_en": "My dog usually gets bored quickly, but Buddy Bone keeps him entertained every day ✨\nEasy to chew, durable, and super puppy-friendly!",
+      "date": "2026-05-04T00:00:00+09:00",
+      "images": [],
+      "videos": []
+    },
+    {
+      "id": "global-buddy-bone-text-10",
+      "rating": 5,
+      "name": "Grace H.",
+      "content": "Love how lightweight and safe it feels for small dogs 🐶\nThe cute bone design makes playtime even more fun!",
+      "content_en": "Love how lightweight and safe it feels for small dogs 🐶\nThe cute bone design makes playtime even more fun!",
+      "date": "2026-05-02T00:00:00+09:00",
+      "images": [],
+      "videos": []
     }
   ]
 }
