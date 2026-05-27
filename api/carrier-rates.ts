@@ -182,8 +182,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Log full request body for debugging
-    console.log('[Carrier Rates] FULL BODY:', JSON.stringify(req.body));
+    console.log('[Carrier Rates] Request received');
 
     const { rate } = req.body || {};
     if (!rate) return res.status(400).json({ rates: [] });
@@ -193,47 +192,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const country = dest.country || '';
     const province = dest.province || '';
 
-    // Detect test/B2B customer via customer tag lookup
-    let isTaggedCustomer = false;
-    const customerEmail = dest.email || rate.customer?.email || '';
-    const customerCompany = dest.company_name || '';
-
-    if (customerEmail) {
-      try {
-        const data = await adminGql(`query($q: String!) {
-          customers(first: 1, query: $q) {
-            edges { node { tags } }
-          }
-        }`, { q: `email:${customerEmail}` });
-        const tags: string[] = data?.customers?.edges?.[0]?.node?.tags || [];
-        isTaggedCustomer = tags.some(t => t.toLowerCase() === 'test' || t.toLowerCase() === 'b2b');
-        console.log('[Carrier Rates] email:', customerEmail, 'tags:', tags, 'isTagged:', isTaggedCustomer);
-      } catch (e: any) {
-        console.error('[Carrier Rates] Tag lookup failed:', e.message);
-      }
-    } else {
-      console.log('[Carrier Rates] No customer email in callback');
-    }
-
-    if (!isTaggedCustomer) {
-      // B2C: flat rate ($10/$50 threshold logic)
-      const totalPrice = items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0) / 100;
-      const isKorean = country === 'KR';
-      const shippingCents = isKorean ? 0 : (totalPrice >= 150 ? 1000 : 5000);
-
-      return res.status(200).json({
-        rates: [{
-          service_name: isKorean ? 'Free Shipping (Korea)' : 'Standard Shipping',
-          service_code: 'standard',
-          total_price: shippingCents,
-          currency: 'USD',
-          min_delivery_date: null,
-          max_delivery_date: null,
-        }],
-      });
-    }
-
-    // Tagged customer (test/B2B): volumetric weight-based FedEx rate
+    // FedEx volumetric weight-based rate
     const zone = countryToZone(country, province);
     if (!zone) {
       return res.status(200).json({
