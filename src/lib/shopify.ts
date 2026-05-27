@@ -643,6 +643,52 @@ export async function fetchBestSellingProducts(first: number = 8): Promise<Shopi
   return data.data?.products?.edges || [];
 }
 
+const GET_NEW_PRODUCTS_QUERY = `
+  query GetNewProducts($first: Int!) {
+    products(first: $first, sortKey: CREATED_AT, reverse: true) {
+      edges {
+        node {
+          id
+          title
+          handle
+          availableForSale
+          totalInventory
+          productType
+          tags
+          vendor
+          priceRange {
+            minVariantPrice { amount currencyCode }
+          }
+          images(first: 1) {
+            edges { node { url altText } }
+          }
+          variants(first: 50) {
+            edges {
+              node {
+                id
+                title
+                price { amount currencyCode }
+                compareAtPrice { amount currencyCode }
+                availableForSale
+                quantityAvailable
+                image { url altText }
+                selectedOptions { name value }
+              }
+            }
+          }
+          options { name values }
+        }
+      }
+    }
+  }
+`;
+
+export async function fetchNewProducts(first: number = 12): Promise<ShopifyProduct[]> {
+  const data = await storefrontApiRequest(GET_NEW_PRODUCTS_QUERY, { first });
+  if (!data) return [];
+  return data.data?.products?.edges || [];
+}
+
 const GET_PRODUCT_RECOMMENDATIONS_QUERY = `
   query GetProductRecommendations($productId: ID!) {
     productRecommendations(productId: $productId) {
