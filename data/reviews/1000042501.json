@@ -1,6 +1,6 @@
 {
   "product_cd": "1000042501",
-  "scraped_at": "2026-05-07T13:01:00.094Z",
+  "scraped_at": "2026-05-27T00:00:00.000Z",
   "total": 5,
   "reviews": [
     {
@@ -19,7 +19,7 @@
       "videos": [
         "/reviews/buddy-bone/kkomi-1.mp4"
       ]
-    }
+    },
     {
       "id": "global-buddy-bone-papkon",
       "rating": 5,
@@ -36,7 +36,7 @@
         "/reviews/buddy-bone/papkon-1.mp4",
         "/reviews/buddy-bone/papkon-2.mp4"
       ]
-    }
+    },
     {
       "id": "global-buddy-bone-gama",
       "rating": 5,
@@ -52,7 +52,7 @@
         "/reviews/buddy-bone/gama-5.jpg"
       ],
       "videos": []
-    }
+    },
     {
       "id": "global-buddy-bone-kkuru",
       "rating": 5,
@@ -66,7 +66,7 @@
         "/reviews/buddy-bone/kkuru-3.jpg"
       ],
       "videos": []
-    }
+    },
     {
       "id": "global-buddy-bone-prin",
       "rating": 5,
