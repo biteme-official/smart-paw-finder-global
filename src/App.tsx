@@ -26,6 +26,7 @@ import DiscountRedirect from "./pages/DiscountRedirect";
 import PopupOffline from "./pages/PopupOffline";
 import BlogList from "./pages/BlogList";
 import BlogPost from "./pages/BlogPost";
+import NewProductsPage from "./pages/NewProducts";
 import { WhatsAppButton } from "./components/layout/WhatsAppButton";
 
 const queryClient = new QueryClient();
@@ -76,6 +77,7 @@ const App = () => (
           <Route path="/popup-offline-stores" element={<PopupOffline />} />
           <Route path="/blog" element={<BlogList />} />
           <Route path="/blog/:slug" element={<BlogPost />} />
+          <Route path="/new-products" element={<NewProductsPage />} />
           <Route path="/discount/:code" element={<DiscountRedirect />} />
           <Route path="/products/:handle" element={<ShopifyProductRedirect />} />
           <Route path="/collections/:handle" element={<ShopifyCollectionRedirect />} />

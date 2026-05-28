@@ -316,7 +316,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   }
 
   return (
-    <section className="py-8 px-4">
+    <section id="product-grid" className="py-8 px-4">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">{displayTitle}</h2>
         {totalProductCount !== null && (

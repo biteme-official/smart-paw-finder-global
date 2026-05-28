@@ -553,7 +553,7 @@ export async function fetchBanners(first: number = 10): Promise<ShopifyBanner[]>
   const data = await storefrontApiRequest(GET_BANNERS_QUERY, { first });
   if (!data) return [];
 
-  return (data.data?.metaobjects?.edges || []).map((edge: any) => {
+  const banners = (data.data?.metaobjects?.edges || []).map((edge: any) => {
     const node = edge.node;
     const fields: Record<string, string> = {};
     let image: { url: string; altText: string | null } | null = null;
@@ -578,6 +578,16 @@ export async function fetchBanners(first: number = 10): Promise<ShopifyBanner[]>
 
     return { id: node.id, handle: node.handle, image, linkUrl, fields };
   });
+
+  banners.sort((a, b) => {
+    const aOrder = a.fields.sort_order;
+    const bOrder = b.fields.sort_order;
+    if (aOrder == null || aOrder === '') return 1;
+    if (bOrder == null || bOrder === '') return -1;
+    return Number(aOrder) - Number(bOrder);
+  });
+
+  return banners;
 }
 
 export interface ProductsResponse {
@@ -629,6 +639,52 @@ const GET_BEST_SELLING_PRODUCTS_QUERY = `
 
 export async function fetchBestSellingProducts(first: number = 8): Promise<ShopifyProduct[]> {
   const data = await storefrontApiRequest(GET_BEST_SELLING_PRODUCTS_QUERY, { first });
+  if (!data) return [];
+  return data.data?.products?.edges || [];
+}
+
+const GET_NEW_PRODUCTS_QUERY = `
+  query GetNewProducts($first: Int!) {
+    products(first: $first, sortKey: CREATED_AT, reverse: true) {
+      edges {
+        node {
+          id
+          title
+          handle
+          availableForSale
+          totalInventory
+          productType
+          tags
+          vendor
+          priceRange {
+            minVariantPrice { amount currencyCode }
+          }
+          images(first: 1) {
+            edges { node { url altText } }
+          }
+          variants(first: 50) {
+            edges {
+              node {
+                id
+                title
+                price { amount currencyCode }
+                compareAtPrice { amount currencyCode }
+                availableForSale
+                quantityAvailable
+                image { url altText }
+                selectedOptions { name value }
+              }
+            }
+          }
+          options { name values }
+        }
+      }
+    }
+  }
+`;
+
+export async function fetchNewProducts(first: number = 12): Promise<ShopifyProduct[]> {
+  const data = await storefrontApiRequest(GET_NEW_PRODUCTS_QUERY, { first });
   if (!data) return [];
   return data.data?.products?.edges || [];
 }

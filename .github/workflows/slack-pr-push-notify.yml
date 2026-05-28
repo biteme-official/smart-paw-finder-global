@@ -1,0 +1,50 @@
+name: Slack PR Push Notify
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: pr-push-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: ${{ !contains(fromJSON('["bmahsang", "bmhayoung"]'), github.event.pull_request.user.login) }}
+    steps:
+      - name: Send Slack notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOY_WEBHOOK_URL }}
+        run: |
+          REPO="${{ github.event.repository.name }}"
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+
+          PAYLOAD=$(cat <<EOF
+          {
+            "attachments": [
+              {
+                "color": "#6C757D",
+                "blocks": [
+                  {
+                    "type": "section",
+                    "text": { "type": "mrkdwn", "text": "*🔄 ${REPO} / ${BRANCH}*\n• #${PR_NUMBER} ${PR_TITLE} (@${PR_AUTHOR})" }
+                  },
+                  {
+                    "type": "context",
+                    "elements": [
+                      { "type": "mrkdwn", "text": "<${PR_URL}|PR 보기>" }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          )
+
+          curl -s -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" "$SLACK_WEBHOOK_URL"
