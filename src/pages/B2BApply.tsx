@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Upload, FileText, X, Loader2, ArrowLeft, CheckCircle, Clock, XCircle, LogIn, UserPlus, FileUp, ShieldCheck, Tag, AlertCircle } from 'lucide-react';
+import { Upload, FileText, X, Loader2, ArrowLeft, CheckCircle, Clock, XCircle, LogIn, UserPlus, FileUp, ShieldCheck, Tag } from 'lucide-react';
 import { isLoggedIn as isCustomerLoggedIn, initiateLogin } from '@/lib/customer-auth';
 import { fetchCustomerAccount, type CustomerAccountProfile } from '@/lib/customer-account';
 import { toast } from 'sonner';
@@ -66,13 +66,6 @@ function HowToSteps() {
         })}
       </div>
 
-      <div className="flex items-start gap-4 border border-border rounded-2xl p-5 bg-primary/5">
-        <AlertCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-        <p className="text-sm text-foreground">
-          B2B prices are available only after admin approval. If you need assistance, please{' '}
-          <a href="/contact" className="underline text-primary hover:opacity-80">contact our customer support</a>.
-        </p>
-      </div>
     </section>
   );
 }
