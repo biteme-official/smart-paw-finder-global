@@ -756,10 +756,11 @@ export default function ProductDetail() {
           )}
         </div>
       </div>
-      </div>{/* closes max-w-lg */}
 
       {/* Recommended Products */}
       <RecommendedProducts productId={product.id} currentHandle={product.handle} />
+
+      </div>{/* closes max-w-lg */}
 
       {/* Footer */}
       <Footer />
