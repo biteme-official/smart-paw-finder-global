@@ -36,7 +36,7 @@ const ContactUs = () => {
           {/* Left — Contact Info */}
           <div className="flex-1 w-full">
             <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-8">
-              Contact Us
+              Reach out
             </h1>
             <p className="text-muted-foreground mb-10 leading-relaxed">
               If you have any questions or want to{" "}
