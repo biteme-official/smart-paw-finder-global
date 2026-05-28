@@ -122,12 +122,10 @@ export default function PrivacyPolicy() {
 
           <section>
             <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">10. Contact</h2>
-            <p>For questions about this Privacy Policy, please contact us:</p>
-            <ul className="list-disc pl-5 space-y-2 mt-2">
-              <li>Email: <a href="mailto:mates@biteme.co.kr" className="text-primary hover:underline">mates@biteme.co.kr</a></li>
-              <li>Phone: <a href="tel:+827048886191" className="text-primary hover:underline">+82 70-4888-6191</a></li>
-              <li>Address: 8F, 10 Teheran-ro 20-gil, Gangnam-gu, Seoul, Republic of Korea (Three M Tower, Yeoksam-dong)</li>
-            </ul>
+            <p>
+              For questions about this Privacy Policy, please visit our{" "}
+              <a href="/contact" className="text-primary hover:underline">Contact Us</a> page.
+            </p>
           </section>
         </div>
       </main>
