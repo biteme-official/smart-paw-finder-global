@@ -16,6 +16,67 @@ import { zodResolver } from '@hookform/resolvers/zod';
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
+const STEPS = [
+  { icon: UserPlus, label: 'Sign Up', desc: 'Create an account with your business email.' },
+  { icon: FileUp, label: 'Submit B2B Business Verification', desc: 'Submit your business information and required documents for verification.' },
+  { icon: ShieldCheck, label: 'Admin Approval', desc: 'Our team reviews your submission and approves your B2B access.' },
+  { icon: LogIn, label: 'Log In', desc: 'Log in to your approved account.' },
+  { icon: Tag, label: 'B2B Prices Displayed', desc: 'Enjoy B2B pricing exclusively on eligible products.' },
+];
+
+function HowToSteps() {
+  return (
+    <section className="mt-16">
+      <div className="text-center mb-10">
+        <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
+          How to Sign Up and See B2B Prices
+        </h2>
+        <p className="text-muted-foreground text-sm">
+          🐾 Follow the steps below to unlock exclusive B2B pricing. 🐾
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+        {STEPS.map((step, i) => {
+          const Icon = step.icon;
+          return (
+            <div key={i} className="relative flex flex-col items-center text-center">
+              {i < STEPS.length - 1 && (
+                <div className="hidden lg:flex absolute right-0 top-10 translate-x-1/2 z-10 text-primary">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+              )}
+              <div className="w-full border border-border rounded-2xl p-5 bg-card hover:shadow-sm transition-shadow flex flex-col items-center gap-3">
+                <div className="relative">
+                  <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Icon className="h-7 w-7 text-primary" />
+                  </div>
+                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-white text-[11px] font-bold flex items-center justify-center">
+                    {i + 1}
+                  </span>
+                </div>
+                <p className="font-semibold text-sm text-foreground leading-tight">{step.label}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-start gap-4 border border-border rounded-2xl p-5 bg-primary/5">
+        <AlertCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+        <p className="text-sm text-foreground">
+          <span className="font-semibold text-primary">Important</span>
+          {' '}B2B prices are available only after admin approval. If you need assistance, please{' '}
+          <a href="/contact" className="underline text-primary hover:opacity-80">contact our customer support</a>.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 const schema = z.object({
   representativeName: z.string().min(1, 'Representative name is required'),
   phoneNumber: z.string().min(1, 'Phone number is required'),
@@ -26,7 +87,6 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 function LoginRequired() {
-  const navigate = useNavigate();
   const [loginLoading, setLoginLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -42,21 +102,21 @@ function LoginRequired() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="max-w-md mx-auto px-4 py-16 flex flex-col items-center text-center">
-        <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mb-6">
-          <LogIn className="h-10 w-10 text-muted-foreground" />
+      <main className="max-w-4xl mx-auto px-4 py-6 pb-24">
+        <div className="max-w-md mx-auto flex flex-col items-center text-center py-10">
+          <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mb-6">
+            <LogIn className="h-10 w-10 text-muted-foreground" />
+          </div>
+          <h1 className="text-xl font-bold mb-2">Sign In Required</h1>
+          <p className="text-sm text-muted-foreground mb-8">
+            Please sign in to your account to apply for a B2B wholesale account.
+          </p>
+          <Button onClick={handleLogin} disabled={loginLoading} className="w-full h-12 text-base font-semibold">
+            {loginLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            Sign In to Continue
+          </Button>
         </div>
-        <h1 className="text-xl font-bold mb-2">Sign In Required</h1>
-        <p className="text-sm text-muted-foreground mb-8">
-          Please sign in to your account to apply for a B2B wholesale account.
-        </p>
-        <Button onClick={handleLogin} disabled={loginLoading} className="w-full h-12 text-base font-semibold mb-3">
-          {loginLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-          Sign In to Continue
-        </Button>
-        <Button variant="outline" onClick={() => navigate('/mypage')} className="w-full h-12">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Back to My Page
-        </Button>
+        <HowToSteps />
       </main>
     </div>
   );
@@ -216,14 +276,6 @@ export default function B2BApply() {
     return <StatusCard status={b2bStatus} rejectionReason={rejectionReason} />;
   }
 
-  const STEPS = [
-    { icon: UserPlus, label: 'Sign Up', desc: 'Create an account with your business email.' },
-    { icon: FileUp, label: 'Submit B2B Business Verification', desc: 'Submit your business information and required documents for verification.' },
-    { icon: ShieldCheck, label: 'Admin Approval', desc: 'Our team reviews your submission and approves your B2B access.' },
-    { icon: LogIn, label: 'Log In', desc: 'Log in to your approved account.' },
-    { icon: Tag, label: 'B2B Prices Displayed', desc: 'Enjoy B2B pricing exclusively on eligible products.' },
-  ];
-
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -302,57 +354,7 @@ export default function B2BApply() {
         </Card>
         </div>
 
-        {/* How to Sign Up and See B2B Prices */}
-        <section className="mt-16">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
-              How to Sign Up and See B2B Prices
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              🐾 Follow the steps below to unlock exclusive B2B pricing. 🐾
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-            {STEPS.map((step, i) => {
-              const Icon = step.icon;
-              return (
-                <div key={i} className="relative flex flex-col items-center text-center">
-                  {/* Arrow between steps (hidden on last) */}
-                  {i < STEPS.length - 1 && (
-                    <div className="hidden lg:flex absolute right-0 top-10 translate-x-1/2 z-10 text-primary">
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </div>
-                  )}
-                  <div className="w-full border border-border rounded-2xl p-5 bg-card hover:shadow-sm transition-shadow flex flex-col items-center gap-3">
-                    <div className="relative">
-                      <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Icon className="h-7 w-7 text-primary" />
-                      </div>
-                      <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-white text-[11px] font-bold flex items-center justify-center">
-                        {i + 1}
-                      </span>
-                    </div>
-                    <p className="font-semibold text-sm text-foreground leading-tight">{step.label}</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Important note */}
-          <div className="flex items-start gap-4 border border-border rounded-2xl p-5 bg-primary/5">
-            <AlertCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-            <p className="text-sm text-foreground">
-              <span className="font-semibold text-primary">Important</span>
-              {' '}B2B prices are available only after admin approval. If you need assistance, please{' '}
-              <a href="/contact" className="underline text-primary hover:opacity-80">contact our customer support</a>.
-            </p>
-          </div>
-        </section>
+        <HowToSteps />
       </main>
     </div>
   );
