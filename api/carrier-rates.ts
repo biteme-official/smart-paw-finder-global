@@ -387,8 +387,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
               }
             }
+            cursor = edge.cursor;
           }
-          cursor = edge.cursor;
           hasNext = data?.products?.pageInfo?.hasNextPage || false;
         }
 
