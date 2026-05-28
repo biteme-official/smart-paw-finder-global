@@ -81,6 +81,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 function LoginRequired() {
+  const navigate = useNavigate();
   const [loginLoading, setLoginLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -98,10 +99,13 @@ function LoginRequired() {
       <Header />
       <main className="max-w-4xl mx-auto px-4 py-6 pb-24">
         <HowToSteps>
-          <div className="flex justify-center mt-8">
-            <Button onClick={handleLogin} disabled={loginLoading} className="h-12 px-10 text-base font-semibold">
+          <div className="flex flex-col items-center gap-3 mt-8">
+            <Button onClick={handleLogin} disabled={loginLoading} className="w-full max-w-sm h-12 text-base font-semibold">
               {loginLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Sign In to Continue
+              Sign Up to Continue
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/mypage')} className="w-full max-w-sm h-12 text-base">
+              Go to My Page
             </Button>
           </div>
         </HowToSteps>
