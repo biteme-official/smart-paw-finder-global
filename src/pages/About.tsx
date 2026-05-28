@@ -42,8 +42,9 @@ export default function About() {
         {/* Hero */}
         <section className="max-w-3xl mx-auto px-6 py-14 md:py-20 text-center">
           <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-4">About BITE ME</p>
-          <h1 className="text-3xl md:text-5xl font-bold text-foreground leading-loose tracking-wide mb-6">
-            Making every day<br />meaningful — together.
+          <h1 className="text-3xl md:text-5xl font-bold text-foreground tracking-wide mb-6">
+            <span className="block mb-3">Making every day</span>
+            <span className="block">meaningful — together.</span>
           </h1>
           <p className="text-muted-foreground leading-relaxed max-w-xl mx-auto">
             Pets age six times faster than we do. BITE ME exists to make every one of those days count —
