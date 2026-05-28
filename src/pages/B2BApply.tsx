@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -16,10 +16,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
-const STEPS = [
+const STEPS: { icon: React.ElementType; label: string; desc: string; note?: string }[] = [
   { icon: UserPlus, label: 'Sign Up', desc: 'Create an account with your business email.' },
   { icon: FileUp, label: 'Submit B2B Business Verification', desc: 'Submit your business information and required documents for verification.' },
-  { icon: ShieldCheck, label: 'Admin Approval', desc: 'Our team reviews your submission and approves your B2B access.' },
+  { icon: ShieldCheck, label: 'Admin Approval', desc: 'Our team reviews your submission and approves your B2B access.', note: 'Usually takes 2–3 business days.' },
   { icon: LogIn, label: 'Log In', desc: 'Log in to your approved account.' },
   { icon: Tag, label: 'B2B Prices Displayed', desc: 'Enjoy B2B pricing exclusively on eligible products.' },
 ];
@@ -59,6 +59,7 @@ function HowToSteps() {
                 </div>
                 <p className="font-semibold text-sm text-foreground leading-tight">{step.label}</p>
                 <p className="text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
+                {step.note && <p className="text-[11px] text-muted-foreground/70 leading-relaxed">{step.note}</p>}
               </div>
             </div>
           );
@@ -68,8 +69,7 @@ function HowToSteps() {
       <div className="flex items-start gap-4 border border-border rounded-2xl p-5 bg-primary/5">
         <AlertCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
         <p className="text-sm text-foreground">
-          <span className="font-semibold text-primary">Important</span>
-          {' '}B2B prices are available only after admin approval. If you need assistance, please{' '}
+          B2B prices are available only after admin approval. If you need assistance, please{' '}
           <a href="/contact" className="underline text-primary hover:opacity-80">contact our customer support</a>.
         </p>
       </div>
