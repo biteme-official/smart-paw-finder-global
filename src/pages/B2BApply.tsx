@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Upload, FileText, X, Loader2, ArrowLeft, CheckCircle, Clock, XCircle, LogIn, UserPlus, FileUp, ShieldCheck, Tag } from 'lucide-react';
+import { Upload, FileText, X, Loader2, ArrowLeft, CheckCircle, Clock, XCircle, LogIn, UserPlus, FileUp, ShieldCheck, Tag, ShoppingBag } from 'lucide-react';
 import { isLoggedIn as isCustomerLoggedIn, initiateLogin } from '@/lib/customer-auth';
 import { fetchCustomerAccount, type CustomerAccountProfile } from '@/lib/customer-account';
 import { toast } from 'sonner';
@@ -22,9 +22,10 @@ const STEPS: { icon: React.ElementType; label: string; desc: string; note?: stri
   { icon: ShieldCheck, label: 'Admin Approval', desc: 'Our team reviews your submission and approves your B2B access.', note: 'Usually takes 2–3 business days.' },
   { icon: LogIn, label: 'Log In', desc: 'Log in to your approved account.' },
   { icon: Tag, label: 'B2B Prices Displayed', desc: 'Enjoy B2B pricing exclusively on eligible products.' },
+  { icon: ShoppingBag, label: 'Enjoy Shopping', desc: 'Browse and order with exclusive B2B pricing.' },
 ];
 
-function HowToSteps({ children }: { children?: React.ReactNode }) {
+function HowToSteps() {
   return (
     <section className="mt-8">
       <div className="text-center mb-10">
@@ -36,37 +37,26 @@ function HowToSteps({ children }: { children?: React.ReactNode }) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {STEPS.map((step, i) => {
           const Icon = step.icon;
           return (
-            <div key={i} className="relative flex flex-col items-center text-center">
-              {i < STEPS.length - 1 && (
-                <div className="hidden lg:flex absolute right-0 top-10 translate-x-1/2 z-10 text-primary">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+            <div key={i} className="w-full border border-border rounded-2xl p-5 bg-card hover:shadow-sm transition-shadow flex flex-col items-center gap-3 text-center">
+              <div className="relative">
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Icon className="h-7 w-7 text-primary" />
                 </div>
-              )}
-              <div className="w-full border border-border rounded-2xl p-5 bg-card hover:shadow-sm transition-shadow flex flex-col items-center gap-3">
-                <div className="relative">
-                  <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Icon className="h-7 w-7 text-primary" />
-                  </div>
-                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-white text-[11px] font-bold flex items-center justify-center">
-                    {i + 1}
-                  </span>
-                </div>
-                <p className="font-semibold text-sm text-foreground leading-tight">{step.label}</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
-                {step.note && <p className="text-[11px] text-muted-foreground/70 leading-relaxed">{step.note}</p>}
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-white text-[11px] font-bold flex items-center justify-center">
+                  {i + 1}
+                </span>
               </div>
+              <p className="font-semibold text-sm text-foreground leading-tight">{step.label}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
+              {step.note && <p className="text-[11px] text-muted-foreground/70 leading-relaxed">{step.note}</p>}
             </div>
           );
         })}
       </div>
-
-      {children}
     </section>
   );
 }
@@ -81,7 +71,6 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 function LoginRequired() {
-  const navigate = useNavigate();
   const [loginLoading, setLoginLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -98,17 +87,7 @@ function LoginRequired() {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="max-w-4xl mx-auto px-4 py-6 pb-24">
-        <HowToSteps>
-          <div className="flex flex-col items-center gap-3 mt-8">
-            <Button onClick={handleLogin} disabled={loginLoading} className="w-full max-w-sm h-12 text-base font-semibold">
-              {loginLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Sign Up to Continue
-            </Button>
-            <Button variant="outline" onClick={() => navigate('/mypage')} className="w-full max-w-sm h-12 text-base">
-              Go to My Page
-            </Button>
-          </div>
-        </HowToSteps>
+        <HowToSteps />
       </main>
     </div>
   );
