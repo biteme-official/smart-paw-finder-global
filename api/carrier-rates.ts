@@ -223,6 +223,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Fix metafield definition labels: (cm) → (mm)
+    if (action === 'fix-meta-units') {
+      try {
+        const results: any[] = [];
+        const updates = [
+          { ownerType: 'PRODUCTVARIANT', key: 'height', name: '변형 높이(mm)' },
+          { ownerType: 'PRODUCTVARIANT', key: 'depth', name: '변형 깊이(mm)' },
+          { ownerType: 'PRODUCTVARIANT', key: 'width', name: '변형 너비(mm)' },
+          { ownerType: 'PRODUCT', key: 'height', name: '배송 높이(mm)' },
+          { ownerType: 'PRODUCT', key: 'depth', name: '배송 깊이(mm)' },
+          { ownerType: 'PRODUCT', key: 'width', name: '배송 폭(mm)' },
+        ];
+        for (const u of updates) {
+          const data = await adminGql(`mutation($def: MetafieldDefinitionUpdateInput!) {
+            metafieldDefinitionUpdate(definition: $def) {
+              updatedDefinition { name namespace key ownerType }
+              userErrors { field message }
+            }
+          }`, {
+            def: { namespace: 'shipping', key: u.key, ownerType: u.ownerType, name: u.name },
+          });
+          results.push({ ...u, result: data?.metafieldDefinitionUpdate });
+        }
+        return res.status(200).json({ action: 'fix-meta-units', results });
+      } catch (e: any) {
+        return res.status(500).json({ action: 'fix-meta-units', error: e.message });
+      }
+    }
+
     return res.status(200).json({
       status: 'alive',
       lastCall,
