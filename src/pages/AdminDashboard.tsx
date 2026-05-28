@@ -1485,9 +1485,9 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
               <SectionLabel>Shopify Bulk Tools</SectionLabel>
               <div className="rounded-lg border border-border p-6 space-y-4 max-w-lg">
                 <div>
-                  <p className="font-medium text-sm text-foreground">Set Age Group → Adult (50 products)</p>
+                  <p className="font-medium text-sm text-foreground">Set Age Group → Adult (전체 상품)</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Google Merchant Center Missing age_group 이슈 해결용 —{" "}
+                    Google Merchant Center Missing age_group 이슈 해결용 — 스토어 전체 상품의{" "}
                     <code className="bg-muted px-1 rounded">shopify.recommended-age-group</code>을{" "}
                     <code className="bg-muted px-1 rounded">Adult</code>으로 일괄 설정합니다.
                   </p>

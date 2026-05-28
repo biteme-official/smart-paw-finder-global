@@ -19,22 +19,14 @@ function getCorsOrigin(req: VercelRequest): string {
   return ALLOWED_ORIGINS[0];
 }
 
-// Google Merchant Center - Missing age_group 대상 상품 ID
-const PRODUCT_IDS = [
-  '8695912562742', '8688374317110', '8688347512886', '8684462571574',
-  '8627310362678', '8616092270646', '8615128825910', '8598063054902',
-  '8487275855926', '8340665008182', '8266004627510', '8265996992566',
-  '8265994534966', '8200430288950', '8181947629622', '8181942485046',
-  '8181942190134', '8177877319734', '8177864638518', '8177835376694',
-  '8156242673718', '8156238544950', '8155879866422', '8154573668406',
-  '8154566885430', '8154565640246', '8154564493366', '8154562986038',
-  '8154559545398', '8154554171446', '8154549944374', '8154548764726',
-  '8154547650614', '8154545913910', '8154543030326', '8154542243894',
-  '8154541555766', '8154540736566', '8154539294774', '8154537099318',
-  '8154535198774', '8154533330998', '8154530938934', '8154527957046',
-  '8154525728822', '8154524975158', '8154523435062', '8154521272374',
-  '8154516357174', '8154515144758',
-];
+const GET_ALL_PRODUCT_IDS = `
+  query GetProductIds($first: Int!, $after: String) {
+    products(first: $first, after: $after) {
+      pageInfo { hasNextPage endCursor }
+      edges { node { id } }
+    }
+  }
+`;
 
 const METAFIELDS_SET_MUTATION = `
   mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
@@ -60,6 +52,44 @@ async function getAccessToken(): Promise<string> {
   return data.access_token;
 }
 
+async function adminGQL(token: string, query: string, variables: Record<string, unknown>) {
+  const res = await fetch(`https://${STORE_DOMAIN}/admin/api/${API_VERSION}/graphql.json`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Shopify-Access-Token': token,
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+  if (!res.ok) throw new Error(`GraphQL HTTP ${res.status}`);
+  return res.json();
+}
+
+async function fetchAllProductIds(token: string): Promise<string[]> {
+  const ids: string[] = [];
+  let cursor: string | null = null;
+
+  while (true) {
+    const data = await adminGQL(token, GET_ALL_PRODUCT_IDS, {
+      first: 250,
+      after: cursor,
+    });
+    const products = data?.data?.products;
+    if (!products) break;
+
+    for (const edge of products.edges) {
+      // GID → numeric ID
+      ids.push(edge.node.id.split('/').pop()!);
+    }
+
+    if (!products.pageInfo.hasNextPage) break;
+    cursor = products.pageInfo.endCursor;
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  return ids;
+}
+
 function chunk<T>(arr: T[], size: number): T[][] {
   const result: T[][] = [];
   for (let i = 0; i < arr.length; i += size) result.push(arr.slice(i, i + size));
@@ -82,7 +112,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const token = await getAccessToken();
-    const batches = chunk(PRODUCT_IDS, 25);
+
+    // 전체 상품 ID 조회
+    const allIds = await fetchAllProductIds(token);
+
+    // 25개씩 배치로 메타필드 설정
+    const batches = chunk(allIds, 25);
     let successCount = 0;
     const errors: unknown[] = [];
 
@@ -95,16 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         type: 'list.single_line_text_field',
       }));
 
-      const r = await fetch(`https://${STORE_DOMAIN}/admin/api/${API_VERSION}/graphql.json`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Shopify-Access-Token': token,
-        },
-        body: JSON.stringify({ query: METAFIELDS_SET_MUTATION, variables: { metafields } }),
-      });
-
-      const data = await r.json();
+      const data = await adminGQL(token, METAFIELDS_SET_MUTATION, { metafields });
       const result = data?.data?.metafieldsSet;
 
       if (result?.userErrors?.length > 0) {
@@ -113,13 +139,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         successCount += result?.metafields?.length ?? 0;
       }
 
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(r => setTimeout(r, 300));
     }
 
     return res.status(200).json({
       success: true,
       updated: successCount,
-      total: PRODUCT_IDS.length,
+      total: allIds.length,
       errors,
     });
   } catch (err) {
