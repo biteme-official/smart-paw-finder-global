@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Upload, FileText, X, Loader2, ArrowLeft, CheckCircle, Clock, XCircle, LogIn } from 'lucide-react';
+import { Upload, FileText, X, Loader2, ArrowLeft, CheckCircle, Clock, XCircle, LogIn, UserPlus, FileUp, ShieldCheck, Tag, AlertCircle } from 'lucide-react';
 import { isLoggedIn as isCustomerLoggedIn, initiateLogin } from '@/lib/customer-auth';
 import { fetchCustomerAccount, type CustomerAccountProfile } from '@/lib/customer-account';
 import { toast } from 'sonner';
@@ -216,14 +216,23 @@ export default function B2BApply() {
     return <StatusCard status={b2bStatus} rejectionReason={rejectionReason} />;
   }
 
+  const STEPS = [
+    { icon: UserPlus, label: 'Sign Up', desc: 'Create an account with your business email.' },
+    { icon: FileUp, label: 'Submit B2B Business Verification', desc: 'Submit your business information and required documents for verification.' },
+    { icon: ShieldCheck, label: 'Admin Approval', desc: 'Our team reviews your submission and approves your B2B access.' },
+    { icon: LogIn, label: 'Log In', desc: 'Log in to your approved account.' },
+    { icon: Tag, label: 'B2B Prices Displayed', desc: 'Enjoy B2B pricing exclusively on eligible products.' },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="max-w-md mx-auto px-4 py-6 pb-24">
+      <main className="max-w-4xl mx-auto px-4 py-6 pb-24">
         <Button variant="ghost" onClick={() => navigate('/mypage')} className="mb-4 -ml-2 text-muted-foreground">
           <ArrowLeft className="h-4 w-4 mr-1" /> My Page
         </Button>
 
+        <div className="max-w-md mx-auto">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">B2B Application</CardTitle>
@@ -291,6 +300,59 @@ export default function B2BApply() {
             </form>
           </CardContent>
         </Card>
+        </div>
+
+        {/* How to Sign Up and See B2B Prices */}
+        <section className="mt-16">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
+              How to Sign Up and See B2B Prices
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              🐾 Follow the steps below to unlock exclusive B2B pricing. 🐾
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+            {STEPS.map((step, i) => {
+              const Icon = step.icon;
+              return (
+                <div key={i} className="relative flex flex-col items-center text-center">
+                  {/* Arrow between steps (hidden on last) */}
+                  {i < STEPS.length - 1 && (
+                    <div className="hidden lg:flex absolute right-0 top-10 translate-x-1/2 z-10 text-primary">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="w-full border border-border rounded-2xl p-5 bg-card hover:shadow-sm transition-shadow flex flex-col items-center gap-3">
+                    <div className="relative">
+                      <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Icon className="h-7 w-7 text-primary" />
+                      </div>
+                      <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-white text-[11px] font-bold flex items-center justify-center">
+                        {i + 1}
+                      </span>
+                    </div>
+                    <p className="font-semibold text-sm text-foreground leading-tight">{step.label}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Important note */}
+          <div className="flex items-start gap-4 border border-border rounded-2xl p-5 bg-primary/5">
+            <AlertCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+            <p className="text-sm text-foreground">
+              <span className="font-semibold text-primary">Important</span>
+              {' '}B2B prices are available only after admin approval. If you need assistance, please{' '}
+              <a href="/contact" className="underline text-primary hover:opacity-80">contact our customer support</a>.
+            </p>
+          </div>
+        </section>
       </main>
     </div>
   );
