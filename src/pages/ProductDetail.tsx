@@ -187,6 +187,34 @@ export default function ProductDetail() {
       .catch(() => {});
   }, [product?.id]);
 
+  useEffect(() => {
+    if (!product || !id) return;
+    const price = product.priceRange.minVariantPrice;
+    const availability = product.availableForSale !== false ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock';
+    const jsonLd = {
+      '@context': 'https://schema.org/',
+      '@type': 'Product',
+      name: product.title,
+      description: product.description || product.title,
+      image: product.images.edges.map(e => e.node.url),
+      brand: { '@type': 'Brand', name: 'BITE ME' },
+      offers: {
+        '@type': 'Offer',
+        url: `https://biteme.one/product/${id}`,
+        priceCurrency: price.currencyCode,
+        price: price.amount,
+        availability,
+        seller: { '@type': 'Organization', name: 'BITE ME' },
+      },
+    };
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.id = 'product-jsonld';
+    script.textContent = JSON.stringify(jsonLd);
+    document.head.appendChild(script);
+    return () => { document.getElementById('product-jsonld')?.remove(); };
+  }, [product, id]);
+
   const checkScrollability = () => {
     if (thumbnailRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = thumbnailRef.current;

@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import { Phone, Mail } from "lucide-react";
+import { Phone, Mail, MapPin } from "lucide-react";
 
 const ContactUs = () => {
   const navigate = useNavigate();
@@ -41,6 +41,15 @@ const ContactUs = () => {
               >
                 mates@biteme.co.kr
               </a>
+            </div>
+
+            <div className="flex items-start justify-center gap-2 text-base">
+              <MapPin className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+              <span className="text-left">
+                8F, 10 Teheran-ro 20-gil, Gangnam-gu,<br />
+                Seoul, Republic of Korea<br />
+                (Three M Tower, Yeoksam-dong)
+              </span>
             </div>
           </div>
         </div>

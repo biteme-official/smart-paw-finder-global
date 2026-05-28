@@ -119,9 +119,11 @@ export default function TermsOfUse() {
           <section>
             <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Article 11 — Contact</h2>
             <p>For inquiries regarding these Terms, please contact us:</p>
-            <div className="mt-2 p-4 bg-secondary rounded-lg">
+            <div className="mt-2 p-4 bg-secondary rounded-lg space-y-1">
               <p className="font-medium text-foreground">BITE ME</p>
               <p>Email: mates@biteme.co.kr</p>
+              <p>Phone: +82 70-4888-6191</p>
+              <p>Address: 8F, 10 Teheran-ro 20-gil, Gangnam-gu, Seoul, Republic of Korea (Three M Tower, Yeoksam-dong)</p>
             </div>
           </section>
         </div>

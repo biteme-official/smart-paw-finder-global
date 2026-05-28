@@ -25,6 +25,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import DiscountRedirect from "./pages/DiscountRedirect";
 import PopupOffline from "./pages/PopupOffline";
 import NewProductsPage from "./pages/NewProducts";
+import RefundPolicy from "./pages/RefundPolicy";
 import { WhatsAppButton } from "./components/layout/WhatsAppButton";
 
 const queryClient = new QueryClient();
@@ -62,6 +63,7 @@ const App = () => (
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
+          <Route path="/refund-policy" element={<RefundPolicy />} />
           <Route path="/mypage" element={<MyPage />} />
           <Route path="/mypage/order-history" element={<OrderHistory />} />
           <Route path="/mypage/favorites" element={<FavoritesPage />} />
