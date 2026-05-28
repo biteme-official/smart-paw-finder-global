@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Mail, MapPin, Clock } from "lucide-react";
-import contactImage from "@/assets/hero-banner-jumping-boogie.jpg";
+import contactImage from "@/assets/contact-dog.webp";
 
 const WHATSAPP_NUMBER = "15559433437";
 const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("Hi BITE ME! I have a question and would like some help.")}`;
