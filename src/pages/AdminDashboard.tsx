@@ -1211,13 +1211,60 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
     setAgeGroupStatus('loading');
     setAgeGroupResult(null);
     try {
-      const res = await fetch('/api/set-age-group', {
+      const domain = import.meta.env.VITE_SHOPIFY_STORE_DOMAIN as string;
+      const clientId = import.meta.env.VITE_SHOPIFY_CLIENT_ID as string;
+      const apiVersion = '2025-07';
+
+      // 1. Get access token (public OAuth, no secret)
+      const tokenRes = await fetch(`https://${domain}/admin/oauth/access_token`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${secret}` },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ grant_type: 'client_credentials', client_id: clientId }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Unknown error');
-      setAgeGroupResult(data);
+      if (!tokenRes.ok) throw new Error(`인증 실패 (${tokenRes.status})`);
+      const { access_token } = await tokenRes.json();
+
+      const adminGQL = async (query: string, variables: Record<string, unknown>) => {
+        const r = await fetch(`https://${domain}/admin/api/${apiVersion}/graphql.json`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': access_token },
+          body: JSON.stringify({ query, variables }),
+        });
+        return r.json();
+      };
+
+      // 2. Fetch all product IDs
+      const GET_IDS = `query($first:Int!,$after:String){products(first:$first,after:$after){pageInfo{hasNextPage endCursor}edges{node{id}}}}`;
+      const ids: string[] = [];
+      let cursor: string | null = null;
+      for (;;) {
+        const d = await adminGQL(GET_IDS, { first: 250, after: cursor });
+        const pg = d?.data?.products;
+        if (!pg) break;
+        for (const e of pg.edges) ids.push(e.node.id.split('/').pop());
+        if (!pg.pageInfo.hasNextPage) break;
+        cursor = pg.pageInfo.endCursor;
+      }
+
+      // 3. Set metafields in batches of 25
+      const SET_META = `mutation($m:[MetafieldsSetInput!]!){metafieldsSet(metafields:$m){metafields{key}userErrors{field message}}}`;
+      let updated = 0;
+      const errors: unknown[] = [];
+      for (let i = 0; i < ids.length; i += 25) {
+        const batch = ids.slice(i, i + 25).map(id => ({
+          ownerId: `gid://shopify/Product/${id}`,
+          namespace: 'shopify',
+          key: 'recommended-age-group',
+          value: '["Adult"]',
+          type: 'list.single_line_text_field',
+        }));
+        const res = await adminGQL(SET_META, { m: batch });
+        const r = res?.data?.metafieldsSet;
+        if (r?.userErrors?.length) errors.push(...r.userErrors);
+        else updated += r?.metafields?.length ?? 0;
+      }
+
+      setAgeGroupResult({ updated, total: ids.length, errors });
       setAgeGroupStatus('done');
     } catch (err) {
       setAgeGroupResult({ errors: [String(err)] });
