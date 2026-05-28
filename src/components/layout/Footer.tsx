@@ -16,8 +16,8 @@ const NAV_LINKS = [
 export function Footer() {
   return (
     <footer className="bg-zinc-100 text-foreground mt-auto">
-      <div className="container mx-auto px-6 py-10">
-        <div className="flex flex-col md:flex-row gap-10 md:gap-16">
+      <div className="w-full max-w-6xl mx-auto px-6 py-10">
+        <div className="flex flex-col lg:flex-row gap-10 lg:gap-20">
 
           {/* Left — Brand + Contact */}
           <div className="shrink-0 space-y-5">
@@ -49,8 +49,8 @@ export function Footer() {
           </div>
 
           {/* Right — Nav links grid */}
-          <div className="flex-1">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-3">
+          <div className="flex-1 min-w-0">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3">
               {NAV_LINKS.map(({ label, to }) => (
                 <Link
                   key={to}
