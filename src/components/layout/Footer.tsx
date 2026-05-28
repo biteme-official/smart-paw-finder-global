@@ -14,7 +14,7 @@ const NAV_LINKS = [
 
 export function Footer() {
   return (
-    <footer className="text-white mt-auto" style={{ backgroundColor: "#f85a24" }}>
+    <footer className="text-white mt-auto" style={{ backgroundColor: "#c84a1a" }}>
       <div className="container mx-auto px-6 py-10">
         <div className="flex flex-col md:flex-row gap-10 md:gap-16">
 
