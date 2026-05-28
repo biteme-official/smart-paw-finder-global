@@ -181,8 +181,48 @@ let lastCall: { time: string; country: string; items: number; result: string } |
 
 // ── Handler ──
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // GET = diagnostic check (was Shopify calling us?)
+  // GET = diagnostic + carrier service management
   if (req.method === 'GET') {
+    const action = (req.query.action as string) || '';
+
+    // Register carrier service: GET /api/carrier-rates?action=register
+    if (action === 'register') {
+      try {
+        const token = await getAdminToken();
+        const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN!;
+        const r = await fetch(`https://${shop}/admin/api/2025-07/carrier_services.json`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
+          body: JSON.stringify({
+            carrier_service: {
+              name: 'BiteMe B2B Shipping',
+              callback_url: 'https://biteme.one/api/carrier-rates',
+              service_discovery: true,
+            },
+          }),
+        });
+        const data = await r.json();
+        return res.status(200).json({ action: 'register', result: data });
+      } catch (e: any) {
+        return res.status(500).json({ action: 'register', error: e.message });
+      }
+    }
+
+    // List carrier services: GET /api/carrier-rates?action=list
+    if (action === 'list') {
+      try {
+        const token = await getAdminToken();
+        const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN!;
+        const r = await fetch(`https://${shop}/admin/api/2025-07/carrier_services.json`, {
+          headers: { 'X-Shopify-Access-Token': token },
+        });
+        const data = await r.json();
+        return res.status(200).json({ action: 'list', result: data });
+      } catch (e: any) {
+        return res.status(500).json({ action: 'list', error: e.message });
+      }
+    }
+
     return res.status(200).json({
       status: 'alive',
       lastCall,
