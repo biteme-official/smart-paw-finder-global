@@ -1204,6 +1204,26 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
   const [range, setRange] = useState<Range>("7d");
   const [customDates, setCustomDates] = useState<DateRange | undefined>();
   const [calOpen, setCalOpen] = useState(false);
+  const [ageGroupStatus, setAgeGroupStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [ageGroupResult, setAgeGroupResult] = useState<{ updated?: number; total?: number; errors?: unknown[] } | null>(null);
+
+  const runSetAgeGroup = async () => {
+    setAgeGroupStatus('loading');
+    setAgeGroupResult(null);
+    try {
+      const res = await fetch('/api/set-age-group', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${secret}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Unknown error');
+      setAgeGroupResult(data);
+      setAgeGroupStatus('done');
+    } catch (err) {
+      setAgeGroupResult({ errors: [String(err)] });
+      setAgeGroupStatus('error');
+    }
+  };
 
   const customFrom = customDates?.from ? format(customDates.from, "yyyy-MM-dd") : undefined;
   const customTo = customDates?.to ? format(customDates.to, "yyyy-MM-dd") : undefined;
@@ -1327,6 +1347,7 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
               <TabsTrigger value="dashboard" className="text-xs px-4">Dashboard</TabsTrigger>
               <TabsTrigger value="funnel" className="text-xs px-4">Funnel</TabsTrigger>
               <TabsTrigger value="members" className="text-xs px-4">Customers</TabsTrigger>
+              <TabsTrigger value="tools" className="text-xs px-4">Tools</TabsTrigger>
             </TabsList>
 
             <TabsContent value="dashboard" className="space-y-5 mt-0">
@@ -1458,6 +1479,46 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
               ) : (
                 <div className="flex items-center justify-center h-64 text-sm text-muted-foreground">Loading GA4 data...</div>
               )}
+            </TabsContent>
+
+            <TabsContent value="tools" className="space-y-5 mt-0">
+              <SectionLabel>Shopify Bulk Tools</SectionLabel>
+              <div className="rounded-lg border border-border p-6 space-y-4 max-w-lg">
+                <div>
+                  <p className="font-medium text-sm text-foreground">Set Age Group → Adult (50 products)</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Google Merchant Center Missing age_group 이슈 해결용 —{" "}
+                    <code className="bg-muted px-1 rounded">shopify.recommended-age-group</code>을{" "}
+                    <code className="bg-muted px-1 rounded">Adult</code>으로 일괄 설정합니다.
+                  </p>
+                </div>
+                <button
+                  onClick={runSetAgeGroup}
+                  disabled={ageGroupStatus === 'loading'}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {ageGroupStatus === 'loading' ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      업데이트 중…
+                    </>
+                  ) : '실행'}
+                </button>
+                {ageGroupStatus === 'done' && ageGroupResult && (
+                  <p className="text-sm text-green-600">
+                    ✅ 완료 — {ageGroupResult.updated}/{ageGroupResult.total}개 업데이트
+                    {(ageGroupResult.errors?.length ?? 0) > 0 && (
+                      <span className="text-destructive ml-2">({ageGroupResult.errors?.length}개 오류)</span>
+                    )}
+                  </p>
+                )}
+                {ageGroupStatus === 'error' && (
+                  <p className="text-sm text-destructive">❌ 오류 발생 — {String(ageGroupResult?.errors?.[0])}</p>
+                )}
+              </div>
             </TabsContent>
           </Tabs>
         )}
