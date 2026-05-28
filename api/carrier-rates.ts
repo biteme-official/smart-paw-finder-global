@@ -248,6 +248,173 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // List all products with shipping metafields
+    if (action === 'list-dimensions') {
+      try {
+        const products: any[] = [];
+        let cursor: string | null = null;
+        let hasNext = true;
+
+        while (hasNext) {
+          const afterClause = cursor ? `, after: "${cursor}"` : '';
+          const data = await adminGql(`{
+            products(first: 50${afterClause}) {
+              edges {
+                cursor
+                node {
+                  id
+                  title
+                  metafields(first: 10, namespace: "shipping") {
+                    edges { node { id key value } }
+                  }
+                  variants(first: 10) {
+                    edges {
+                      node {
+                        id
+                        title
+                        metafields(first: 10, namespace: "shipping") {
+                          edges { node { id key value } }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              pageInfo { hasNextPage }
+            }
+          }`);
+
+          for (const edge of data?.products?.edges || []) {
+            const p = edge.node;
+            const pMetas = (p.metafields?.edges || []).map((e: any) => e.node);
+            const variants = (p.variants?.edges || []).map((e: any) => {
+              const v = e.node;
+              const vMetas = (v.metafields?.edges || []).map((m: any) => m.node);
+              return {
+                id: v.id,
+                title: v.title,
+                width: vMetas.find((m: any) => m.key === 'width')?.value || null,
+                depth: vMetas.find((m: any) => m.key === 'depth')?.value || null,
+                height: vMetas.find((m: any) => m.key === 'height')?.value || null,
+                metafieldIds: {
+                  width: vMetas.find((m: any) => m.key === 'width')?.id || null,
+                  depth: vMetas.find((m: any) => m.key === 'depth')?.id || null,
+                  height: vMetas.find((m: any) => m.key === 'height')?.id || null,
+                },
+              };
+            });
+            const hasAnyDimension = variants.some((v: any) => v.width || v.depth || v.height) ||
+              pMetas.some((m: any) => ['width', 'depth', 'height'].includes(m.key));
+
+            if (hasAnyDimension) {
+              products.push({
+                id: p.id,
+                title: p.title,
+                productLevel: {
+                  width: pMetas.find((m: any) => m.key === 'width')?.value || null,
+                  depth: pMetas.find((m: any) => m.key === 'depth')?.value || null,
+                  height: pMetas.find((m: any) => m.key === 'height')?.value || null,
+                },
+                variants,
+              });
+            }
+            cursor = edge.cursor;
+          }
+          hasNext = data?.products?.pageInfo?.hasNextPage || false;
+        }
+        return res.status(200).json({ action: 'list-dimensions', count: products.length, products });
+      } catch (e: any) {
+        return res.status(500).json({ action: 'list-dimensions', error: e.message });
+      }
+    }
+
+    // Bulk update metafield values: multiply by 10 (cm → mm)
+    if (action === 'fix-dimensions') {
+      try {
+        const excludeIds = ((req.query.exclude as string) || '').split(',').filter(Boolean);
+        const onlyIds = ((req.query.only as string) || '').split(',').filter(Boolean);
+
+        // First fetch all products with dimensions
+        const toUpdate: { id: string; key: string; value: string; currentValue: string }[] = [];
+        let cursor: string | null = null;
+        let hasNext = true;
+
+        while (hasNext) {
+          const afterClause = cursor ? `, after: "${cursor}"` : '';
+          const data = await adminGql(`{
+            products(first: 50${afterClause}) {
+              edges {
+                cursor
+                node {
+                  id
+                  title
+                  variants(first: 10) {
+                    edges {
+                      node {
+                        id
+                        metafields(first: 10, namespace: "shipping") {
+                          edges { node { id key value } }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              pageInfo { hasNextPage }
+            }
+          }`);
+
+          for (const edge of data?.products?.edges || []) {
+            const p = edge.node;
+            const productGid = p.id;
+            if (excludeIds.length > 0 && excludeIds.some(eid => productGid.includes(eid))) continue;
+            if (onlyIds.length > 0 && !onlyIds.some(oid => productGid.includes(oid))) continue;
+
+            for (const vEdge of p.variants?.edges || []) {
+              const v = vEdge.node;
+              const vMetas = (v.metafields?.edges || []).map((m: any) => m.node);
+              for (const m of vMetas) {
+                if (['width', 'depth', 'height'].includes(m.key)) {
+                  const val = parseFloat(m.value);
+                  if (val > 0 && val < 100) {
+                    toUpdate.push({
+                      id: m.id,
+                      key: m.key,
+                      currentValue: m.value,
+                      value: String(Math.round(val * 10)),
+                    });
+                  }
+                }
+              }
+            }
+          }
+          cursor = edge.cursor;
+          hasNext = data?.products?.pageInfo?.hasNextPage || false;
+        }
+
+        if (req.query.dryrun === '1') {
+          return res.status(200).json({ action: 'fix-dimensions', dryrun: true, count: toUpdate.length, updates: toUpdate });
+        }
+
+        const results: any[] = [];
+        for (const u of toUpdate) {
+          const data = await adminGql(`mutation($input: MetafieldInput!) {
+            metafieldSet(metafield: $input) {
+              metafield { id key value }
+              userErrors { field message }
+            }
+          }`, {
+            input: { id: u.id, value: u.value },
+          });
+          results.push({ ...u, result: data?.metafieldSet });
+        }
+
+        return res.status(200).json({ action: 'fix-dimensions', count: results.length, results });
+      } catch (e: any) {
+        return res.status(500).json({ action: 'fix-dimensions', error: e.message });
+      }
+    }
+
     // Fix metafield definition labels: (cm) → (mm)
     if (action === 'fix-meta-units') {
       try {
