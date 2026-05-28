@@ -26,13 +26,13 @@ const STEPS: { icon: React.ElementType; label: string; desc: string; note?: stri
 
 function HowToSteps() {
   return (
-    <section className="mt-16">
+    <section className="mt-8">
       <div className="text-center mb-10">
         <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
-          How to Sign Up and See B2B Prices
+          How to sign up for B2B
         </h2>
         <p className="text-muted-foreground text-sm">
-          🐾 Follow the steps below to unlock exclusive B2B pricing. 🐾
+          Follow the steps below to unlock exclusive B2B pricing.
         </p>
       </div>
 
