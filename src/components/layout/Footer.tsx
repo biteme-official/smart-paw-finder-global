@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 const NAV_LINKS = [
   { label: "Shop", to: "/" },
+  { label: "About", to: "/about" },
   { label: "B2B Inquiry", to: "/mypage/b2b-apply" },
   { label: "Popup Stores", to: "/popup-offline-stores" },
   { label: "Contact Us", to: "/contact" },

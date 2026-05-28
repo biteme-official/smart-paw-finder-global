@@ -191,6 +191,7 @@ export default function ProductDetail() {
     if (!product || !id) return;
     const price = product.priceRange.minVariantPrice;
     const availability = product.availableForSale !== false ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock';
+    const firstVariant = product.variants.edges[0]?.node;
     const jsonLd = {
       '@context': 'https://schema.org/',
       '@type': 'Product',
@@ -198,13 +199,21 @@ export default function ProductDetail() {
       description: product.description || product.title,
       image: product.images.edges.map(e => e.node.url),
       brand: { '@type': 'Brand', name: 'BITE ME' },
+      sku: firstVariant?.id?.split('/').pop() || id,
+      mpn: id,
+      itemCondition: 'https://schema.org/NewCondition',
       offers: {
         '@type': 'Offer',
         url: `https://biteme.one/product/${id}`,
         priceCurrency: price.currencyCode,
         price: price.amount,
         availability,
-        seller: { '@type': 'Organization', name: 'BITE ME' },
+        itemCondition: 'https://schema.org/NewCondition',
+        seller: {
+          '@type': 'Organization',
+          name: 'BITE ME',
+          url: 'https://biteme.one',
+        },
       },
     };
     const script = document.createElement('script');
