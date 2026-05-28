@@ -26,7 +26,7 @@ export default function TermsOfUse() {
           <p className="text-sm text-muted-foreground">Last updated: March 18, 2026</p>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Article 1 — Applicability</h2>
+            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Applicability</h2>
             <p>
               These Terms of Use ("Terms") govern the use of the online shopping service ("Service")
               provided by BITE ME ("Company"). By using the Service, you agree to these Terms.
@@ -34,7 +34,7 @@ export default function TermsOfUse() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Article 2 — Account Registration</h2>
+            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Account Registration</h2>
             <ol className="list-decimal pl-5 space-y-2">
               <li>Some features of the Service require account registration.</li>
               <li>You are responsible for keeping your account information accurate and up to date.</li>
@@ -43,7 +43,7 @@ export default function TermsOfUse() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Article 3 — Purchases</h2>
+            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Purchases</h2>
             <ol className="list-decimal pl-5 space-y-2">
               <li>You may purchase products by following the prescribed procedures on the Service.</li>
               <li>A purchase contract is formed when the Company confirms your order and sends an order confirmation.</li>
@@ -53,7 +53,7 @@ export default function TermsOfUse() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Article 4 — Payment</h2>
+            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Payment</h2>
             <ol className="list-decimal pl-5 space-y-2">
               <li>Accepted payment methods include credit cards and other methods approved by the Company.</li>
               <li>Payment processing is handled through Shopify's payment system.</li>
@@ -62,7 +62,7 @@ export default function TermsOfUse() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Article 5 — Shipping</h2>
+            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Shipping</h2>
             <ol className="list-decimal pl-5 space-y-2">
               <li>Delivery times are typically 3–14 business days after order confirmation, depending on destination and stock availability.</li>
               <li>The Company will take responsibility for lost or damaged items during shipping.</li>
@@ -70,7 +70,7 @@ export default function TermsOfUse() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Article 6 — Returns & Exchanges</h2>
+            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Returns & Exchanges</h2>
             <ol className="list-decimal pl-5 space-y-2">
               <li>Returns and exchanges are accepted within 7 days of receipt for unused, unopened items.</li>
               <li>Return shipping costs for customer-initiated returns are the customer's responsibility.</li>
@@ -80,7 +80,7 @@ export default function TermsOfUse() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Article 7 — Prohibited Activities</h2>
+            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Prohibited Activities</h2>
             <p>The following activities are prohibited when using the Service:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li>Actions that violate applicable laws or public order</li>
@@ -93,7 +93,7 @@ export default function TermsOfUse() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Article 8 — Intellectual Property</h2>
+            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Intellectual Property</h2>
             <p>
               All content on the Service (images, text, logos, designs, etc.) is owned by the Company
               or its licensors. Reproduction, redistribution, or reuse without prior written consent is prohibited.
@@ -101,7 +101,7 @@ export default function TermsOfUse() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Article 9 — Disclaimer</h2>
+            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Disclaimer</h2>
             <ol className="list-decimal pl-5 space-y-2">
               <li>The Company makes no warranties regarding the accuracy, completeness, or usefulness of the Service content.</li>
               <li>The Company is not liable for temporary service interruptions due to system maintenance or failures.</li>
@@ -109,7 +109,7 @@ export default function TermsOfUse() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Article 10 — Changes to Terms</h2>
+            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Changes to Terms</h2>
             <p>
               The Company may update these Terms as needed. Updated Terms take effect upon publication on the Service.
               Users will be notified of significant changes via appropriate means.
@@ -117,7 +117,7 @@ export default function TermsOfUse() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Article 11 — Contact</h2>
+            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Contact</h2>
             <p>
               For inquiries regarding these Terms, please visit our{" "}
               <a href="/contact" className="text-primary hover:underline">Contact Us</a> page.
