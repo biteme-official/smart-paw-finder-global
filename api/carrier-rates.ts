@@ -271,8 +271,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.log('[Carrier Rates] No rate in body, returning B2C fallback');
       return res.status(200).json({
         rates: [{
-          service_name: 'Standard Shipping',
-          service_code: 'standard',
+          service_name: 'FedEx International Priority (0.5kg)',
+          service_code: 'fedex_b2b',
           total_price: '5000',
           currency: 'USD',
         }],
@@ -318,8 +318,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       return res.status(200).json({
         rates: [{
-          service_name: isKorean ? 'Free Shipping (Korea)' : 'Standard Shipping',
-          service_code: 'standard',
+          service_name: 'FedEx International Priority (0.5kg)',
+          service_code: 'fedex_b2b',
           total_price: String(shippingCents),
           currency: 'USD',
         }],
@@ -367,7 +367,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({
       rates: [{
-        service_name: 'FedEx International Priority',
+        service_name: 'FedEx International Priority (0.5kg)',
         service_code: 'fedex_b2b',
         total_price: String(rateUSD * 100),
         description: desc,
