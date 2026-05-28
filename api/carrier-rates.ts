@@ -195,13 +195,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    console.log('[Carrier Rates] FULL BODY:', JSON.stringify(req.body));
+
     const { rate } = req.body || {};
     if (!rate) {
-      console.log('[Carrier Rates] No rate in body, returning fallback');
+      console.log('[Carrier Rates] No rate in body, returning B2C fallback');
       return res.status(200).json({
         rates: [{
-          service_name: 'FedEx International Priority (0.5kg)',
-          service_code: 'fedex_b2b',
+          service_name: 'Standard Shipping',
+          service_code: 'standard',
           total_price: '5000',
           currency: 'USD',
         }],
@@ -215,26 +217,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log('[Carrier Rates] CALLED — country:', country, 'province:', province, 'items:', items.length, 'timestamp:', new Date().toISOString());
 
-    // Step 1: Determine FedEx zone
+    // ── Step 1: Customer tag lookup ──
+    let isTestCustomer = false;
+    const customerEmail = dest.email || rate.customer?.email || '';
+
+    if (customerEmail) {
+      try {
+        const data = await adminGql(`query($q: String!) {
+          customers(first: 1, query: $q) {
+            edges { node { tags } }
+          }
+        }`, { q: `email:${customerEmail}` });
+        const tags: string[] = data?.customers?.edges?.[0]?.node?.tags || [];
+        isTestCustomer = tags.some(t => t.toLowerCase() === 'test');
+        console.log('[Carrier Rates] email:', customerEmail, 'tags:', tags, 'isTest:', isTestCustomer);
+      } catch (e: any) {
+        console.error('[Carrier Rates] Tag lookup failed:', e.message);
+      }
+    } else {
+      console.log('[Carrier Rates] No customer email in callback — defaulting to B2C');
+    }
+
+    // ── B2C: flat rate ──
+    if (!isTestCustomer) {
+      const totalPrice = items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0) / 100;
+      const isKorean = country === 'KR';
+      const shippingCents = isKorean ? 0 : (totalPrice >= 150 ? 1000 : 5000);
+
+      console.log('[Carrier Rates] B2C — country:', country, 'subtotal: $' + totalPrice.toFixed(2), 'shipping:', shippingCents / 100);
+      lastCall = { time: new Date().toISOString(), country, items: items.length, result: `B2C $${shippingCents / 100}` };
+
+      return res.status(200).json({
+        rates: [{
+          service_name: isKorean ? 'Free Shipping (Korea)' : 'Standard Shipping',
+          service_code: 'standard',
+          total_price: String(shippingCents),
+          currency: 'USD',
+        }],
+      });
+    }
+
+    // ── test 태그 고객: FedEx 부피무게 요율 ──
     const zone = countryToZone(country, province);
 
-    // Step 2: Weight-only calculation (no Admin API calls for speed)
     let totalWeightKg = 0;
     for (const item of items) {
       totalWeightKg += (item.grams || 0) / 1000 * item.quantity;
     }
     const chargeableKg = Math.max(totalWeightKg, 0.5);
 
-    // Step 3: Try volumetric weight via Admin API (with 4s timeout)
     let finalKg = chargeableKg;
     let boxName = '';
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4000);
-
       const variantIds = items.map((item: any) => String(item.variant_id)).filter(Boolean);
       const dimsMap = await fetchVariantDimensions(variantIds);
-      clearTimeout(timeout);
 
       let totalVolCm3 = 0;
       for (const item of items) {
@@ -252,18 +288,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.warn('[Carrier Rates] Dimension lookup skipped:', dimErr.message);
     }
 
-    // Step 4: Lookup rate (cap at 20kg)
     const cappedKg = Math.min(finalKg, 20);
     const rateKRW = zone ? lookupRate(cappedKg, zone) : null;
     const rateUSD = rateKRW ? Math.ceil(rateKRW / KRW_TO_USD) : 50;
     const desc = boxName ? `${boxName}, ${finalKg.toFixed(1)}kg` : `${finalKg.toFixed(1)}kg`;
 
-    console.log('[Carrier Rates] OK — zone:', zone, 'kg:', finalKg, 'rate: $' + rateUSD);
-    lastCall = { time: new Date().toISOString(), country, items: items.length, result: `$${rateUSD} (${zone})` };
+    console.log('[Carrier Rates] TEST/B2B — zone:', zone, 'kg:', finalKg, 'rate: $' + rateUSD);
+    lastCall = { time: new Date().toISOString(), country, items: items.length, result: `TEST $${rateUSD} (${zone})` };
 
     return res.status(200).json({
       rates: [{
-        service_name: 'FedEx International Priority (0.5kg)',
+        service_name: 'FedEx International Priority',
         service_code: 'fedex_b2b',
         total_price: String(rateUSD * 100),
         description: desc,
@@ -276,13 +311,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('[Carrier Rates] FATAL:', err.message);
     return res.status(200).json({
       rates: [{
-        service_name: 'FedEx International Priority (0.5kg)',
-        service_code: 'fedex_b2b',
+        service_name: 'Standard Shipping',
+        service_code: 'standard',
         total_price: '5000',
         description: 'Fallback rate',
         currency: 'USD',
-        min_delivery_date: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
-        max_delivery_date: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
       }],
     });
   }
