@@ -35,8 +35,8 @@ const ContactUs = () => {
 
           {/* Left — Contact Info */}
           <div className="flex-1 w-full">
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-8">
-              Reach out
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-8">
+              Let's Chat 💬
             </h1>
             <p className="text-muted-foreground mb-10 leading-relaxed">
               If you have any questions or want to{" "}
