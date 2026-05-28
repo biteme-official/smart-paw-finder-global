@@ -3,10 +3,10 @@ import { Link } from "react-router-dom";
 
 const NAV_LINKS = [
   { label: "Shop", to: "/" },
-  { label: "New Arrivals", to: "/new-products" },
   { label: "B2B Inquiry", to: "/mypage/b2b-apply" },
   { label: "Popup Stores", to: "/popup-offline-stores" },
   { label: "Contact Us", to: "/contact" },
+  { label: "New Arrivals", to: "/new-products" },
   { label: "Shipping & Returns", to: "/refund-policy" },
   { label: "Privacy Policy", to: "/privacy" },
   { label: "Terms of Use", to: "/terms" },
