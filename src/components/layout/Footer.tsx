@@ -25,6 +25,9 @@ export function Footer() {
             <Link to="/contact" className="hover:text-primary transition-colors">
               Contact Us
             </Link>
+            <Link to="/blog" className="hover:text-primary transition-colors">
+              Blog
+            </Link>
           </div>
           <p className="text-xs text-muted-foreground/60">© 2026 BITE ME. All rights reserved.</p>
         </div>

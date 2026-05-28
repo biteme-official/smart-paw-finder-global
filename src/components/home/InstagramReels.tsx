@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from "react";
-import { Play, Instagram, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Play, Instagram, X } from "lucide-react";
 
 interface Reel {
   id: string;
@@ -15,9 +15,6 @@ export function InstagramReels() {
   const [reels, setReels] = useState<Reel[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedReel, setSelectedReel] = useState<Reel | null>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch("/api/instagram-reels")
@@ -28,32 +25,6 @@ export function InstagramReels() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
-
-  const updateScrollButtons = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 0);
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
-  }, []);
-
-  useEffect(() => {
-    updateScrollButtons();
-    const el = scrollRef.current;
-    if (!el) return;
-    el.addEventListener("scroll", updateScrollButtons, { passive: true });
-    window.addEventListener("resize", updateScrollButtons);
-    return () => {
-      el.removeEventListener("scroll", updateScrollButtons);
-      window.removeEventListener("resize", updateScrollButtons);
-    };
-  }, [reels, updateScrollButtons]);
-
-  const scroll = (direction: "left" | "right") => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const amount = el.clientWidth * 0.8;
-    el.scrollBy({ left: direction === "left" ? -amount : amount, behavior: "smooth" });
-  };
 
   if (!loading && reels.length === 0) return null;
 
@@ -74,66 +45,43 @@ export function InstagramReels() {
             </a>
           </div>
 
-          <div className="relative group">
-            {loading ? (
-              <div className="flex gap-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="flex-none w-36 aspect-[9/16] bg-muted animate-pulse rounded-xl"
+          {loading ? (
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex-none w-36 aspect-[9/16] bg-muted animate-pulse rounded-xl"
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 snap-x snap-mandatory">
+              {reels.map((reel) => (
+                <button
+                  key={reel.id}
+                  onClick={() => setSelectedReel(reel)}
+                  className="flex-none w-36 aspect-[9/16] relative rounded-xl overflow-hidden bg-muted group cursor-pointer snap-start"
+                >
+                  <img
+                    src={reel.thumbnail_url || reel.media_url}
+                    alt={reel.caption?.slice(0, 40) || "Instagram Reel"}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
                   />
-                ))}
-              </div>
-            ) : (
-              <div
-                ref={scrollRef}
-                style={{ overflowX: "scroll", WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
-                className="flex gap-3 pb-2 scrollbar-hide"
-              >
-                {reels.map((reel) => (
-                  <button
-                    key={reel.id}
-                    onClick={() => setSelectedReel(reel)}
-                    className="flex-none w-36 aspect-[9/16] relative rounded-xl overflow-hidden bg-muted group/card cursor-pointer"
-                  >
-                    <img
-                      src={reel.thumbnail_url || reel.media_url}
-                      alt={reel.caption?.slice(0, 40) || "Instagram Reel"}
-                      className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity">
-                      <div className="bg-white/90 rounded-full p-2">
-                        <Play className="h-5 w-5 text-black fill-black" />
-                      </div>
+                  <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="bg-white/90 rounded-full p-2">
+                      <Play className="h-5 w-5 text-black fill-black" />
                     </div>
-                    <div className="absolute bottom-2 left-2">
-                      <div className="bg-black/60 rounded-full p-1">
-                        <Play className="h-3 w-3 text-white fill-white" />
-                      </div>
+                  </div>
+                  <div className="absolute bottom-2 left-2">
+                    <div className="bg-black/60 rounded-full p-1">
+                      <Play className="h-3 w-3 text-white fill-white" />
                     </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {canScrollLeft && (
-              <button
-                onClick={() => scroll("left")}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 z-10 bg-white/90 shadow-md rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <ChevronLeft className="h-5 w-5 text-foreground" />
-              </button>
-            )}
-            {canScrollRight && (
-              <button
-                onClick={() => scroll("right")}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 z-10 bg-white/90 shadow-md rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <ChevronRight className="h-5 w-5 text-foreground" />
-              </button>
-            )}
-          </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
