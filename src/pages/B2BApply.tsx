@@ -24,7 +24,7 @@ const STEPS: { icon: React.ElementType; label: string; desc: string; note?: stri
   { icon: Tag, label: 'B2B Prices Displayed', desc: 'Enjoy B2B pricing exclusively on eligible products.' },
 ];
 
-function HowToSteps() {
+function HowToSteps({ children }: { children?: React.ReactNode }) {
   return (
     <section className="mt-8">
       <div className="text-center mb-10">
@@ -66,6 +66,7 @@ function HowToSteps() {
         })}
       </div>
 
+      {children}
     </section>
   );
 }
@@ -96,20 +97,14 @@ function LoginRequired() {
     <div className="min-h-screen bg-background">
       <Header />
       <main className="max-w-4xl mx-auto px-4 py-6 pb-24">
-        <div className="max-w-md mx-auto flex flex-col items-center text-center py-10">
-          <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mb-6">
-            <LogIn className="h-10 w-10 text-muted-foreground" />
+        <HowToSteps>
+          <div className="flex justify-center mt-8">
+            <Button onClick={handleLogin} disabled={loginLoading} className="h-12 px-10 text-base font-semibold">
+              {loginLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Sign In to Continue
+            </Button>
           </div>
-          <h1 className="text-xl font-bold mb-2">Sign In Required</h1>
-          <p className="text-sm text-muted-foreground mb-8">
-            Please sign in to your account to apply for a B2B wholesale account.
-          </p>
-          <Button onClick={handleLogin} disabled={loginLoading} className="w-full h-12 text-base font-semibold">
-            {loginLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            Sign In to Continue
-          </Button>
-        </div>
-        <HowToSteps />
+        </HowToSteps>
       </main>
     </div>
   );
