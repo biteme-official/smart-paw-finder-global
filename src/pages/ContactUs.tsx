@@ -35,7 +35,7 @@ const ContactUs = () => {
 
           {/* Left — Contact Info */}
           <div className="flex-1 w-full">
-            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-8">
               Contact Us
             </h1>
             <p className="text-muted-foreground mb-10 leading-relaxed">
