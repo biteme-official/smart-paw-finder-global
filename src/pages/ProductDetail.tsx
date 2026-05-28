@@ -756,6 +756,7 @@ export default function ProductDetail() {
           )}
         </div>
       </div>
+      </div>{/* closes max-w-lg */}
 
       {/* Recommended Products */}
       <RecommendedProducts productId={product.id} currentHandle={product.handle} />
@@ -802,7 +803,6 @@ export default function ProductDetail() {
             {isBuyingNow ? 'Processing...' : 'Buy Now'}
           </Button>
         </div>
-      </div>
       </div>
     </div>
   );
