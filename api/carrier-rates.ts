@@ -223,6 +223,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Delete all custom carrier services: GET /api/carrier-rates?action=delete-carriers
+    if (action === 'delete-carriers') {
+      try {
+        const token = await getAdminToken();
+        const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN!;
+        const listRes = await fetch(`https://${shop}/admin/api/2025-07/carrier_services.json`, {
+          headers: { 'X-Shopify-Access-Token': token },
+        });
+        const listData = await listRes.json();
+        const deleted: any[] = [];
+        for (const cs of listData.carrier_services || []) {
+          if (cs.callback_url?.includes('biteme.one')) {
+            const delRes = await fetch(`https://${shop}/admin/api/2025-07/carrier_services/${cs.id}.json`, {
+              method: 'DELETE',
+              headers: { 'X-Shopify-Access-Token': token },
+            });
+            deleted.push({ id: cs.id, name: cs.name, status: delRes.status });
+          }
+        }
+        return res.status(200).json({ action: 'delete-carriers', deleted });
+      } catch (e: any) {
+        return res.status(500).json({ action: 'delete-carriers', error: e.message });
+      }
+    }
+
     // Fix metafield definition labels: (cm) → (mm)
     if (action === 'fix-meta-units') {
       try {
