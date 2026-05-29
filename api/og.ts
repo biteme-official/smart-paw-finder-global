@@ -1,13 +1,11 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '@vercel/kv';
-
-const CRAWLER_UA_RE =
-  /facebookexternalhit|Twitterbot|LinkedInBot|WhatsApp|Slack(bot)?\/|TelegramBot|kakaotalk-scrap|Line\/|LINE_preview|iframely|Pinterest|bingbot|Googlebot|yandex|DuckDuckBot|Applebot|ia_archiver/i;
 
 const SITE_URL = 'https://biteme.one';
 const DEFAULT_IMAGE = `${SITE_URL}/og-image.jpg`;
 const BRAND = 'BITE ME';
-const KV_PRODUCT_TTL = 3600;  // 1시간
-const KV_TOKEN_BUFFER = 300;  // 토큰 만료 5분 전 갱신
+const KV_PRODUCT_TTL = 3600;
+const KV_TOKEN_BUFFER_SEC = 300;
 
 interface OGData {
   title: string;
@@ -27,6 +25,11 @@ interface CachedToken {
   token: string;
   expiresAt: number;
 }
+
+// ---- 모듈 레벨 메모리 캐시 (Lambda 컨테이너 재사용 시 KV 호출 절감) ----
+let memToken: CachedToken | null = null;
+const memProductCache = new Map<string, { data: CachedProductOG; ts: number }>();
+const MEM_PRODUCT_TTL_MS = 5 * 60 * 1000;
 
 // ---- 정적 페이지 OG ----
 const STATIC_OG: Record<string, OGData> = {
@@ -77,11 +80,10 @@ const STATIC_OG: Record<string, OGData> = {
     description: `Expert guides on dog toys, treats, health, and K-Pet lifestyle trends from the BITE ME team.`,
     image: DEFAULT_IMAGE,
     url: `${SITE_URL}/blog`,
-    type: 'website',
   },
 };
 
-// ---- 블로그 포스트 OG (posts.ts에서 ogDescription + coverImage 추출) ----
+// ---- 블로그 포스트 OG ----
 const BLOG_POST_OG: Record<string, { title: string; description: string; image: string }> = {
   'how-to-choose-nosework-toy-dog-skill-level': {
     title: "How to Choose a Nosework Toy for Your Dog's Skill Level",
@@ -145,58 +147,61 @@ function escapeHtml(str: string): string {
 
 function buildOGHtml(og: OGData): string {
   const title = escapeHtml(og.title);
-  const description = escapeHtml(og.description);
+  const desc = escapeHtml(og.description);
   const image = escapeHtml(og.image);
   const url = escapeHtml(og.url);
   const type = og.type ?? 'website';
-  const isArticle = type === 'article';
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${title}</title>
-  <meta name="description" content="${description}" />
+  <meta name="description" content="${desc}" />
   <link rel="canonical" href="${url}" />
-
   <meta property="og:site_name" content="${BRAND}" />
   <meta property="og:type" content="${type}" />
   <meta property="og:url" content="${url}" />
   <meta property="og:title" content="${title}" />
-  <meta property="og:description" content="${description}" />
+  <meta property="og:description" content="${desc}" />
   <meta property="og:image" content="${image}" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:locale" content="en_US" />
-  ${isArticle ? `<meta property="article:author" content="${BRAND}" />` : ''}
-
+  ${type === 'article' ? `<meta property="article:author" content="${BRAND}" />` : ''}
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${title}" />
-  <meta name="twitter:description" content="${description}" />
+  <meta name="twitter:description" content="${desc}" />
   <meta name="twitter:image" content="${image}" />
 </head>
 <body></body>
 </html>`;
 }
 
-// ---- Shopify OAuth 토큰 (KV 캐시) ----
 async function getShopifyToken(): Promise<string | null> {
-  const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN;
-  const clientId = process.env.VITE_SHOPIFY_CLIENT_ID;
-  const clientSecret = process.env.SHOPIFY_CLIENT_SECRET;
+  const now = Date.now();
 
-  if (!shop || !clientId || !clientSecret) return null;
+  // 1) 메모리 캐시
+  if (memToken && now < memToken.expiresAt - KV_TOKEN_BUFFER_SEC * 1000) {
+    return memToken.token;
+  }
 
-  // KV 캐시 확인
+  // 2) KV 캐시
   try {
     const cached = await kv.get<CachedToken>('shopify:og-token');
-    if (cached && Date.now() < cached.expiresAt - KV_TOKEN_BUFFER * 1000) {
+    if (cached && now < cached.expiresAt - KV_TOKEN_BUFFER_SEC * 1000) {
+      memToken = cached;
       return cached.token;
     }
   } catch {
-    // KV 미설정 시 캐시 없이 진행
+    // KV 미설정 시 패스
   }
+
+  // 3) Shopify OAuth
+  const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN;
+  const clientId = process.env.VITE_SHOPIFY_CLIENT_ID;
+  const clientSecret = process.env.SHOPIFY_CLIENT_SECRET;
+  if (!shop || !clientId || !clientSecret) return null;
 
   const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
     method: 'POST',
@@ -207,38 +212,47 @@ async function getShopifyToken(): Promise<string | null> {
       client_secret: clientSecret,
     }),
   });
-
   if (!res.ok) return null;
-  const data = await res.json() as { access_token: string; expires_in: number };
 
+  const data = await res.json() as { access_token: string; expires_in: number };
   const tokenData: CachedToken = {
     token: data.access_token,
-    expiresAt: Date.now() + data.expires_in * 1000,
+    expiresAt: now + data.expires_in * 1000,
   };
 
+  memToken = tokenData;
   try {
     await kv.set('shopify:og-token', tokenData, {
-      ex: Math.max(data.expires_in - KV_TOKEN_BUFFER, 60),
+      ex: Math.max(data.expires_in - KV_TOKEN_BUFFER_SEC, 60),
     });
   } catch {
-    // KV 저장 실패는 무시
+    // KV 저장 실패 무시
   }
 
   return tokenData.token;
 }
 
-// ---- 상품 OG 데이터 조회 (KV 캐시 → Shopify API) ----
 async function getProductOG(handle: string): Promise<CachedProductOG | null> {
-  const kvKey = `og:product:${handle}`;
+  const now = Date.now();
 
-  // KV 캐시 확인
+  // 1) 메모리 캐시
+  const memHit = memProductCache.get(handle);
+  if (memHit && now - memHit.ts < MEM_PRODUCT_TTL_MS) {
+    return memHit.data;
+  }
+
+  // 2) KV 캐시
   try {
-    const cached = await kv.get<CachedProductOG>(kvKey);
-    if (cached) return cached;
+    const cached = await kv.get<CachedProductOG>(`og:product:${handle}`);
+    if (cached) {
+      memProductCache.set(handle, { data: cached, ts: now });
+      return cached;
+    }
   } catch {
     // KV 미설정 시 패스
   }
 
+  // 3) Shopify API
   const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN;
   if (!shop) return null;
 
@@ -250,9 +264,7 @@ async function getProductOG(handle: string): Promise<CachedProductOG | null> {
       productByHandle(handle: $handle) {
         title
         description(truncateAt: 200)
-        images(first: 1) {
-          edges { node { url } }
-        }
+        images(first: 1) { edges { node { url } } }
       }
     }
   `;
@@ -265,10 +277,16 @@ async function getProductOG(handle: string): Promise<CachedProductOG | null> {
     },
     body: JSON.stringify({ query, variables: { handle } }),
   });
-
   if (!res.ok) return null;
+
   const data = await res.json() as {
-    data?: { productByHandle?: { title: string; description: string; images: { edges: { node: { url: string } }[] } } }
+    data?: {
+      productByHandle?: {
+        title: string;
+        description: string;
+        images: { edges: { node: { url: string } }[] };
+      };
+    };
   };
 
   const product = data?.data?.productByHandle;
@@ -280,47 +298,47 @@ async function getProductOG(handle: string): Promise<CachedProductOG | null> {
     imageUrl: product.images.edges[0]?.node.url ?? DEFAULT_IMAGE,
   };
 
+  memProductCache.set(handle, { data: ogData, ts: now });
   try {
-    await kv.set(kvKey, ogData, { ex: KV_PRODUCT_TTL });
+    await kv.set(`og:product:${handle}`, ogData, { ex: KV_PRODUCT_TTL });
   } catch {
-    // KV 저장 실패는 무시
+    // KV 저장 실패 무시
   }
 
   return ogData;
 }
 
-const OG_RESPONSE_HEADERS = {
-  'Content-Type': 'text/html; charset=utf-8',
-  'Cache-Control': 'no-store',
-};
-
-// ---- 미들웨어 진입점 ----
-export default async function middleware(request: Request): Promise<Response | undefined> {
-  const ua = request.headers.get('user-agent') ?? '';
-  if (!CRAWLER_UA_RE.test(ua)) return undefined;
-
-  const { pathname } = new URL(request.url);
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const rawPath = req.query.path;
+  const pathname = typeof rawPath === 'string' ? rawPath : '/';
 
   // 정적 페이지
   const staticOG = STATIC_OG[pathname];
   if (staticOG) {
-    return new Response(buildOGHtml(staticOG), { headers: OG_RESPONSE_HEADERS });
+    return res
+      .setHeader('Content-Type', 'text/html; charset=utf-8')
+      .setHeader('Cache-Control', 'no-store')
+      .status(200)
+      .send(buildOGHtml(staticOG));
   }
 
   // 블로그 포스트
   const blogMatch = pathname.match(/^\/blog\/([^/]+)$/);
   if (blogMatch) {
-    const slug = blogMatch[1];
-    const post = BLOG_POST_OG[slug];
+    const post = BLOG_POST_OG[blogMatch[1]];
     if (post) {
       const og: OGData = {
         title: `${post.title} | ${BRAND} Blog`,
         description: post.description,
         image: post.image,
-        url: `${SITE_URL}/blog/${slug}`,
+        url: `${SITE_URL}/blog/${blogMatch[1]}`,
         type: 'article',
       };
-      return new Response(buildOGHtml(og), { headers: OG_RESPONSE_HEADERS });
+      return res
+        .setHeader('Content-Type', 'text/html; charset=utf-8')
+        .setHeader('Cache-Control', 'no-store')
+        .status(200)
+        .send(buildOGHtml(og));
     }
   }
 
@@ -346,8 +364,13 @@ export default async function middleware(request: Request): Promise<Response | u
           type: 'product',
         };
 
-    return new Response(buildOGHtml(og), { headers: OG_RESPONSE_HEADERS });
+    return res
+      .setHeader('Content-Type', 'text/html; charset=utf-8')
+      .setHeader('Cache-Control', 'no-store')
+      .status(200)
+      .send(buildOGHtml(og));
   }
 
-  return undefined;
+  // 매칭 없으면 404 (vercel.json 라우팅 오류 방지)
+  return res.status(404).send('Not found');
 }
