@@ -1,11 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { kv } from '@vercel/kv';
 
 const SITE_URL = 'https://biteme.one';
 const DEFAULT_IMAGE = `${SITE_URL}/og-image.jpg`;
 const BRAND = 'BITE ME';
-const KV_PRODUCT_TTL = 3600;
-const KV_TOKEN_BUFFER_SEC = 300;
+const TOKEN_BUFFER_SEC = 300;
 
 interface OGData {
   title: string;
@@ -26,10 +24,10 @@ interface CachedToken {
   expiresAt: number;
 }
 
-// ---- 모듈 레벨 메모리 캐시 (Lambda 컨테이너 재사용 시 KV 호출 절감) ----
+// ---- 모듈 레벨 인메모리 캐시 (Lambda 컨테이너 재사용 동안 유효) ----
 let memToken: CachedToken | null = null;
 const memProductCache = new Map<string, { data: CachedProductOG; ts: number }>();
-const MEM_PRODUCT_TTL_MS = 5 * 60 * 1000;
+const MEM_PRODUCT_TTL_MS = 60 * 60 * 1000; // 1시간
 
 // ---- 정적 페이지 OG ----
 const STATIC_OG: Record<string, OGData> = {
@@ -181,23 +179,10 @@ function buildOGHtml(og: OGData): string {
 async function getShopifyToken(): Promise<string | null> {
   const now = Date.now();
 
-  // 1) 메모리 캐시
-  if (memToken && now < memToken.expiresAt - KV_TOKEN_BUFFER_SEC * 1000) {
+  if (memToken && now < memToken.expiresAt - TOKEN_BUFFER_SEC * 1000) {
     return memToken.token;
   }
 
-  // 2) KV 캐시
-  try {
-    const cached = await kv.get<CachedToken>('shopify:og-token');
-    if (cached && now < cached.expiresAt - KV_TOKEN_BUFFER_SEC * 1000) {
-      memToken = cached;
-      return cached.token;
-    }
-  } catch {
-    // KV 미설정 시 패스
-  }
-
-  // 3) Shopify OAuth
   const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN;
   const clientId = process.env.VITE_SHOPIFY_CLIENT_ID;
   const clientSecret = process.env.SHOPIFY_CLIENT_SECRET;
@@ -215,44 +200,21 @@ async function getShopifyToken(): Promise<string | null> {
   if (!res.ok) return null;
 
   const data = await res.json() as { access_token: string; expires_in: number };
-  const tokenData: CachedToken = {
+  memToken = {
     token: data.access_token,
     expiresAt: now + data.expires_in * 1000,
   };
-
-  memToken = tokenData;
-  try {
-    await kv.set('shopify:og-token', tokenData, {
-      ex: Math.max(data.expires_in - KV_TOKEN_BUFFER_SEC, 60),
-    });
-  } catch {
-    // KV 저장 실패 무시
-  }
-
-  return tokenData.token;
+  return memToken.token;
 }
 
 async function getProductOG(handle: string): Promise<CachedProductOG | null> {
   const now = Date.now();
 
-  // 1) 메모리 캐시
   const memHit = memProductCache.get(handle);
   if (memHit && now - memHit.ts < MEM_PRODUCT_TTL_MS) {
     return memHit.data;
   }
 
-  // 2) KV 캐시
-  try {
-    const cached = await kv.get<CachedProductOG>(`og:product:${handle}`);
-    if (cached) {
-      memProductCache.set(handle, { data: cached, ts: now });
-      return cached;
-    }
-  } catch {
-    // KV 미설정 시 패스
-  }
-
-  // 3) Shopify API
   const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN;
   if (!shop) return null;
 
@@ -299,12 +261,6 @@ async function getProductOG(handle: string): Promise<CachedProductOG | null> {
   };
 
   memProductCache.set(handle, { data: ogData, ts: now });
-  try {
-    await kv.set(`og:product:${handle}`, ogData, { ex: KV_PRODUCT_TTL });
-  } catch {
-    // KV 저장 실패 무시
-  }
-
   return ogData;
 }
 
