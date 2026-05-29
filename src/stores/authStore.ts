@@ -40,4 +40,4 @@ export const useAuthStore = create<AuthStore>()(
   )
 );
 
-export const B2B_DISCOUNT_RATE = 0.35;
+export const B2B_DISCOUNT_RATE = 0.50;
