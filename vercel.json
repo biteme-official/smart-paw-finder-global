@@ -75,7 +75,7 @@
     { "source": "/api/shopify-analytics", "destination": "/api/analytics?type=shopify" },
     { "source": "/api/customer-analytics", "destination": "/api/analytics?type=customer" },
     {
-      "source": "/:path(.+)",
+      "source": "/:path*",
       "has": [
         {
           "type": "header",
@@ -83,7 +83,7 @@
           "value": "Slackbot|facebookexternalhit|Twitterbot|LinkedInBot|WhatsApp|TelegramBot|kakaotalk-scrap|Line/|Pinterest|Googlebot|Bingbot|Applebot|ia_archiver|Yandex|DuckDuckBot"
         }
       ],
-      "destination": "/api/og?path=/:path"
+      "destination": "/api/og?path=/:path*"
     },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
