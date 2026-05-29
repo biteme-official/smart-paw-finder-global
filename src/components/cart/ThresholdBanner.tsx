@@ -1,7 +1,7 @@
 import { Truck, PartyPopper } from "lucide-react";
 import { formatPrice } from "@/lib/shopify";
 
-const THRESHOLD = 150;
+const THRESHOLD = 75;
 
 interface ThresholdBannerProps {
   selectedTotal: number;
@@ -26,11 +26,11 @@ export function ThresholdBanner({ selectedTotal, currencyCode }: ThresholdBanner
         )}
         {qualifies ? (
           <span className="text-sm font-bold text-green-600">
-            $10 Flat Rate Shipping Unlocked!
+            Free Shipping Unlocked!
           </span>
         ) : (
           <span className="text-sm font-semibold text-amber-700 dark:text-amber-400">
-            Add <span className="text-primary font-bold">{formatPrice(remaining.toFixed(2), currencyCode)}</span> more for <span className="font-bold">$10 shipping!</span>
+            Add <span className="text-primary font-bold">{formatPrice(remaining.toFixed(2), currencyCode)}</span> more for <span className="font-bold">Free Shipping!</span>
           </span>
         )}
       </div>
