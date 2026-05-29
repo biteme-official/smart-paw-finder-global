@@ -45,6 +45,10 @@ export interface ShopifyProduct {
             url: string;
             altText: string | null;
           } | null;
+          compareAtPrice?: {
+            amount: string;
+            currencyCode: string;
+          } | null;
           selectedOptions: Array<{
             name: string;
             value: string;
@@ -131,6 +135,10 @@ const GET_PRODUCTS_QUERY = `
                 id
                 title
                 price {
+                  amount
+                  currencyCode
+                }
+                compareAtPrice {
                   amount
                   currencyCode
                 }
@@ -623,6 +631,7 @@ const GET_BEST_SELLING_PRODUCTS_QUERY = `
                 id
                 title
                 price { amount currencyCode }
+                compareAtPrice { amount currencyCode }
                 availableForSale
                 quantityAvailable
                 image { url altText }
@@ -707,6 +716,7 @@ const GET_PRODUCT_RECOMMENDATIONS_QUERY = `
             id
             title
             price { amount currencyCode }
+            compareAtPrice { amount currencyCode }
             availableForSale
             image { url altText }
             selectedOptions { name value }

@@ -330,6 +330,7 @@ export default function ProductDetail() {
   const images = product.images.edges;
   const selectedVariant = getSelectedVariant();
   const price = selectedVariant?.price || product.priceRange.minVariantPrice;
+  const compareAt = selectedVariant?.compareAtPrice;
   const totalPrice = parseFloat(price.amount) * quantity;
   const maxQuantity = selectedVariant?.quantityAvailable ?? 99;
 
@@ -463,7 +464,7 @@ export default function ProductDetail() {
         <div className="mb-4">
           <h1 className="text-xl font-bold text-foreground mb-2">{product.title}</h1>
           <div className="flex items-baseline gap-2">
-            <PriceTag amount={price.amount} currencyCode={price.currencyCode} className="text-2xl font-bold text-foreground" originalClassName="text-base" />
+            <PriceTag amount={price.amount} currencyCode={price.currencyCode} compareAtAmount={compareAt?.amount} className="text-2xl font-bold text-foreground" originalClassName="text-base" />
           </div>
         </div>
 
@@ -512,7 +513,7 @@ export default function ProductDetail() {
                   <span className="text-sm font-medium text-foreground">{selectedOptions[option.name]}</span>
                 </div>
                 {showSwatchUI && (
-                  <PriceTag amount={price.amount} currencyCode={price.currencyCode} className="text-base font-semibold text-foreground" originalClassName="text-sm" />
+                  <PriceTag amount={price.amount} currencyCode={price.currencyCode} compareAtAmount={compareAt?.amount} className="text-base font-semibold text-foreground" originalClassName="text-sm" />
                 )}
               </div>
 

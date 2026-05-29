@@ -355,6 +355,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
             {filteredAndSortedProducts.map((product) => {
               const image = product.node.images.edges[0]?.node;
               const price = product.node.priceRange.minVariantPrice;
+              const compareAt = product.node.variants.edges[0]?.node.compareAtPrice;
               const isCompletelyOutOfStock = isProductSoldOut(product);
 
               return (
@@ -406,6 +407,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
                         <PriceTag
                           amount={price.amount}
                           currencyCode={price.currencyCode}
+                          compareAtAmount={compareAt?.amount}
                           className={`font-bold text-sm ${isCompletelyOutOfStock ? 'text-muted-foreground' : 'text-primary'}`}
                           originalClassName="text-xs"
                         />

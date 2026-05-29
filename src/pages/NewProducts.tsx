@@ -72,6 +72,7 @@ const NewProductsPage = () => {
             {products.map((product) => {
               const image = product.node.images.edges[0]?.node;
               const price = product.node.priceRange.minVariantPrice;
+              const compareAt = product.node.variants.edges[0]?.node.compareAtPrice;
 
               return (
                 <div
@@ -112,7 +113,7 @@ const NewProductsPage = () => {
                       {product.node.title}
                     </h3>
                     <div className="flex items-start justify-between gap-1">
-                      <PriceTag amount={price.amount} currencyCode={price.currencyCode} className="text-sm font-bold text-primary" originalClassName="text-xs" />
+                      <PriceTag amount={price.amount} currencyCode={price.currencyCode} compareAtAmount={compareAt?.amount} className="text-sm font-bold text-primary" originalClassName="text-xs" />
                       <Button
                         size="sm"
                         variant="secondary"
