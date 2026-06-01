@@ -1204,6 +1204,73 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
   const [range, setRange] = useState<Range>("7d");
   const [customDates, setCustomDates] = useState<DateRange | undefined>();
   const [calOpen, setCalOpen] = useState(false);
+  const [ageGroupStatus, setAgeGroupStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [ageGroupResult, setAgeGroupResult] = useState<{ updated?: number; total?: number; errors?: unknown[] } | null>(null);
+
+  const runSetAgeGroup = async () => {
+    setAgeGroupStatus('loading');
+    setAgeGroupResult(null);
+    try {
+      const domain = import.meta.env.VITE_SHOPIFY_STORE_DOMAIN as string;
+      const clientId = import.meta.env.VITE_SHOPIFY_CLIENT_ID as string;
+      const apiVersion = '2025-07';
+
+      // 1. Get access token (public OAuth, no secret)
+      const tokenRes = await fetch(`https://${domain}/admin/oauth/access_token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ grant_type: 'client_credentials', client_id: clientId }),
+      });
+      if (!tokenRes.ok) throw new Error(`인증 실패 (${tokenRes.status})`);
+      const { access_token } = await tokenRes.json();
+
+      const adminGQL = async (query: string, variables: Record<string, unknown>) => {
+        const r = await fetch(`https://${domain}/admin/api/${apiVersion}/graphql.json`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': access_token },
+          body: JSON.stringify({ query, variables }),
+        });
+        return r.json();
+      };
+
+      // 2. Fetch all product IDs
+      const GET_IDS = `query($first:Int!,$after:String){products(first:$first,after:$after){pageInfo{hasNextPage endCursor}edges{node{id}}}}`;
+      const ids: string[] = [];
+      let cursor: string | null = null;
+      for (;;) {
+        const d = await adminGQL(GET_IDS, { first: 250, after: cursor });
+        const pg = d?.data?.products;
+        if (!pg) break;
+        for (const e of pg.edges) ids.push(e.node.id.split('/').pop());
+        if (!pg.pageInfo.hasNextPage) break;
+        cursor = pg.pageInfo.endCursor;
+      }
+
+      // 3. Set metafields in batches of 25
+      const SET_META = `mutation($m:[MetafieldsSetInput!]!){metafieldsSet(metafields:$m){metafields{key}userErrors{field message}}}`;
+      let updated = 0;
+      const errors: unknown[] = [];
+      for (let i = 0; i < ids.length; i += 25) {
+        const batch = ids.slice(i, i + 25).map(id => ({
+          ownerId: `gid://shopify/Product/${id}`,
+          namespace: 'shopify',
+          key: 'recommended-age-group',
+          value: '["Adult"]',
+          type: 'list.single_line_text_field',
+        }));
+        const res = await adminGQL(SET_META, { m: batch });
+        const r = res?.data?.metafieldsSet;
+        if (r?.userErrors?.length) errors.push(...r.userErrors);
+        else updated += r?.metafields?.length ?? 0;
+      }
+
+      setAgeGroupResult({ updated, total: ids.length, errors });
+      setAgeGroupStatus('done');
+    } catch (err) {
+      setAgeGroupResult({ errors: [String(err)] });
+      setAgeGroupStatus('error');
+    }
+  };
 
   const customFrom = customDates?.from ? format(customDates.from, "yyyy-MM-dd") : undefined;
   const customTo = customDates?.to ? format(customDates.to, "yyyy-MM-dd") : undefined;
@@ -1327,6 +1394,7 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
               <TabsTrigger value="dashboard" className="text-xs px-4">Dashboard</TabsTrigger>
               <TabsTrigger value="funnel" className="text-xs px-4">Funnel</TabsTrigger>
               <TabsTrigger value="members" className="text-xs px-4">Customers</TabsTrigger>
+              <TabsTrigger value="tools" className="text-xs px-4">Tools</TabsTrigger>
             </TabsList>
 
             <TabsContent value="dashboard" className="space-y-5 mt-0">
@@ -1458,6 +1526,46 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
               ) : (
                 <div className="flex items-center justify-center h-64 text-sm text-muted-foreground">Loading GA4 data...</div>
               )}
+            </TabsContent>
+
+            <TabsContent value="tools" className="space-y-5 mt-0">
+              <SectionLabel>Shopify Bulk Tools</SectionLabel>
+              <div className="rounded-lg border border-border p-6 space-y-4 max-w-lg">
+                <div>
+                  <p className="font-medium text-sm text-foreground">Set Age Group → Adult (전체 상품)</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Google Merchant Center Missing age_group 이슈 해결용 — 스토어 전체 상품의{" "}
+                    <code className="bg-muted px-1 rounded">shopify.recommended-age-group</code>을{" "}
+                    <code className="bg-muted px-1 rounded">Adult</code>으로 일괄 설정합니다.
+                  </p>
+                </div>
+                <button
+                  onClick={runSetAgeGroup}
+                  disabled={ageGroupStatus === 'loading'}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {ageGroupStatus === 'loading' ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      업데이트 중…
+                    </>
+                  ) : '실행'}
+                </button>
+                {ageGroupStatus === 'done' && ageGroupResult && (
+                  <p className="text-sm text-green-600">
+                    ✅ 완료 — {ageGroupResult.updated}/{ageGroupResult.total}개 업데이트
+                    {(ageGroupResult.errors?.length ?? 0) > 0 && (
+                      <span className="text-destructive ml-2">({ageGroupResult.errors?.length}개 오류)</span>
+                    )}
+                  </p>
+                )}
+                {ageGroupStatus === 'error' && (
+                  <p className="text-sm text-destructive">❌ 오류 발생 — {String(ageGroupResult?.errors?.[0])}</p>
+                )}
+              </div>
             </TabsContent>
           </Tabs>
         )}

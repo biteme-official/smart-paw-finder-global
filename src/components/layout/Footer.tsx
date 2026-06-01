@@ -1,35 +1,73 @@
-import { Phone, Mail } from "lucide-react";
+import { Mail, MapPin, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
+
+const NAV_LINKS = [
+  { label: "Shop", to: "/" },
+  { label: "About", to: "/about" },
+  { label: "B2B Inquiry", to: "/mypage/b2b-apply" },
+  { label: "Popup Stores", to: "/popup-offline-stores" },
+  { label: "Contact Us", to: "/contact" },
+  { label: "New Arrivals", to: "/new-products" },
+  { label: "Blog", to: "/blog" },
+  { label: "Shipping & Returns", to: "/refund-policy" },
+  { label: "Privacy Policy", to: "/privacy" },
+  { label: "Terms of Use", to: "/terms" },
+];
 
 export function Footer() {
   return (
-    <footer className="bg-muted/50 border-t border-border mt-auto">
-      <div className="container mx-auto px-4 py-6">
-        <div className="space-y-4 text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">Customer Support</p>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <span className="flex items-center gap-1.5">
-              <Mail className="h-4 w-4 text-primary" />
-              <a href="mailto:mates@biteme.co.kr" className="hover:text-primary transition-colors">
-                mates@biteme.co.kr
-              </a>
-            </span>
+    <footer className="bg-zinc-100 text-foreground mt-auto">
+      <div className="w-full max-w-6xl mx-auto px-6 py-10">
+        <div className="flex flex-col lg:flex-row gap-10 lg:gap-20">
+
+          {/* Left — Brand + Contact */}
+          <div className="shrink-0 space-y-5">
+            <p className="text-lg font-bold tracking-wide text-foreground">BITE ME</p>
+
+            <ul className="space-y-3 text-sm text-muted-foreground">
+              <li>
+                <a href="mailto:mates@biteme.co.kr"
+                  className="flex items-center gap-3 hover:text-foreground transition-colors">
+                  <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Mail className="h-4 w-4 text-primary" />
+                  </span>
+                  mates@biteme.co.kr
+                </a>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                  <MapPin className="h-4 w-4 text-primary" />
+                </span>
+                <span>8F, 10 Teheran-ro 20-gil, Gangnam-gu,<br />Seoul, Republic of Korea</span>
+              </li>
+              <li className="flex items-center gap-3">
+                <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <Clock className="h-4 w-4 text-primary" />
+                </span>
+                Mon – Fri: 10:00 am – 7:00 pm KST
+              </li>
+            </ul>
           </div>
-          <div className="flex gap-4 pt-2 border-t border-border/50 text-xs">
-            <Link to="/privacy" className="hover:text-primary transition-colors">
-              Privacy Policy
-            </Link>
-            <Link to="/terms" className="hover:text-primary transition-colors">
-              Terms of Use
-            </Link>
-            <Link to="/contact" className="hover:text-primary transition-colors">
-              Contact Us
-            </Link>
-            <Link to="/blog" className="hover:text-primary transition-colors">
-              Blog
-            </Link>
+
+          {/* Right — Nav links grid */}
+          <div className="flex-1 min-w-0">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3">
+              {NAV_LINKS.map(({ label, to }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {label}
+                </Link>
+              ))}
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground/60">© 2026 BITE ME. All rights reserved.</p>
+
+        </div>
+
+        <div className="mt-8 pt-6 border-t border-border text-xs text-muted-foreground">
+          © 2026 BITE ME. All rights reserved.
         </div>
       </div>
     </footer>

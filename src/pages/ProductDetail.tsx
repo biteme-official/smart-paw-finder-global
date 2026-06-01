@@ -187,6 +187,43 @@ export default function ProductDetail() {
       .catch(() => {});
   }, [product?.id]);
 
+  useEffect(() => {
+    if (!product || !id) return;
+    const price = product.priceRange.minVariantPrice;
+    const availability = product.availableForSale !== false ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock';
+    const firstVariant = product.variants.edges[0]?.node;
+    const jsonLd = {
+      '@context': 'https://schema.org/',
+      '@type': 'Product',
+      name: product.title,
+      description: product.description || product.title,
+      image: product.images.edges.map(e => e.node.url),
+      brand: { '@type': 'Brand', name: 'BITE ME' },
+      sku: firstVariant?.id?.split('/').pop() || id,
+      mpn: id,
+      itemCondition: 'https://schema.org/NewCondition',
+      offers: {
+        '@type': 'Offer',
+        url: `https://biteme.one/product/${id}`,
+        priceCurrency: price.currencyCode,
+        price: price.amount,
+        availability,
+        itemCondition: 'https://schema.org/NewCondition',
+        seller: {
+          '@type': 'Organization',
+          name: 'BITE ME',
+          url: 'https://biteme.one',
+        },
+      },
+    };
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.id = 'product-jsonld';
+    script.textContent = JSON.stringify(jsonLd);
+    document.head.appendChild(script);
+    return () => { document.getElementById('product-jsonld')?.remove(); };
+  }, [product, id]);
+
   const checkScrollability = () => {
     if (thumbnailRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = thumbnailRef.current;
@@ -723,6 +760,8 @@ export default function ProductDetail() {
       {/* Recommended Products */}
       <RecommendedProducts productId={product.id} currentHandle={product.handle} />
 
+      </div>{/* closes max-w-lg */}
+
       {/* Footer */}
       <Footer />
 
@@ -765,7 +804,6 @@ export default function ProductDetail() {
             {isBuyingNow ? 'Processing...' : 'Buy Now'}
           </Button>
         </div>
-      </div>
       </div>
     </div>
   );

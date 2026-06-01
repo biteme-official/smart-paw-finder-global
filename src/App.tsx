@@ -27,6 +27,8 @@ import PopupOffline from "./pages/PopupOffline";
 import BlogList from "./pages/BlogList";
 import BlogPost from "./pages/BlogPost";
 import NewProductsPage from "./pages/NewProducts";
+import RefundPolicy from "./pages/RefundPolicy";
+import About from "./pages/About";
 import { WhatsAppButton } from "./components/layout/WhatsAppButton";
 
 const queryClient = new QueryClient();
@@ -62,8 +64,10 @@ const App = () => (
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/checkout-return" element={<CheckoutReturn />} />
           <Route path="/contact" element={<ContactUs />} />
+          <Route path="/about" element={<About />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
+          <Route path="/refund-policy" element={<RefundPolicy />} />
           <Route path="/mypage" element={<MyPage />} />
           <Route path="/mypage/order-history" element={<OrderHistory />} />
           <Route path="/mypage/favorites" element={<FavoritesPage />} />

@@ -28,6 +28,52 @@
     <meta name="twitter:description" content="Shop the trendiest K-Pet lifestyle brand. Discover premium dog toys, healthy treats, and stylish supplies designed for modern pet parents. Worldwide shipping from BITE ME." />
     <meta name="twitter:image" content="https://biteme.one/og-image.jpg" />
 
+    <!-- Organization + WebSite Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://biteme.one/#organization",
+          "name": "BITE ME",
+          "url": "https://biteme.one",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://biteme.one/favicon.png"
+          },
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "email": "mates@biteme.co.kr",
+            "contactType": "customer service",
+            "availableLanguage": ["English", "Korean"],
+            "hoursAvailable": {
+              "@type": "OpeningHoursSpecification",
+              "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday"],
+              "opens": "10:00",
+              "closes": "19:00"
+            }
+          },
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "8F, 10 Teheran-ro 20-gil",
+            "addressLocality": "Gangnam-gu",
+            "addressRegion": "Seoul",
+            "addressCountry": "KR"
+          },
+          "description": "BITE ME is a premium K-Pet lifestyle brand offering dog toys, healthy treats, and stylish pet supplies. Worldwide shipping from Seoul, South Korea."
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://biteme.one/#website",
+          "url": "https://biteme.one",
+          "name": "BITE ME",
+          "publisher": { "@id": "https://biteme.one/#organization" }
+        }
+      ]
+    }
+    </script>
+
     <!-- Google Analytics (GA4) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-H7171JQ75N"></script>
     <script>

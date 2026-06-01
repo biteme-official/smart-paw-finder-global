@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Upload, FileText, X, Loader2, ArrowLeft, CheckCircle, Clock, XCircle, LogIn } from 'lucide-react';
+import { Upload, FileText, X, Loader2, ArrowLeft, CheckCircle, Clock, XCircle, LogIn, UserPlus, FileUp, ShieldCheck, Tag, ShoppingBag } from 'lucide-react';
 import { isLoggedIn as isCustomerLoggedIn, initiateLogin } from '@/lib/customer-auth';
 import { fetchCustomerAccount, type CustomerAccountProfile } from '@/lib/customer-account';
 import { toast } from 'sonner';
@@ -15,6 +15,51 @@ import { zodResolver } from '@hookform/resolvers/zod';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+
+const STEPS: { icon: React.ElementType; label: string; desc: string; note?: string }[] = [
+  { icon: UserPlus, label: 'Sign Up', desc: 'Create an account with your business email.' },
+  { icon: FileUp, label: 'Submit B2B Business Verification', desc: 'Submit your business information and required documents for verification.' },
+  { icon: ShieldCheck, label: 'Admin Approval', desc: 'Our team reviews your submission and approves your B2B access.', note: 'Usually takes 2–3 business days.' },
+  { icon: LogIn, label: 'Log In', desc: 'Log in to your approved account.' },
+  { icon: Tag, label: 'B2B Prices Displayed', desc: 'Enjoy B2B pricing exclusively on eligible products.' },
+  { icon: ShoppingBag, label: 'Enjoy Shopping', desc: 'Browse and order with exclusive B2B pricing.' },
+];
+
+function HowToSteps() {
+  return (
+    <section className="mt-8">
+      <div className="text-center mb-10">
+        <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
+          How to sign up for B2B
+        </h2>
+        <p className="text-muted-foreground text-sm">
+          Follow the steps below to unlock exclusive B2B pricing.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {STEPS.map((step, i) => {
+          const Icon = step.icon;
+          return (
+            <div key={i} className="w-full border border-border rounded-2xl p-5 bg-card hover:shadow-sm transition-shadow flex flex-col items-center gap-3 text-center">
+              <div className="relative">
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Icon className="h-7 w-7 text-primary" />
+                </div>
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-white text-[11px] font-bold flex items-center justify-center">
+                  {i + 1}
+                </span>
+              </div>
+              <p className="font-semibold text-sm text-foreground leading-tight">{step.label}</p>
+              <p className="text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
+              {step.note && <p className="text-[11px] text-muted-foreground/70 leading-relaxed">{step.note}</p>}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 const schema = z.object({
   representativeName: z.string().min(1, 'Representative name is required'),
@@ -26,7 +71,6 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 function LoginRequired() {
-  const navigate = useNavigate();
   const [loginLoading, setLoginLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -42,21 +86,8 @@ function LoginRequired() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="max-w-md mx-auto px-4 py-16 flex flex-col items-center text-center">
-        <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mb-6">
-          <LogIn className="h-10 w-10 text-muted-foreground" />
-        </div>
-        <h1 className="text-xl font-bold mb-2">Sign In Required</h1>
-        <p className="text-sm text-muted-foreground mb-8">
-          Please sign in to your account to apply for a B2B wholesale account.
-        </p>
-        <Button onClick={handleLogin} disabled={loginLoading} className="w-full h-12 text-base font-semibold mb-3">
-          {loginLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-          Sign In to Continue
-        </Button>
-        <Button variant="outline" onClick={() => navigate('/mypage')} className="w-full h-12">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Back to My Page
-        </Button>
+      <main className="max-w-4xl mx-auto px-4 py-6 pb-24">
+        <HowToSteps />
       </main>
     </div>
   );
@@ -219,11 +250,12 @@ export default function B2BApply() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="max-w-md mx-auto px-4 py-6 pb-24">
+      <main className="max-w-4xl mx-auto px-4 py-6 pb-24">
         <Button variant="ghost" onClick={() => navigate('/mypage')} className="mb-4 -ml-2 text-muted-foreground">
           <ArrowLeft className="h-4 w-4 mr-1" /> My Page
         </Button>
 
+        <div className="max-w-md mx-auto">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">B2B Application</CardTitle>
@@ -291,6 +323,9 @@ export default function B2BApply() {
             </form>
           </CardContent>
         </Card>
+        </div>
+
+        <HowToSteps />
       </main>
     </div>
   );
