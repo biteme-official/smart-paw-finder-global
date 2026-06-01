@@ -24,6 +24,8 @@ import B2BAdmin from "./pages/B2BAdmin";
 import AdminDashboard from "./pages/AdminDashboard";
 import DiscountRedirect from "./pages/DiscountRedirect";
 import PopupOffline from "./pages/PopupOffline";
+import BlogList from "./pages/BlogList";
+import BlogPost from "./pages/BlogPost";
 import NewProductsPage from "./pages/NewProducts";
 import RefundPolicy from "./pages/RefundPolicy";
 import About from "./pages/About";
@@ -77,6 +79,8 @@ const App = () => (
           <Route path="/manage/b2b" element={<B2BAdmin />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/popup-offline-stores" element={<PopupOffline />} />
+          <Route path="/blog" element={<BlogList />} />
+          <Route path="/blog/:slug" element={<BlogPost />} />
           <Route path="/new-products" element={<NewProductsPage />} />
           <Route path="/discount/:code" element={<DiscountRedirect />} />
           <Route path="/products/:handle" element={<ShopifyProductRedirect />} />

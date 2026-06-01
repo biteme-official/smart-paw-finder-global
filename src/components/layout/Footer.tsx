@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { label: "Popup Stores", to: "/popup-offline-stores" },
   { label: "Contact Us", to: "/contact" },
   { label: "New Arrivals", to: "/new-products" },
+  { label: "Blog", to: "/blog" },
   { label: "Shipping & Returns", to: "/refund-policy" },
   { label: "Privacy Policy", to: "/privacy" },
   { label: "Terms of Use", to: "/terms" },

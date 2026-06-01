@@ -9,10 +9,10 @@ import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
 import { fetchCustomerAccount } from '@/lib/customer-account';
 import { toast } from 'sonner';
 
-const B2B_MIN_ORDER = 150;
-const SHIPPING_THRESHOLD = 150;
-const SHIPPING_OVER = 10;
-const SHIPPING_UNDER = 50;
+const B2B_MIN_ORDER = 300;
+const SHIPPING_THRESHOLD = 75;
+const SHIPPING_OVER = 0;
+const SHIPPING_UNDER = 30;
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -97,7 +97,7 @@ export default function Checkout() {
                 Minimum order of {formatPrice(B2B_MIN_ORDER.toString(), currencyCode)} required for B2B pricing
               </p>
               <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-                Add {formatPrice((B2B_MIN_ORDER - subtotal).toFixed(2), currencyCode)} more to unlock your 35% B2B discount at checkout.
+                Add {formatPrice((B2B_MIN_ORDER - subtotal).toFixed(2), currencyCode)} more to unlock your 50% B2B discount at checkout.
               </p>
             </div>
           </div>
@@ -148,7 +148,7 @@ export default function Checkout() {
                 <span translate="no">{formatPrice(shipping.toFixed(2), currencyCode)}</span>
               )}
             </div>
-            {!countryLoading && !isKorean && (() => {
+            {!countryLoading && !isKorean && !isB2B && (() => {
               const progress = Math.min((subtotal / SHIPPING_THRESHOLD) * 100, 100);
               const remaining = SHIPPING_THRESHOLD - subtotal;
               const qualifies = subtotal >= SHIPPING_THRESHOLD;
@@ -161,10 +161,10 @@ export default function Checkout() {
                       <Truck className="h-3.5 w-3.5 text-amber-600 flex-shrink-0" />
                     )}
                     {qualifies ? (
-                      <span className="text-xs font-bold text-green-600">$10 Flat Rate Shipping Unlocked!</span>
+                      <span className="text-xs font-bold text-green-600">Free Shipping Unlocked!</span>
                     ) : (
                       <span className="text-xs font-semibold text-amber-700 dark:text-amber-400">
-                        Add <span className="text-primary font-bold">{formatPrice(remaining.toFixed(2), currencyCode)}</span> more for <span className="font-bold">$10 shipping!</span>
+                        Add <span className="text-primary font-bold">{formatPrice(remaining.toFixed(2), currencyCode)}</span> more for <span className="font-bold">Free Shipping!</span>
                       </span>
                     )}
                   </div>
