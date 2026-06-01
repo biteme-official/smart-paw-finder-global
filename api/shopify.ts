@@ -181,12 +181,12 @@ async function handleOG(req: VercelRequest, res: VercelResponse): Promise<void> 
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Shopify-Storefront-Private-Token': token },
           body: JSON.stringify({
-            query: `query OG($h:String!){productByHandle(handle:$h){title description(truncateAt:200) images(first:1){edges{node{url}}}}}`,
+            query: `query OG($h:String!){product(handle:$h){title description(truncateAt:200) images(first:1){edges{node{url}}}}}`,
             variables: { h: handle },
           }),
         });
-        const gqlData = await gqlRes.json() as { data?: { productByHandle?: { title: string; description: string; images: { edges: { node: { url: string } }[] } } } };
-        const p = gqlData?.data?.productByHandle;
+        const gqlData = await gqlRes.json() as { data?: { product?: { title: string; description: string; images: { edges: { node: { url: string } }[] } } } };
+        const p = gqlData?.data?.product;
         if (p) {
           productTitle = p.title;
           productDesc = p.description || '';
