@@ -177,24 +177,57 @@ async function handleOG(req: VercelRequest, res: VercelResponse): Promise<void> 
       try {
         const token = await getAccessToken();
         const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN || '';
-        const gqlRes = await fetch(`https://${shop}/api/2025-07/graphql.json`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Shopify-Storefront-Private-Token': token },
-          body: JSON.stringify({
-            query: `query OG($h:String!){product(handle:$h){title description(truncateAt:200) images(first:1){edges{node{url}}}}}`,
-            variables: { h: handle },
-          }),
-        });
-        const gqlData = await gqlRes.json() as { data?: { product?: { title: string; description: string; images: { edges: { node: { url: string } }[] } } } };
-        const p = gqlData?.data?.product;
-        if (p) {
-          productTitle = p.title;
-          productDesc = p.description || '';
-          productImage = p.images.edges[0]?.node.url ?? OG_DEFAULT_IMAGE;
-          ogProductCache.set(handle, { title: productTitle, description: productDesc, imageUrl: productImage, ts: now });
+        if (!shop) {
+          console.error('[OG] VITE_SHOPIFY_STORE_DOMAIN 환경변수 없음');
+        } else {
+          const gqlRes = await fetch(`https://${shop}/api/2025-07/graphql.json`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Shopify-Storefront-Private-Token': token,
+            },
+            body: JSON.stringify({
+              query: `query OG($h:String!){product(handle:$h){title description(truncateAt:200) featuredImage{url} images(first:1){edges{node{url}}}}}`,
+              variables: { h: handle },
+            }),
+          });
+
+          if (!gqlRes.ok) {
+            const errBody = await gqlRes.text();
+            console.error(`[OG] Shopify HTTP ${gqlRes.status} — handle:"${handle}" — ${errBody.slice(0, 300)}`);
+          } else {
+            const gqlData = await gqlRes.json() as {
+              data?: {
+                product?: {
+                  title: string;
+                  description: string;
+                  featuredImage?: { url: string };
+                  images: { edges: { node: { url: string } }[] };
+                };
+              };
+              errors?: { message: string }[];
+            };
+
+            if (gqlData.errors?.length) {
+              console.error(`[OG] GraphQL errors — handle:"${handle}" —`, JSON.stringify(gqlData.errors));
+            }
+
+            const p = gqlData?.data?.product;
+            if (p) {
+              productTitle = p.title;
+              productDesc = p.description || '';
+              productImage =
+                p.featuredImage?.url ??
+                p.images?.edges?.[0]?.node?.url ??
+                OG_DEFAULT_IMAGE;
+              ogProductCache.set(handle, { title: productTitle, description: productDesc, imageUrl: productImage, ts: now });
+            } else {
+              console.error(`[OG] product null — handle:"${handle}" — data:`, JSON.stringify(gqlData?.data));
+            }
+          }
         }
-      } catch {
-        // Shopify 조회 실패 시 fallback
+      } catch (err) {
+        console.error(`[OG] 예외 — handle:"${handle}" —`, err instanceof Error ? err.message : String(err));
       }
     }
 
