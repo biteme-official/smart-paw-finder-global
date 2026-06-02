@@ -89,7 +89,7 @@ export function Footer() {
 
       {/* Company info section */}
       <div className="w-full max-w-6xl mx-auto px-6 py-6 border-t border-border">
-        <p className="text-sm font-semibold text-foreground mb-2">바잇미 (BITE ME)</p>
+        <p className="text-sm font-semibold text-foreground mb-2">BITE ME</p>
         <p className="text-xs text-muted-foreground leading-relaxed">
           Tel: +82 70-4888-6191{" "}
           <span className="mx-1 text-zinc-300">|</span>
