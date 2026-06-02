@@ -62,24 +62,6 @@ export default function TermsOfUse() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Shipping</h2>
-            <ol className="list-decimal pl-5 space-y-2">
-              <li>International delivery takes approximately 7–21 business days after order confirmation, depending on destination and customs processing.</li>
-              <li>The Company will take responsibility for lost or damaged items during shipping.</li>
-            </ol>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Returns & Exchanges</h2>
-            <p>
-              We accept returns within 7 days of delivery for unused, unopened items in their original packaging.
-              No restocking fees are charged. For full details on the return process, eligible conditions, refund timelines,
-              and return address, please refer to our{" "}
-              <a href="/refund-policy" className="text-primary hover:underline">Shipping &amp; Returns Policy</a>.
-            </p>
-          </section>
-
-          <section>
             <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Prohibited Activities</h2>
             <p>The following activities are prohibited when using the Service:</p>
             <ul className="list-disc pl-5 space-y-1">
