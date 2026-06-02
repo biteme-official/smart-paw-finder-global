@@ -25,9 +25,9 @@ function SocialIcon({ platform }: { platform: string }) {
     </svg>
   );
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
-      <rect x="3" y="6" width="18" height="12" rx="3" />
-      <polygon points="10,8.5 10,15.5 17,12" fill="white" />
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6">
+      <rect x="1" y="8" width="22" height="8" rx="2" />
+      <polygon points="9.5,9.5 9.5,14.5 16.5,12" fill="white" />
     </svg>
   );
 }
