@@ -1,5 +1,23 @@
 import { Link } from "react-router-dom";
 
+function MastercardIcon() {
+  return (
+    <svg viewBox="0 0 38 24" className="h-4 w-auto" aria-label="Mastercard">
+      <circle cx="14" cy="12" r="9" fill="#555" />
+      <circle cx="24" cy="12" r="9" fill="#888" />
+      <path d="M19 5.3a9 9 0 0 1 0 13.4A9 9 0 0 1 19 5.3z" fill="#666" />
+    </svg>
+  );
+}
+
+function PayPalIcon() {
+  return (
+    <svg viewBox="0 0 60 22" className="h-4 w-auto" aria-label="PayPal">
+      <text x="1" y="15" fontSize="12" fontStyle="italic" fontWeight="700" fill="#444" fontFamily="Arial, sans-serif">PayPal</text>
+    </svg>
+  );
+}
+
 const BRAND_LINKS = [
   { label: "About Us", to: "/about" },
   { label: "Popup Stores", to: "/popup-offline-stores" },
@@ -16,15 +34,12 @@ const HELP_LINKS = [
   { label: "B2B Inquiry", to: "/mypage/b2b-apply" },
 ];
 
-const PAYMENT_METHODS = [
-  { name: "PayPal",       color: "text-[#003087]",  bg: "bg-white", italic: true  },
-  { name: "VISA",         color: "text-[#1A1F71]",  bg: "bg-white", bold: true    },
-  { name: "Mastercard",   color: "text-[#EB001B]",  bg: "bg-white"                },
-  { name: "AMEX",         color: "text-[#007BC1]",  bg: "bg-white"                },
-  { name: "JCB",          color: "text-[#003087]",  bg: "bg-white"                },
-  { name: "UnionPay",     color: "text-[#E31837]",  bg: "bg-white"                },
-  { name: "Discover",     color: "text-[#FF6600]",  bg: "bg-white"                },
-  { name: "Bank Deposit", color: "text-zinc-600",   bg: "bg-white"                },
+const TEXT_PAYMENT_METHODS = [
+  { name: "VISA",      style: "font-black italic tracking-widest text-sm"  },
+  { name: "AMEX",      style: "font-bold text-xs tracking-wide"            },
+  { name: "JCB",       style: "font-bold text-xs"                          },
+  { name: "UnionPay",  style: "font-semibold text-xs"                      },
+  { name: "Discover",  style: "font-semibold text-xs"                      },
 ];
 
 function NavColumn({ title, links }: { title: string; links: { label: string; to: string }[] }) {
@@ -89,18 +104,24 @@ export function Footer() {
       {/* Payment methods + Copyright */}
       <div className="border-t border-border bg-zinc-200/50">
         <div className="w-full max-w-6xl mx-auto px-6 py-4">
-          <div className="flex flex-wrap items-center gap-2 mb-3">
+          <div className="flex flex-wrap items-center gap-1.5 mb-3">
             <span className="text-xs font-medium text-muted-foreground mr-2 shrink-0">Payment Method</span>
-            {PAYMENT_METHODS.map(({ name, color, bg, italic, bold }) => (
+
+            {/* PayPal */}
+            <span className="inline-flex items-center border border-zinc-300 rounded px-2 py-0.5 bg-white h-6">
+              <PayPalIcon />
+            </span>
+
+            {/* Mastercard */}
+            <span className="inline-flex items-center border border-zinc-300 rounded px-2 py-0.5 bg-white h-6">
+              <MastercardIcon />
+            </span>
+
+            {/* Text-based logos */}
+            {TEXT_PAYMENT_METHODS.map(({ name, style }) => (
               <span
                 key={name}
-                className={`
-                  inline-flex items-center justify-center
-                  border border-zinc-300 rounded px-2.5 py-1
-                  text-xs ${color} ${bg}
-                  ${italic ? "italic" : ""}
-                  ${bold ? "font-bold tracking-widest" : "font-semibold"}
-                `}
+                className={`inline-flex items-center justify-center border border-zinc-300 rounded px-2 py-0.5 bg-white h-6 text-zinc-700 ${style}`}
               >
                 {name}
               </span>
