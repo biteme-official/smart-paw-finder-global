@@ -19,7 +19,7 @@ export default function TermsOfUse() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-8 flex-1">
+      <main className="max-w-6xl mx-auto px-6 py-8 flex-1">
         <h1 className="text-2xl font-bold mb-6">Terms of Use</h1>
         <div className="prose prose-sm max-w-none text-muted-foreground space-y-6">
 
