@@ -57,6 +57,8 @@ export default function RefundPolicy() {
               <li>Once your returned item is received and inspected, we will notify you of the refund approval status within 3 business days.</li>
               <li>Approved refunds are processed to the original payment method within 5–10 business days.</li>
               <li>Shipping fees are non-refundable unless the return is due to our error.</li>
+              <li><strong className="text-foreground">Due to the nature of international shipping, we do not offer direct exchanges for change of mind (e.g., size, color, or model changes).</strong></li>
+              <li><strong className="text-foreground">If you wish to exchange an item, please follow our return process for a refund and place a new order for the desired item.</strong></li>
             </ul>
           </section>
 
