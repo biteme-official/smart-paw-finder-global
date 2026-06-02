@@ -1,75 +1,122 @@
-import { Mail, MapPin, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const NAV_LINKS = [
-  { label: "Shop", to: "/" },
-  { label: "About", to: "/about" },
-  { label: "B2B Inquiry", to: "/mypage/b2b-apply" },
+const BRAND_LINKS = [
+  { label: "About Us", to: "/about" },
   { label: "Popup Stores", to: "/popup-offline-stores" },
-  { label: "Contact Us", to: "/contact" },
   { label: "New Arrivals", to: "/new-products" },
   { label: "Blog", to: "/blog" },
+];
+
+const POLICY_LINKS = [
+  { label: "Terms of Use", to: "/terms" },
   { label: "Shipping & Returns", to: "/refund-policy" },
   { label: "Privacy Policy", to: "/privacy" },
-  { label: "Terms of Use", to: "/terms" },
 ];
+
+const HELP_LINKS = [
+  { label: "Contact Us", to: "/contact" },
+  { label: "B2B Inquiry", to: "/mypage/b2b-apply" },
+];
+
+const PAYMENT_METHODS = [
+  { name: "PayPal",     color: "text-[#003087]",  bg: "bg-white", italic: true  },
+  { name: "VISA",       color: "text-[#1A1F71]",  bg: "bg-white", bold: true    },
+  { name: "Mastercard", color: "text-[#EB001B]",  bg: "bg-white"                },
+  { name: "AMEX",       color: "text-[#007BC1]",  bg: "bg-white"                },
+  { name: "JCB",        color: "text-[#003087]",  bg: "bg-white"                },
+  { name: "UnionPay",   color: "text-[#E31837]",  bg: "bg-white"                },
+  { name: "Discover",   color: "text-[#FF6600]",  bg: "bg-white"                },
+];
+
+function NavColumn({ title, links }: { title: string; links: { label: string; to: string }[] }) {
+  return (
+    <div className="space-y-3">
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <ul className="space-y-2">
+        {links.map(({ label, to }) => (
+          <li key={to}>
+            <Link to={to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              {label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export function Footer() {
   return (
     <footer className="bg-zinc-100 text-foreground mt-auto">
-      <div className="w-full max-w-6xl mx-auto px-6 py-10">
-        <div className="flex flex-col lg:flex-row gap-10 lg:gap-20">
 
-          {/* Left — Brand + Contact */}
-          <div className="shrink-0 space-y-5">
-            <p className="text-lg font-bold tracking-wide text-foreground">BITE ME</p>
+      {/* Main nav section */}
+      <div className="w-full max-w-6xl mx-auto px-6 pt-10 pb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
 
-            <ul className="space-y-3 text-sm text-muted-foreground">
-              <li>
-                <a href="mailto:mates@biteme.co.kr"
-                  className="flex items-center gap-3 hover:text-foreground transition-colors">
-                  <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Mail className="h-4 w-4 text-primary" />
-                  </span>
-                  mates@biteme.co.kr
-                </a>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <MapPin className="h-4 w-4 text-primary" />
-                </span>
-                <span>8F, 10 Teheran-ro 20-gil, Gangnam-gu,<br />Seoul, Republic of Korea</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <Clock className="h-4 w-4 text-primary" />
-                </span>
-                Mon – Fri: 10:00 am – 7:00 pm KST
-              </li>
+          {/* Brand column */}
+          <div className="space-y-3">
+            <p className="text-sm font-bold tracking-wide text-foreground">BITE ME</p>
+            <ul className="space-y-2">
+              {BRAND_LINKS.map(({ label, to }) => (
+                <li key={to}>
+                  <Link to={to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    {label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* Right — Nav links grid */}
-          <div className="flex-1 min-w-0">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3">
-              {NAV_LINKS.map(({ label, to }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {label}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-        </div>
-
-        <div className="mt-8 pt-6 border-t border-border text-xs text-muted-foreground">
-          © 2026 BITE ME. All rights reserved.
+          <NavColumn title="Terms & Policies" links={POLICY_LINKS} />
+          <NavColumn title="Help" links={HELP_LINKS} />
         </div>
       </div>
+
+      {/* Company info section */}
+      <div className="w-full max-w-6xl mx-auto px-6 py-6 border-t border-border">
+        <p className="text-sm font-semibold text-foreground mb-2">바잇미 (BITE ME)</p>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Tel: +82 70-4888-6191{" "}
+          <span className="mx-1 text-zinc-300">|</span>
+          E-mail: mates@biteme.co.kr{" "}
+          <span className="mx-1 text-zinc-300">|</span>
+          Mon – Fri: 10:00 am – 7:00 pm KST
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          8F, 10 Teheran-ro 20-gil, Gangnam-gu, Seoul, Republic of Korea
+        </p>
+      </div>
+
+      {/* Payment methods bar */}
+      <div className="border-t border-border bg-zinc-200/50">
+        <div className="w-full max-w-6xl mx-auto px-6 py-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground mr-2 shrink-0">Payment Method</span>
+            {PAYMENT_METHODS.map(({ name, color, bg, italic, bold }) => (
+              <span
+                key={name}
+                className={`
+                  inline-flex items-center justify-center
+                  border border-zinc-300 rounded px-2.5 py-1
+                  text-xs ${color} ${bg}
+                  ${italic ? "italic" : ""}
+                  ${bold ? "font-bold tracking-widest" : "font-semibold"}
+                `}
+              >
+                {name}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Copyright */}
+      <div className="border-t border-border bg-zinc-200/50">
+        <div className="w-full max-w-6xl mx-auto px-6 py-3">
+          <p className="text-xs text-muted-foreground">© 2026 BITE ME. All rights reserved.</p>
+        </div>
+      </div>
+
     </footer>
   );
 }
