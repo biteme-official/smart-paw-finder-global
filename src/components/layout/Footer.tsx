@@ -74,7 +74,7 @@ const SOCIAL_LINKS = [
   { label: "Official",  icon: <InstagramIcon />, href: "https://www.instagram.com/biteme.co.kr/" },
   { label: "Japan",     icon: <InstagramIcon />, href: "https://www.instagram.com/biteme_jp/"   },
   { label: "Global",    icon: <InstagramIcon />, href: "https://www.instagram.com/biteme_global/" },
-  { label: "TikTok",   icon: <TikTokIcon />,    href: "https://www.tiktok.com/@biteme"          },
+  { label: "TikTok",   icon: <TikTokIcon />,    href: "https://www.tiktok.com/@biteme.co.kr"    },
   { label: "YouTube",  icon: <YouTubeIcon />,   href: "https://www.youtube.com/@biteme.official" },
 ];
 
