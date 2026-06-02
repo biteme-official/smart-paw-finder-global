@@ -109,12 +109,12 @@ export function Footer() {
             <span className="text-xs font-medium text-muted-foreground mr-2 shrink-0">Payment Method</span>
 
             {/* PayPal */}
-            <span className="inline-flex items-center border border-zinc-300 rounded px-2 py-0.5 bg-white h-6">
+            <span className="inline-flex items-center h-5">
               <PayPalIcon />
             </span>
 
             {/* Mastercard */}
-            <span className="inline-flex items-center border border-zinc-300 rounded px-2 py-0.5 bg-white h-6">
+            <span className="inline-flex items-center h-5">
               <MastercardIcon />
             </span>
 
@@ -122,7 +122,7 @@ export function Footer() {
             {TEXT_PAYMENT_METHODS.map(({ name, style }) => (
               <span
                 key={name}
-                className={`inline-flex items-center justify-center border border-zinc-300 rounded px-2 py-0.5 bg-white h-6 text-zinc-700 ${style}`}
+                className={`inline-flex items-center justify-center text-zinc-600 ${style}`}
               >
                 {name}
               </span>
