@@ -3,8 +3,6 @@ import { Link } from "react-router-dom";
 const BRAND_LINKS = [
   { label: "About Us", to: "/about" },
   { label: "Popup Stores", to: "/popup-offline-stores" },
-  { label: "New Arrivals", to: "/new-products" },
-  { label: "Blog", to: "/blog" },
 ];
 
 const POLICY_LINKS = [
