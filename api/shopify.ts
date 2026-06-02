@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // ─── OG Tag Generation ────────────────────────────────────────────────────────
-const OG_SITE_URL = 'https://biteme.one';
+const OG_SITE_URL = 'https://www.biteme.one';
 const OG_DEFAULT_IMAGE = `${OG_SITE_URL}/og-image.jpg`;
 const OG_BRAND = 'BITE ME';
 const OG_PRODUCT_CACHE_TTL_MS = 60 * 60 * 1000; // 1시간
@@ -232,10 +232,9 @@ async function handleOG(req: VercelRequest, res: VercelResponse): Promise<void> 
     }
 
     const title = productTitle ? `${productTitle} | ${OG_BRAND}` : `${OG_BRAND} | Premium K-Pet Lifestyle Product`;
-    const desc = productDesc || `Shop premium K-Pet products at BITE ME. Worldwide shipping.`;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
-    res.status(200).send(buildOGHtml(title, desc, productImage, `${OG_SITE_URL}${pathname}`, 'product'));
+    res.status(200).send(buildOGHtml(title, '', productImage, `${OG_SITE_URL}${pathname}`, 'product'));
     return;
   }
 
