@@ -21,6 +21,7 @@ function PayPalIcon() {
 const BRAND_LINKS = [
   { label: "About Us", to: "/about" },
   { label: "Popup Stores", to: "/popup-offline-stores" },
+  { label: "Blog", to: "/blog" },
 ];
 
 const POLICY_LINKS = [
