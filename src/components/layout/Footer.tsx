@@ -51,8 +51,8 @@ export function Footer() {
     <footer className="bg-zinc-100 text-foreground mt-auto">
 
       {/* Main nav section */}
-      <div className="w-full max-w-6xl mx-auto px-6 pt-10 pb-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+      <div className="max-w-2xl mx-auto px-4 pt-10 pb-8">
+        <div className="grid grid-cols-3 gap-8">
 
           {/* Brand column */}
           <div className="space-y-3">
@@ -74,7 +74,7 @@ export function Footer() {
       </div>
 
       {/* Company info section */}
-      <div className="w-full max-w-6xl mx-auto px-6 py-6 border-t border-border">
+      <div className="max-w-2xl mx-auto px-4 py-6 border-t border-border">
         <p className="text-sm font-semibold text-foreground mb-2">바잇미 (BITE ME)</p>
         <p className="text-xs text-muted-foreground leading-relaxed">
           Tel: +82 70-4888-6191{" "}
@@ -88,10 +88,10 @@ export function Footer() {
         </p>
       </div>
 
-      {/* Payment methods bar */}
+      {/* Payment methods + Copyright */}
       <div className="border-t border-border bg-zinc-200/50">
-        <div className="w-full max-w-6xl mx-auto px-6 py-4">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="max-w-2xl mx-auto px-4 py-4">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
             <span className="text-xs font-medium text-muted-foreground mr-2 shrink-0">Payment Method</span>
             {PAYMENT_METHODS.map(({ name, color, bg, italic, bold }) => (
               <span
@@ -108,12 +108,6 @@ export function Footer() {
               </span>
             ))}
           </div>
-        </div>
-      </div>
-
-      {/* Copyright */}
-      <div className="border-t border-border bg-zinc-200/50">
-        <div className="w-full max-w-6xl mx-auto px-6 py-3">
           <p className="text-xs text-muted-foreground">© 2026 BITE ME. All rights reserved.</p>
         </div>
       </div>
