@@ -54,11 +54,19 @@ export default function TermsOfUse() {
 
           <section>
             <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Payment</h2>
-            <ol className="list-decimal pl-5 space-y-2">
-              <li>Accepted payment methods include credit cards and other methods approved by the Company.</li>
-              <li>Payment processing is handled through Shopify's payment system.</li>
-              <li>Any disputes related to payment are subject to the terms of the relevant payment provider.</li>
-            </ol>
+            <p className="mb-3">We accept the following payment methods:</p>
+            <ul className="list-disc pl-5 space-y-2 mb-3">
+              <li>
+                <strong className="text-foreground">PayPal</strong> — Pay securely with your PayPal account or linked card.
+              </li>
+              <li>
+                <strong className="text-foreground">Eximbay (Global Payment Gateway)</strong> — Supports major international credit and debit cards including Visa, Mastercard, JCB, American Express, UnionPay, and Discover, as well as global digital wallets such as Grab Pay and LINE Pay.
+              </li>
+              <li>
+                <strong className="text-foreground">Bank Deposit</strong> — Direct bank transfer. Order details and account information will be provided upon checkout. Orders are processed once payment is confirmed.
+              </li>
+            </ul>
+            <p>All transactions are secure and encrypted. Any disputes related to payment are subject to the terms of the relevant payment provider.</p>
           </section>
 
           <section>
