@@ -806,7 +806,10 @@ export default function ProductDetail() {
 
       {/* SNS Share Modal */}
       {showShareModal && (() => {
-        const shareUrl = `https://www.biteme.one/product/${product.handle}`;
+        const isProduction = ['www.biteme.one', 'biteme.one'].includes(window.location.hostname);
+        const shareUrl = isProduction
+          ? `https://www.biteme.one/product/${product.handle}`
+          : window.location.href;
         return (
           <div
             className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
