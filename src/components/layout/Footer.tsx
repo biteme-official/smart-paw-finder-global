@@ -12,8 +12,8 @@ function MastercardIcon() {
 
 function PayPalIcon() {
   return (
-    <svg viewBox="0 0 60 22" className="h-4 w-auto" aria-label="PayPal">
-      <text x="1" y="15" fontSize="12" fontStyle="italic" fontWeight="700" fill="#444" fontFamily="Arial, sans-serif">PayPal</text>
+    <svg viewBox="0 0 40 16" className="h-4 w-auto" aria-label="PayPal">
+      <text x="1" y="13" fontSize="12" fontStyle="italic" fontWeight="700" fill="#444" fontFamily="Arial, sans-serif">PayPal</text>
     </svg>
   );
 }
@@ -105,7 +105,7 @@ export function Footer() {
       {/* Payment methods + Copyright */}
       <div className="border-t border-border bg-zinc-200/50">
         <div className="w-full max-w-6xl mx-auto px-6 py-4">
-          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+          <div className="flex flex-wrap items-center gap-2.5 mb-3">
             <span className="text-xs font-medium text-muted-foreground mr-2 shrink-0">Payment Method</span>
 
             {/* PayPal */}
