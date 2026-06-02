@@ -43,40 +43,6 @@ const TEXT_PAYMENT_METHODS = [
   { name: "Discover",  style: "font-semibold text-xs"                      },
 ];
 
-function InstagramIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-function TikTokIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
-      <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.78 1.52V6.76a4.85 4.85 0 01-1.01-.07z" />
-    </svg>
-  );
-}
-
-function YouTubeIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
-      <path d="M22.54 6.42a2.78 2.78 0 00-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 00-1.95 1.96A29 29 0 001 12a29 29 0 00.46 5.58 2.78 2.78 0 001.95 1.95C5.12 20 12 20 12 20s6.88 0 8.59-.47a2.78 2.78 0 001.95-1.95A29 29 0 0023 12a29 29 0 00-.46-5.58z" />
-      <polygon points="9.75,15.02 15.5,12 9.75,8.98" fill="white" />
-    </svg>
-  );
-}
-
-const SOCIAL_LINKS = [
-  { label: "Official",  icon: <InstagramIcon />, href: "https://www.instagram.com/biteme.co.kr/" },
-  { label: "Japan",     icon: <InstagramIcon />, href: "https://www.instagram.com/biteme_jp/"   },
-  { label: "Global",    icon: <InstagramIcon />, href: "https://www.instagram.com/biteme_global/" },
-  { label: "TikTok",   icon: <TikTokIcon />,    href: "https://www.tiktok.com/@biteme.co.kr"    },
-  { label: "YouTube",  icon: <YouTubeIcon />,   href: "https://www.youtube.com/@biteme.official" },
-];
 
 function NavColumn({ title, links }: { title: string; links: { label: string; to: string }[] }) {
   return (
@@ -119,28 +85,6 @@ export function Footer() {
 
           <NavColumn title="Terms & Policies" links={POLICY_LINKS} />
           <NavColumn title="Help" links={HELP_LINKS} />
-        </div>
-      </div>
-
-      {/* Social Media section */}
-      <div className="w-full max-w-6xl mx-auto px-6 py-6 border-t border-border">
-        <p className="text-xs font-semibold text-muted-foreground mb-0.5">Social Media</p>
-        <p className="text-xs text-muted-foreground mb-4">Check out more about our brand</p>
-        <div className="flex items-start gap-5">
-          {SOCIAL_LINKS.map(({ label, icon, href }) => (
-            <a
-              key={label}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex flex-col items-center gap-1.5 group"
-            >
-              <span className="w-10 h-10 rounded-full bg-zinc-400 group-hover:bg-zinc-500 transition-colors flex items-center justify-center text-white">
-                {icon}
-              </span>
-              <span className="text-xs text-muted-foreground">{label}</span>
-            </a>
-          ))}
         </div>
       </div>
 
