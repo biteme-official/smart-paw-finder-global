@@ -19,13 +19,14 @@ const HELP_LINKS = [
 ];
 
 const PAYMENT_METHODS = [
-  { name: "PayPal",     color: "text-[#003087]",  bg: "bg-white", italic: true  },
-  { name: "VISA",       color: "text-[#1A1F71]",  bg: "bg-white", bold: true    },
-  { name: "Mastercard", color: "text-[#EB001B]",  bg: "bg-white"                },
-  { name: "AMEX",       color: "text-[#007BC1]",  bg: "bg-white"                },
-  { name: "JCB",        color: "text-[#003087]",  bg: "bg-white"                },
-  { name: "UnionPay",   color: "text-[#E31837]",  bg: "bg-white"                },
-  { name: "Discover",   color: "text-[#FF6600]",  bg: "bg-white"                },
+  { name: "PayPal",       color: "text-[#003087]",  bg: "bg-white", italic: true  },
+  { name: "VISA",         color: "text-[#1A1F71]",  bg: "bg-white", bold: true    },
+  { name: "Mastercard",   color: "text-[#EB001B]",  bg: "bg-white"                },
+  { name: "AMEX",         color: "text-[#007BC1]",  bg: "bg-white"                },
+  { name: "JCB",          color: "text-[#003087]",  bg: "bg-white"                },
+  { name: "UnionPay",     color: "text-[#E31837]",  bg: "bg-white"                },
+  { name: "Discover",     color: "text-[#FF6600]",  bg: "bg-white"                },
+  { name: "Bank Deposit", color: "text-zinc-600",   bg: "bg-white"                },
 ];
 
 function NavColumn({ title, links }: { title: string; links: { label: string; to: string }[] }) {
