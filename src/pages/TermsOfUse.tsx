@@ -1,23 +1,13 @@
-import { ChevronLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import biteMeLogo from "@/assets/bite-me-logo.png";
 
 export default function TermsOfUse() {
   const navigate = useNavigate();
 
   return (
     <div className="bg-background min-h-screen flex flex-col">
-      <header className="sticky top-0 z-50 bg-background border-b border-border">
-        <div className="flex items-center gap-2 px-4 h-14">
-          <button onClick={() => navigate(-1)} className="p-1 text-foreground">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button onClick={() => navigate("/")} className="hover:opacity-80 transition-opacity">
-            <img src={biteMeLogo} alt="BITE ME" className="h-[17px]" />
-          </button>
-        </div>
-      </header>
+      <Header onSearch={(q) => navigate(q ? `/?q=${encodeURIComponent(q)}` : "/")} />
 
       <main className="max-w-6xl mx-auto px-6 py-8 flex-1">
         <h1 className="text-2xl font-bold mb-6">Terms of Use</h1>
