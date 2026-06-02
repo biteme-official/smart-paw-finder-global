@@ -23,7 +23,7 @@ export default function TermsOfUse() {
         <h1 className="text-2xl font-bold mb-6">Terms of Use</h1>
         <div className="prose prose-sm max-w-none text-muted-foreground space-y-6">
 
-          <p className="text-sm text-muted-foreground">Last updated: March 18, 2026</p>
+          <p className="text-sm text-muted-foreground">Last updated: June 2, 2026</p>
 
           <section>
             <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Applicability</h2>
@@ -64,19 +64,19 @@ export default function TermsOfUse() {
           <section>
             <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Shipping</h2>
             <ol className="list-decimal pl-5 space-y-2">
-              <li>Delivery times are typically 3–14 business days after order confirmation, depending on destination and stock availability.</li>
+              <li>International delivery takes approximately 7–21 business days after order confirmation, depending on destination and customs processing.</li>
               <li>The Company will take responsibility for lost or damaged items during shipping.</li>
             </ol>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Returns & Exchanges</h2>
-            <ol className="list-decimal pl-5 space-y-2">
-              <li>Returns and exchanges are accepted within 7 days of receipt for unused, unopened items.</li>
-              <li>Return shipping costs for customer-initiated returns are the customer's responsibility.</li>
-              <li>For defective or incorrectly shipped items, the Company will cover exchange or refund costs.</li>
-              <li>Please contact us before initiating a return or exchange.</li>
-            </ol>
+            <p>
+              We accept returns within 7 days of delivery for unused, unopened items in their original packaging.
+              No restocking fees are charged. For full details on the return process, eligible conditions, refund timelines,
+              and return address, please refer to our{" "}
+              <a href="/refund-policy" className="text-primary hover:underline">Shipping &amp; Returns Policy</a>.
+            </p>
           </section>
 
           <section>
