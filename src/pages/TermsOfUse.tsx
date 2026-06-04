@@ -1,29 +1,19 @@
-import { ChevronLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import biteMeLogo from "@/assets/bite-me-logo.png";
 
 export default function TermsOfUse() {
   const navigate = useNavigate();
 
   return (
     <div className="bg-background min-h-screen flex flex-col">
-      <header className="sticky top-0 z-50 bg-background border-b border-border">
-        <div className="flex items-center gap-2 px-4 h-14">
-          <button onClick={() => navigate(-1)} className="p-1 text-foreground">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button onClick={() => navigate("/")} className="hover:opacity-80 transition-opacity">
-            <img src={biteMeLogo} alt="BITE ME" className="h-[17px]" />
-          </button>
-        </div>
-      </header>
+      <Header onSearch={(q) => navigate(q ? `/?q=${encodeURIComponent(q)}` : "/")} />
 
-      <main className="max-w-2xl mx-auto px-4 py-8 flex-1">
+      <main className="max-w-6xl mx-auto px-6 py-8 flex-1">
         <h1 className="text-2xl font-bold mb-6">Terms of Use</h1>
         <div className="prose prose-sm max-w-none text-muted-foreground space-y-6">
 
-          <p className="text-sm text-muted-foreground">Last updated: March 18, 2026</p>
+          <p className="text-sm text-muted-foreground">Last updated: June 2, 2026</p>
 
           <section>
             <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Applicability</h2>
@@ -54,29 +44,19 @@ export default function TermsOfUse() {
 
           <section>
             <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Payment</h2>
-            <ol className="list-decimal pl-5 space-y-2">
-              <li>Accepted payment methods include credit cards and other methods approved by the Company.</li>
-              <li>Payment processing is handled through Shopify's payment system.</li>
-              <li>Any disputes related to payment are subject to the terms of the relevant payment provider.</li>
-            </ol>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Shipping</h2>
-            <ol className="list-decimal pl-5 space-y-2">
-              <li>Delivery times are typically 3–14 business days after order confirmation, depending on destination and stock availability.</li>
-              <li>The Company will take responsibility for lost or damaged items during shipping.</li>
-            </ol>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Returns & Exchanges</h2>
-            <ol className="list-decimal pl-5 space-y-2">
-              <li>Returns and exchanges are accepted within 7 days of receipt for unused, unopened items.</li>
-              <li>Return shipping costs for customer-initiated returns are the customer's responsibility.</li>
-              <li>For defective or incorrectly shipped items, the Company will cover exchange or refund costs.</li>
-              <li>Please contact us before initiating a return or exchange.</li>
-            </ol>
+            <p className="mb-3">We accept the following payment methods:</p>
+            <ul className="list-disc pl-5 space-y-2 mb-3">
+              <li>
+                <strong className="text-foreground">PayPal</strong> — Pay securely with your PayPal account or linked card.
+              </li>
+              <li>
+                <strong className="text-foreground">Eximbay (Global Payment Gateway)</strong> — Supports major international credit and debit cards including Visa, Mastercard, JCB, American Express, UnionPay, and Discover, as well as global digital wallets such as Grab Pay and LINE Pay.
+              </li>
+              <li>
+                <strong className="text-foreground">Bank Deposit</strong> — Direct bank transfer. Order details and account information will be provided upon checkout. Orders are processed once payment is confirmed.
+              </li>
+            </ul>
+            <p>All transactions are secure and encrypted. Any disputes related to payment are subject to the terms of the relevant payment provider.</p>
           </section>
 
           <section>

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Upload, FileText, X, Loader2, ArrowLeft, CheckCircle, Clock, XCircle, LogIn, UserPlus, FileUp, ShieldCheck, Tag, ShoppingBag } from 'lucide-react';
+import { Footer } from '@/components/layout/Footer';
 import { isLoggedIn as isCustomerLoggedIn, initiateLogin } from '@/lib/customer-auth';
 import { fetchCustomerAccount, type CustomerAccountProfile } from '@/lib/customer-account';
 import { toast } from 'sonner';
@@ -84,11 +85,12 @@ function LoginRequired() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main className="max-w-4xl mx-auto px-4 py-6 pb-24">
+      <main className="max-w-4xl mx-auto px-4 py-6 pb-24 flex-1">
         <HowToSteps />
       </main>
+      <Footer />
     </div>
   );
 }
@@ -103,9 +105,9 @@ function StatusCard({ status, rejectionReason }: { status: 'pending' | 'approved
   const Icon = config.icon;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main className="max-w-md mx-auto px-4 py-16 flex flex-col items-center text-center">
+      <main className="max-w-md mx-auto px-4 py-16 flex flex-col items-center text-center flex-1">
         <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${config.color}`}>
           <Icon className={`h-10 w-10 ${config.iconColor}`} />
         </div>
@@ -125,6 +127,7 @@ function StatusCard({ status, rejectionReason }: { status: 'pending' | 'approved
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to My Page
         </Button>
       </main>
+      <Footer />
     </div>
   );
 }
@@ -232,11 +235,12 @@ export default function B2BApply() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background flex flex-col">
         <Header />
-        <main className="max-w-md mx-auto px-4 py-16 flex justify-center">
+        <main className="max-w-md mx-auto px-4 py-16 flex justify-center flex-1">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </main>
+        <Footer />
       </div>
     );
   }
@@ -248,9 +252,9 @@ export default function B2BApply() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main className="max-w-4xl mx-auto px-4 py-6 pb-24">
+      <main className="max-w-4xl mx-auto px-4 py-6 pb-24 flex-1">
         <Button variant="ghost" onClick={() => navigate('/mypage')} className="mb-4 -ml-2 text-muted-foreground">
           <ArrowLeft className="h-4 w-4 mr-1" /> My Page
         </Button>
@@ -327,6 +331,7 @@ export default function B2BApply() {
 
         <HowToSteps />
       </main>
+      <Footer />
     </div>
   );
 }
