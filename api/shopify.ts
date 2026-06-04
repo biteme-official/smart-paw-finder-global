@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // ─── OG Tag Generation ────────────────────────────────────────────────────────
-const OG_SITE_URL = 'https://biteme.one';
+const OG_SITE_URL = 'https://www.biteme.one';
 const OG_DEFAULT_IMAGE = `${OG_SITE_URL}/og-image.jpg`;
 const OG_BRAND = 'BITE ME';
 const OG_PRODUCT_CACHE_TTL_MS = 60 * 60 * 1000; // 1시간
@@ -108,7 +108,18 @@ function ogEscape(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function buildOGHtml(title: string, description: string, image: string, url: string, type = 'website'): string {
+function resizeShopifyImage(url: string, size = 800): string {
+  try {
+    const u = new URL(url);
+    // Shopify CDN: replace existing size suffix and set _800x800 for predictable dimensions
+    u.pathname = u.pathname.replace(/(_\d+x\d*)?\.(jpe?g|png|gif|webp)$/i, `_${size}x${size}.$2`);
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+function buildOGHtml(title: string, description: string, image: string, url: string, type = 'website', twitterCard = 'summary_large_image', imgWidth = 1200, imgHeight = 630): string {
   const t = ogEscape(title), d = ogEscape(description), i = ogEscape(image), u = ogEscape(url);
   return `<!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"/>
@@ -121,13 +132,15 @@ function buildOGHtml(title: string, description: string, image: string, url: str
 <meta property="og:title" content="${t}"/>
 <meta property="og:description" content="${d}"/>
 <meta property="og:image" content="${i}"/>
-<meta property="og:image:width" content="1200"/>
-<meta property="og:image:height" content="630"/>
+<meta property="og:image:width" content="${imgWidth}"/>
+<meta property="og:image:height" content="${imgHeight}"/>
 <meta property="og:locale" content="en_US"/>
-<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:card" content="${twitterCard}"/>
 <meta name="twitter:title" content="${t}"/>
 <meta name="twitter:description" content="${d}"/>
 <meta name="twitter:image" content="${i}"/>
+<meta name="twitter:image:width" content="${imgWidth}"/>
+<meta name="twitter:image:height" content="${imgHeight}"/>
 </head><body></body></html>`;
 }
 
@@ -232,10 +245,10 @@ async function handleOG(req: VercelRequest, res: VercelResponse): Promise<void> 
     }
 
     const title = productTitle ? `${productTitle} | ${OG_BRAND}` : `${OG_BRAND} | Premium K-Pet Lifestyle Product`;
-    const desc = productDesc || `Shop premium K-Pet products at BITE ME. Worldwide shipping.`;
+    const finalImage = productImage !== OG_DEFAULT_IMAGE ? resizeShopifyImage(productImage) : productImage;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
-    res.status(200).send(buildOGHtml(title, desc, productImage, `${OG_SITE_URL}${pathname}`, 'product'));
+    res.status(200).send(buildOGHtml(title, '', finalImage, `${OG_SITE_URL}${pathname}`, 'product', 'summary', 800, 800));
     return;
   }
 
