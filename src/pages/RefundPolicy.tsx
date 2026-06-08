@@ -13,7 +13,7 @@ export default function RefundPolicy() {
         <h1 className="text-2xl font-bold mb-6">Shipping & Returns</h1>
         <div className="prose prose-sm max-w-none text-muted-foreground space-y-6">
 
-          <p className="text-sm text-muted-foreground">Last updated: June 2, 2026</p>
+          <p className="text-sm text-muted-foreground">Last updated: June 8, 2026</p>
 
           <section>
             <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Shipping</h2>
@@ -28,14 +28,14 @@ export default function RefundPolicy() {
           <section>
             <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Returns</h2>
             <ul className="list-disc pl-5 space-y-2">
-              <li>We accept returns within <strong className="text-foreground">7 days</strong> of delivery for items that are unused, unopened, and in their original packaging.</li>
+              <li>We accept returns within <strong className="text-foreground">14 days</strong> of the date you receive your package (based on the "Delivered" status of your tracking number) for items that are unused, unopened, and in their original packaging.</li>
               <li>To initiate a return, please contact us at <a href="mailto:mates@biteme.co.kr" className="text-primary hover:underline">mates@biteme.co.kr</a> before sending the item back.</li>
               <li>Return shipping costs for customer-initiated returns are the responsibility of the customer.</li>
               <li>We do not charge any restocking fees for returns.</li>
               <li>Items that have been used, damaged by the customer, or are missing original packaging are not eligible for return.</li>
               <li>
                 Please ship returns to our official business address:{" "}
-                <strong className="text-foreground">8F, 10 Teheran-ro 20-gil, Gangnam-gu, Seoul, Republic of Korea</strong>.
+                <strong className="text-foreground">8F, 10 Teheran-ro 20-gil, Gangnam-gu, Seoul, Republic of Korea (Zip: 06234)</strong>.
                 Do not send returns to any other address without prior confirmation from our team.
               </li>
             </ul>
@@ -55,8 +55,9 @@ export default function RefundPolicy() {
           <section>
             <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">Defective or Incorrect Items</h2>
             <p>
-              If you receive a defective or incorrectly shipped item, please contact us within 7 days of delivery.
-              We will cover all costs for exchange or refund in such cases.
+              If you receive a defective, damaged, or incorrectly shipped item, please contact us within 14 days of delivery (receipt).
+              Please provide your order number along with photos or videos of the issue.
+              We will cover all international shipping costs for exchange or refund in such cases.
             </p>
           </section>
 
