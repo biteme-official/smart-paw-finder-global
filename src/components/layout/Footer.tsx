@@ -92,6 +92,13 @@ export function Footer() {
       <div className="w-full max-w-6xl mx-auto px-6 py-6 border-t border-border">
         <p className="text-sm font-semibold text-foreground mb-2">BITE ME</p>
         <p className="text-xs text-muted-foreground leading-relaxed">
+          CEO: Jaeeun Kwak{" "}
+          <span className="mx-1 text-zinc-300">|</span>
+          Business Registration No.: 210-87-00613{" "}
+          <span className="mx-1 text-zinc-300">|</span>
+          Mail-order Business Report No.: 2019-SeoulGangnam-05372
+        </p>
+        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
           Tel: +82 70-4888-6191{" "}
           <span className="mx-1 text-zinc-300">|</span>
           E-mail: mates@biteme.co.kr{" "}
