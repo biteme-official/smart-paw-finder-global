@@ -41,6 +41,7 @@ const TEXT_PAYMENT_METHODS = [
   { name: "JCB",       style: "font-bold text-xs"                          },
   { name: "UnionPay",  style: "font-semibold text-xs"                      },
   { name: "Discover",  style: "font-semibold text-xs"                      },
+  { name: "Bank Transfer", style: "font-semibold text-xs"                  },
 ];
 
 
