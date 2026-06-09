@@ -1,15 +1,14 @@
 // GA4 Enhanced Ecommerce Event Tracking
 // https://developers.google.com/analytics/devguides/collection/ga4/ecommerce
 
-declare global {
-  interface Window {
-    gtag?: ((...args: unknown[]) => void) & ((command: 'get', targetId: string, fieldName: string, callback: (value: string) => void) => void);
-  }
-}
+// Window.gtag is declared in ga4-pageview.ts — no duplicate declare global here
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type GtagFn = (...args: any[]) => void;
 
 function gtag(...args: unknown[]) {
-  if (typeof window !== 'undefined' && window.gtag) {
-    window.gtag(...args);
+  if (typeof window !== 'undefined' && (window as { gtag?: GtagFn }).gtag) {
+    (window as { gtag?: GtagFn }).gtag!(...args);
   }
 }
 
@@ -113,13 +112,11 @@ export function trackPurchase(
 // Get GA4 cross-domain linker param (_gl) via gtag API
 export function getGA4LinkerParam(): Promise<string | null> {
   return new Promise((resolve) => {
-    if (typeof window === 'undefined' || !window.gtag) {
-      resolve(null);
-      return;
-    }
+    const g = typeof window !== 'undefined' ? (window as { gtag?: GtagFn }).gtag : undefined;
+    if (!g) { resolve(null); return; }
     const timer = setTimeout(() => resolve(null), 500);
     try {
-      window.gtag('get', 'G-H7171JQ75N', 'linker', (linkerParam: unknown) => {
+      g('get', 'G-H7171JQ75N', 'linker', (linkerParam: unknown) => {
         clearTimeout(timer);
         resolve(typeof linkerParam === 'string' && linkerParam ? linkerParam : null);
       });
@@ -133,13 +130,11 @@ export function getGA4LinkerParam(): Promise<string | null> {
 // Get GA4 client_id via gtag API
 export function getGA4ClientId(): Promise<string | null> {
   return new Promise((resolve) => {
-    if (typeof window === 'undefined' || !window.gtag) {
-      resolve(_ga4ClientIdFromCookie());
-      return;
-    }
+    const g = typeof window !== 'undefined' ? (window as { gtag?: GtagFn }).gtag : undefined;
+    if (!g) { resolve(_ga4ClientIdFromCookie()); return; }
     const timer = setTimeout(() => resolve(_ga4ClientIdFromCookie()), 2000);
     try {
-      window.gtag('get', 'G-H7171JQ75N', 'client_id', (clientId: unknown) => {
+      g('get', 'G-H7171JQ75N', 'client_id', (clientId: unknown) => {
         clearTimeout(timer);
         resolve(typeof clientId === 'string' && clientId ? clientId : _ga4ClientIdFromCookie());
       });
@@ -153,10 +148,11 @@ export function getGA4ClientId(): Promise<string | null> {
 // Get GA4 session_id via gtag API
 export function getGA4SessionId(): Promise<string | null> {
   return new Promise((resolve) => {
-    if (typeof window === 'undefined' || !window.gtag) { resolve(null); return; }
+    const g = typeof window !== 'undefined' ? (window as { gtag?: GtagFn }).gtag : undefined;
+    if (!g) { resolve(null); return; }
     const timer = setTimeout(() => resolve(null), 2000);
     try {
-      window.gtag('get', 'G-H7171JQ75N', 'session_id', (sessionId: unknown) => {
+      g('get', 'G-H7171JQ75N', 'session_id', (sessionId: unknown) => {
         clearTimeout(timer);
         resolve(typeof sessionId === 'string' && sessionId ? sessionId : null);
       });
