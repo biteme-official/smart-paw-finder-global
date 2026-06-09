@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/api/admin-manage", "destination": "/api/admin-manage" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
