@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createClient } from '@supabase/supabase-js';
 
 const ALLOWED_ORIGINS = [
   'https://biteme.one',
@@ -31,21 +30,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'session_id required' });
   }
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  const { error } = await supabase.from('events').insert({
-    event_type,
-    session_id,
-    properties: typeof properties === 'object' && properties !== null ? properties : {},
-    page_path: page_path ?? null,
-    referrer: referrer ?? null,
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('[track-event] Missing Supabase env vars');
+    return res.status(500).json({ error: 'Server misconfigured' });
+  }
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/events`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': supabaseKey,
+      'Authorization': `Bearer ${supabaseKey}`,
+      'Prefer': 'return=minimal',
+    },
+    body: JSON.stringify({
+      event_type,
+      session_id,
+      properties: typeof properties === 'object' && properties !== null ? properties : {},
+      page_path: page_path ?? null,
+      referrer: referrer ?? null,
+    }),
   });
 
-  if (error) {
-    console.error('[track-event]', error);
+  if (!response.ok) {
+    const err = await response.text();
+    console.error('[track-event]', err);
     return res.status(500).json({ error: 'Failed to track' });
   }
 
