@@ -16,9 +16,9 @@ async function getShopifyAccessToken(): Promise<string> {
   if (shopifyToken && now < shopifyTokenExpiresAt - 5 * 60 * 1000) return shopifyToken;
 
   const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN || '';
-  const clientId = process.env.REPORT_SHOPIFY_CLIENT_ID;
-  const clientSecret = process.env.REPORT_SHOPIFY_CLIENT_SECRET;
-  if (!clientId || !clientSecret) throw new Error('Missing REPORT_SHOPIFY credentials');
+  const clientId = process.env.REPORT_SHOPIFY_CLIENT_ID || process.env.VITE_SHOPIFY_CLIENT_ID;
+  const clientSecret = process.env.REPORT_SHOPIFY_CLIENT_SECRET || process.env.SHOPIFY_CLIENT_SECRET;
+  if (!clientId || !clientSecret) throw new Error('Missing Shopify credentials');
 
   const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
     method: 'POST',
