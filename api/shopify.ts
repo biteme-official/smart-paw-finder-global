@@ -108,8 +108,10 @@ function ogEscape(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function buildOGImageUrl(shopifyImageUrl: string): string {
-  return `${OG_SITE_URL}/api/og-image?image=${encodeURIComponent(shopifyImageUrl)}`;
+function buildOGImageUrl(shopifyImageUrl: string, req: VercelRequest): string {
+  const proto = (req.headers['x-forwarded-proto'] as string) || 'https';
+  const host = (req.headers.host as string) || 'www.biteme.one';
+  return `${proto}://${host}/api/og-image?image=${encodeURIComponent(shopifyImageUrl)}`;
 }
 
 function buildOGHtml(title: string, description: string, image: string, url: string, type = 'website', twitterCard = 'summary_large_image', imgWidth = 1200, imgHeight = 630): string {
@@ -238,7 +240,7 @@ async function handleOG(req: VercelRequest, res: VercelResponse): Promise<void> 
     }
 
     const title = productTitle ? `${productTitle} | ${OG_BRAND}` : `${OG_BRAND} | Premium K-Pet Lifestyle Product`;
-    const finalImage = productImage !== OG_DEFAULT_IMAGE ? buildOGImageUrl(productImage) : productImage;
+    const finalImage = productImage !== OG_DEFAULT_IMAGE ? buildOGImageUrl(productImage, req) : productImage;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
     res.status(200).send(buildOGHtml(title, productDesc, finalImage, `${OG_SITE_URL}${pathname}`, 'product', 'summary_large_image', 1200, 630));
