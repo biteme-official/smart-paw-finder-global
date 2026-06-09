@@ -72,6 +72,7 @@
     { "source": "/api/b2b-update-country", "destination": "/api/b2b?action=update-country" },
     { "source": "/api/instagram-reels", "destination": "/api/instagram-reels" },
     { "source": "/api/analytics", "destination": "/api/analytics" },
+    { "source": "/api/admin-manage", "destination": "/api/admin-manage" },
     { "source": "/api/shopify-analytics", "destination": "/api/analytics?type=shopify" },
     { "source": "/api/customer-analytics", "destination": "/api/analytics?type=customer" },
     {

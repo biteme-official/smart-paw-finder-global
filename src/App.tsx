@@ -22,6 +22,7 @@ import GuestOrderLookup from "./pages/GuestOrderLookup";
 import B2BApply from "./pages/B2BApply";
 import B2BAdmin from "./pages/B2BAdmin";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminManage from "./pages/AdminManage";
 import DiscountRedirect from "./pages/DiscountRedirect";
 import PopupOffline from "./pages/PopupOffline";
 import BlogList from "./pages/BlogList";
@@ -78,6 +79,7 @@ const App = () => (
           <Route path="/mypage/b2b-apply" element={<B2BApply />} />
           <Route path="/manage/b2b" element={<B2BAdmin />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/manage" element={<AdminManage />} />
           <Route path="/popup-offline-stores" element={<PopupOffline />} />
           <Route path="/blog" element={<BlogList />} />
           <Route path="/blog/:slug" element={<BlogPost />} />
