@@ -248,7 +248,7 @@ async function handleOG(req: VercelRequest, res: VercelResponse): Promise<void> 
     const finalImage = productImage !== OG_DEFAULT_IMAGE ? resizeShopifyImage(productImage) : productImage;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
-    res.status(200).send(buildOGHtml(title, '', finalImage, `${OG_SITE_URL}${pathname}`, 'product', 'summary', 800, 800));
+    res.status(200).send(buildOGHtml(title, productDesc, finalImage, `${OG_SITE_URL}${pathname}`, 'product', 'summary_large_image', 800, 800));
     return;
   }
 
