@@ -108,15 +108,8 @@ function ogEscape(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function resizeShopifyImage(url: string, size = 800): string {
-  try {
-    const u = new URL(url);
-    // Shopify CDN: replace existing size suffix and set _800x800 for predictable dimensions
-    u.pathname = u.pathname.replace(/(_\d+x\d*)?\.(jpe?g|png|gif|webp)$/i, `_${size}x${size}.$2`);
-    return u.toString();
-  } catch {
-    return url;
-  }
+function buildOGImageUrl(shopifyImageUrl: string): string {
+  return `${OG_SITE_URL}/api/og-image?image=${encodeURIComponent(shopifyImageUrl)}`;
 }
 
 function buildOGHtml(title: string, description: string, image: string, url: string, type = 'website', twitterCard = 'summary_large_image', imgWidth = 1200, imgHeight = 630): string {
@@ -245,10 +238,10 @@ async function handleOG(req: VercelRequest, res: VercelResponse): Promise<void> 
     }
 
     const title = productTitle ? `${productTitle} | ${OG_BRAND}` : `${OG_BRAND} | Premium K-Pet Lifestyle Product`;
-    const finalImage = productImage !== OG_DEFAULT_IMAGE ? resizeShopifyImage(productImage) : productImage;
+    const finalImage = productImage !== OG_DEFAULT_IMAGE ? buildOGImageUrl(productImage) : productImage;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
-    res.status(200).send(buildOGHtml(title, '', finalImage, `${OG_SITE_URL}${pathname}`, 'product', 'summary', 800, 800));
+    res.status(200).send(buildOGHtml(title, productDesc, finalImage, `${OG_SITE_URL}${pathname}`, 'product', 'summary_large_image', 1200, 630));
     return;
   }
 
