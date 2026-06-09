@@ -1,8 +1,5 @@
 // GA4 SPA page_view tracker
-// GA4's automatic page_view only fires on initial full page load.
-// For SPA route changes, we must manually send page_view events
-// so that every subsequent event inherits the correct page context
-// and user source/medium attribution is preserved.
+// index.html sets send_page_view: false, so this is the single source of truth.
 
 declare global {
   interface Window {
@@ -12,20 +9,39 @@ declare global {
 
 let lastTrackedPath = '';
 
+function getStoredUtmParams(): Record<string, string> {
+  try {
+    const raw = sessionStorage.getItem('_bm_utm');
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Send a GA4 page_view event for SPA route changes.
- * Should be called on every route change BEFORE any other GA4 events.
+ * Called on every route change including the initial load.
  */
 export function trackPageView(path: string, title?: string) {
-  // Deduplicate: don't fire if same path (e.g. re-renders)
   if (path === lastTrackedPath) return;
   lastTrackedPath = path;
 
-  if (typeof window !== 'undefined' && window.gtag) {
-    window.gtag('event', 'page_view', {
-      page_path: path,
-      page_location: window.location.origin + path,
-      page_title: title || document.title,
-    });
-  }
+  if (typeof window === 'undefined' || !window.gtag) return;
+
+  const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const hasLiveUtm = ['utm_source', 'gclid'].some(k => params.get(k));
+
+  const storedUtm = !hasLiveUtm ? getStoredUtmParams() : {};
+
+  const pageLocation = hasLiveUtm
+    ? window.location.href
+    : window.location.origin + path;
+
+  window.gtag('event', 'page_view', {
+    page_path: path,
+    page_location: pageLocation,
+    page_title: title || document.title,
+    page_referrer: document.referrer || undefined,
+    ...storedUtm,
+  });
 }

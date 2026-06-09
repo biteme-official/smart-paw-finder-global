@@ -3,7 +3,7 @@
 
 declare global {
   interface Window {
-    gtag?: (...args: unknown[]) => void;
+    gtag?: ((...args: unknown[]) => void) & ((command: 'get', targetId: string, fieldName: string, callback: (value: string) => void) => void);
   }
 }
 
@@ -108,6 +108,69 @@ export function trackPurchase(
     shipping,
     items,
   });
+}
+
+// Get GA4 cross-domain linker param (_gl) via gtag API
+export function getGA4LinkerParam(): Promise<string | null> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !window.gtag) {
+      resolve(null);
+      return;
+    }
+    const timer = setTimeout(() => resolve(null), 500);
+    try {
+      window.gtag('get', 'G-H7171JQ75N', 'linker', (linkerParam: unknown) => {
+        clearTimeout(timer);
+        resolve(typeof linkerParam === 'string' && linkerParam ? linkerParam : null);
+      });
+    } catch {
+      clearTimeout(timer);
+      resolve(null);
+    }
+  });
+}
+
+// Get GA4 client_id via gtag API
+export function getGA4ClientId(): Promise<string | null> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !window.gtag) {
+      resolve(_ga4ClientIdFromCookie());
+      return;
+    }
+    const timer = setTimeout(() => resolve(_ga4ClientIdFromCookie()), 2000);
+    try {
+      window.gtag('get', 'G-H7171JQ75N', 'client_id', (clientId: unknown) => {
+        clearTimeout(timer);
+        resolve(typeof clientId === 'string' && clientId ? clientId : _ga4ClientIdFromCookie());
+      });
+    } catch {
+      clearTimeout(timer);
+      resolve(_ga4ClientIdFromCookie());
+    }
+  });
+}
+
+// Get GA4 session_id via gtag API
+export function getGA4SessionId(): Promise<string | null> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !window.gtag) { resolve(null); return; }
+    const timer = setTimeout(() => resolve(null), 2000);
+    try {
+      window.gtag('get', 'G-H7171JQ75N', 'session_id', (sessionId: unknown) => {
+        clearTimeout(timer);
+        resolve(typeof sessionId === 'string' && sessionId ? sessionId : null);
+      });
+    } catch {
+      clearTimeout(timer);
+      resolve(null);
+    }
+  });
+}
+
+function _ga4ClientIdFromCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+  const m = document.cookie.match(/_ga=GA\d+\.\d+\.(\d+\.\d+)/);
+  return m?.[1] ?? null;
 }
 
 // Helper: convert Shopify product node to GA4 item
