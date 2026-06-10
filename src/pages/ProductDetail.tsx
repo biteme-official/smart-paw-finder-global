@@ -351,20 +351,25 @@ export default function ProductDetail() {
       selectedOptions: variant.selectedOptions,
     });
 
-    // Meta Pixel: AddToCart (trackAddToCart 보다 먼저 — 예외 발생 시에도 보장)
-    const fbq = (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
-    if (fbq) {
-      fbq('track', 'AddToCart', {
+    // Meta Pixel: AddToCart
+    console.log('[BM] handleAddToCart: fbq type =', typeof window.fbq, '/ fbq =', window.fbq);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const _fbq = (window as any).fbq;
+    if (typeof _fbq === 'function') {
+      _fbq('track', 'AddToCart', {
         value: parseFloat(variant.price.amount) * quantity,
         currency: variant.price.currencyCode,
         content_ids: [variant.id],
         content_type: 'product',
         contents: [{ id: variant.id, quantity }],
       });
+      console.log('[BM] AddToCart fbq fired OK');
+    } else {
+      console.warn('[BM] window.fbq is not a function — AddToCart skipped');
     }
 
     // GA4: add_to_cart event
-    try { trackAddToCart(shopifyToGA4Item(product, variant, quantity)); } catch { /* non-fatal */ }
+    try { trackAddToCart(shopifyToGA4Item(product, variant, quantity)); } catch (_e) { console.warn('[BM] GA4 add_to_cart error:', _e); }
 
     toast.success(t('product.addedToCart'), {
       description: `${product.title} x ${quantity}`,
