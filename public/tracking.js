@@ -66,6 +66,8 @@ var shopifyReferrer = document.referrer && (
   }
 })();
 
+var isProduction = window.location.hostname === 'biteme.one' || window.location.hostname === 'www.biteme.one';
+
 var ga4Config = {
   'send_page_view': false,
   'page_location': window.location.href,
@@ -77,6 +79,10 @@ var ga4Config = {
     'accept_incoming': true
   }
 };
+
+if (!isProduction) {
+  ga4Config.debug_mode = true;
+}
 
 if (shopifyReferrer) {
   ga4Config.ignore_referrer = true;

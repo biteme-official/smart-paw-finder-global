@@ -186,11 +186,11 @@ export function shopifyToGA4Item(
   return {
     item_id: product.id,
     item_name: product.title,
-    item_brand: product.vendor,
-    item_category: product.productType,
-    item_variant: variant?.title !== 'Default Title' ? variant?.title : undefined,
+    item_brand: product.vendor || undefined,
+    item_category: product.productType || undefined,
+    item_variant: variant?.title && variant.title !== 'Default Title' ? variant.title : undefined,
     price: variant?.price ? parseFloat(variant.price.amount) : undefined,
-    currency: variant?.price?.currencyCode,
+    // currency는 event-level 파라미터 — item 레벨에서 제외
     quantity: quantity || 1,
   };
 }

@@ -352,7 +352,6 @@ export default function ProductDetail() {
     });
 
     // Meta Pixel: AddToCart
-    console.log('[BM] handleAddToCart: fbq type =', typeof window.fbq, '/ fbq =', window.fbq);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const _fbq = (window as any).fbq;
     if (typeof _fbq === 'function') {
@@ -363,13 +362,10 @@ export default function ProductDetail() {
         content_type: 'product',
         contents: [{ id: variant.id, quantity }],
       });
-      console.log('[BM] AddToCart fbq fired OK');
-    } else {
-      console.warn('[BM] window.fbq is not a function — AddToCart skipped');
     }
 
     // GA4: add_to_cart event
-    try { trackAddToCart(shopifyToGA4Item(product, variant, quantity)); } catch (_e) { console.warn('[BM] GA4 add_to_cart error:', _e); }
+    try { trackAddToCart(shopifyToGA4Item(product, variant, quantity)); } catch { /* non-fatal */ }
 
     toast.success(t('product.addedToCart'), {
       description: `${product.title} x ${quantity}`,
