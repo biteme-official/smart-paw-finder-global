@@ -351,10 +351,7 @@ export default function ProductDetail() {
       selectedOptions: variant.selectedOptions,
     });
 
-    // GA4: add_to_cart event
-    trackAddToCart(shopifyToGA4Item(product, variant, quantity));
-
-    // Meta Pixel: AddToCart
+    // Meta Pixel: AddToCart (trackAddToCart 보다 먼저 — 예외 발생 시에도 보장)
     const fbq = (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
     if (fbq) {
       fbq('track', 'AddToCart', {
@@ -365,6 +362,9 @@ export default function ProductDetail() {
         contents: [{ id: variant.id, quantity }],
       });
     }
+
+    // GA4: add_to_cart event
+    try { trackAddToCart(shopifyToGA4Item(product, variant, quantity)); } catch { /* non-fatal */ }
 
     toast.success(t('product.addedToCart'), {
       description: `${product.title} x ${quantity}`,
