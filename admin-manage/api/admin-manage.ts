@@ -166,9 +166,11 @@ const RECENT_CUSTOMERS_QUERY = `
   }
 `;
 
+// Supports pagination via $cursor
 const DASHBOARD_ORDERS_QUERY = `
-  query DashboardOrders($query: String!) {
-    orders(first: 250, query: $query, sortKey: CREATED_AT) {
+  query DashboardOrders($query: String!, $cursor: String) {
+    orders(first: 250, query: $query, after: $cursor, sortKey: CREATED_AT) {
+      pageInfo { hasNextPage endCursor }
       edges {
         node {
           createdAt
@@ -227,7 +229,7 @@ async function handleOverview(token: string, res: VercelResponse) {
         edges { node { totalPriceSet { shopMoney { amount } } } }
       }
       week: orders(first: 250, query: $weekQuery) {
-        edges { node { totalPriceSet { shopMoney { amount } } createdAt } }
+        edges { node { totalPriceSet { shopMoney { amount } } } createdAt } }
       }
     }
   `;
@@ -415,26 +417,45 @@ async function handleCustomers(token: string, req: VercelRequest, res: VercelRes
 }
 
 async function handleDashboard(token: string, req: VercelRequest, res: VercelResponse) {
+  // Support custom startDate (YYYY-MM-DD) for full history, or range shorthand
+  const customStartDate = req.query.startDate as string | undefined;
   const range = (req.query.range as string) || '7d';
-  const now = new Date();
-  const days = range === 'today' ? 0 : range === '7d' ? 7 : range === '28d' ? 28 : 90;
-  const startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days));
 
-  const [ordersData, lowStockData] = await Promise.all([
-    adminGraphQL(token, DASHBOARD_ORDERS_QUERY, {
-      query: `created_at:>='${startDate.toISOString()}' financial_status:paid`,
-    }),
-    adminGraphQL(token, LOW_STOCK_PRODUCTS_QUERY),
-  ]);
+  let startDate: Date;
+  if (customStartDate) {
+    startDate = new Date(customStartDate + 'T00:00:00.000Z');
+  } else {
+    const now = new Date();
+    const days = range === 'today' ? 0 : range === '7d' ? 7 : range === '28d' ? 28 : 90;
+    startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days));
+  }
 
+  const queryFilter = `created_at:>='${startDate.toISOString()}' financial_status:paid`;
+
+  // Kick off low-stock fetch in parallel with first orders page
+  const lowStockPromise = adminGraphQL(token, LOW_STOCK_PRODUCTS_QUERY);
+
+  // Paginate through all orders (Shopify max 250 per page)
   interface OrderNode {
     createdAt: string;
     totalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
     customer: { tags: string[] } | null;
     lineItems: { edges: { node: { title: string; quantity: number; originalTotalSet: { shopMoney: { amount: string } } } }[] };
   }
+  type OrderEdge = { node: OrderNode };
 
-  const edges = ordersData.data?.orders?.edges || [];
+  const allEdges: OrderEdge[] = [];
+  let cursor: string | null = null;
+  do {
+    const data = await adminGraphQL(token, DASHBOARD_ORDERS_QUERY, { query: queryFilter, cursor });
+    const orders = data.data?.orders;
+    allEdges.push(...(orders?.edges || []));
+    const pageInfo = orders?.pageInfo;
+    cursor = pageInfo?.hasNextPage ? (pageInfo.endCursor ?? null) : null;
+  } while (cursor);
+
+  const lowStockData = await lowStockPromise;
+
   let totalRevenue = 0;
   let totalOrders = 0;
   let totalItemsSold = 0;
@@ -447,8 +468,8 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
   const dailyMap = new Map<string, { date: string; orders: number; revenue: number }>();
   const productMap = new Map<string, { title: string; quantity: number; revenue: number }>();
 
-  for (const edge of edges) {
-    const n = edge.node as OrderNode;
+  for (const edge of allEdges) {
+    const n = edge.node;
     const amount = parseFloat(n.totalPriceSet.shopMoney.amount);
     currency = n.totalPriceSet.shopMoney.currencyCode || currency;
     totalRevenue += amount;
@@ -475,8 +496,13 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
   }
 
   const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-  const dailyOrders = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
-  const topProducts = Array.from(productMap.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
+  const dailyOrders = Array.from(dailyMap.values())
+    .map(d => ({ ...d, revenue: Math.round(d.revenue * 100) / 100 }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const topProducts = Array.from(productMap.values())
+    .map(p => ({ ...p, revenue: Math.round(p.revenue * 100) / 100 }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 10);
 
   interface ProductNode {
     title: string;
