@@ -42,7 +42,7 @@ export function trackViewItem(item: GA4Item) {
   gtag('event', 'view_item', {
     currency: item.currency || 'USD',
     value: item.price || 0,
-    items: [item],
+    items: [{ item_id: item.item_id, item_name: item.item_name, item_category: item.item_category, item_variant: item.item_variant, price: item.price, quantity: item.quantity }],
   });
 }
 
@@ -51,7 +51,7 @@ export function trackAddToCart(item: GA4Item) {
   gtag('event', 'add_to_cart', {
     currency: item.currency || 'USD',
     value: (item.price || 0) * (item.quantity || 1),
-    items: [item],
+    items: [{ item_id: item.item_id, item_name: item.item_name, item_category: item.item_category, item_variant: item.item_variant, price: item.price, quantity: item.quantity }],
   });
 }
 
@@ -60,7 +60,33 @@ export function trackRemoveFromCart(item: GA4Item) {
   gtag('event', 'remove_from_cart', {
     currency: item.currency || 'USD',
     value: (item.price || 0) * (item.quantity || 1),
-    items: [item],
+    items: [{ item_id: item.item_id, item_name: item.item_name, item_category: item.item_category, item_variant: item.item_variant, price: item.price, quantity: item.quantity }],
+  });
+}
+
+// add_shipping_info
+export function trackAddShippingInfo(
+  items: GA4Item[],
+  currency: string,
+  value: number
+) {
+  gtag('event', 'add_shipping_info', {
+    currency,
+    value,
+    items: items.map(i => ({ item_id: i.item_id, item_name: i.item_name, item_category: i.item_category, item_variant: i.item_variant, price: i.price, quantity: i.quantity })),
+  });
+}
+
+// add_payment_info
+export function trackAddPaymentInfo(
+  items: GA4Item[],
+  currency: string,
+  value: number
+) {
+  gtag('event', 'add_payment_info', {
+    currency,
+    value,
+    items: items.map(i => ({ item_id: i.item_id, item_name: i.item_name, item_category: i.item_category, item_variant: i.item_variant, price: i.price, quantity: i.quantity })),
   });
 }
 
@@ -105,7 +131,7 @@ export function trackPurchase(
     currency,
     value,
     shipping,
-    items,
+    items: items.map(i => ({ item_id: i.item_id, item_name: i.item_name, item_category: i.item_category, item_variant: i.item_variant, price: i.price, quantity: i.quantity })),
   });
 }
 
@@ -190,7 +216,7 @@ export function shopifyToGA4Item(
     item_category: product.productType || undefined,
     item_variant: variant?.title && variant.title !== 'Default Title' ? variant.title : undefined,
     price: variant?.price ? parseFloat(variant.price.amount) : undefined,
-    // currency는 event-level 파라미터 — item 레벨에서 제외
+    currency: variant?.price?.currencyCode,
     quantity: quantity || 1,
   };
 }

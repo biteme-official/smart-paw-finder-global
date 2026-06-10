@@ -296,7 +296,14 @@ export const CartDrawer = ({ open: controlledOpen, onOpenChange, showTrigger = t
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6"
-                          onClick={() => removeItem(item.variantId)}
+                          onClick={() => {
+                            trackRemoveFromCart(shopifyToGA4Item(
+                              item.product.node,
+                              { title: item.variantTitle, price: item.price },
+                              item.quantity
+                            ));
+                            removeItem(item.variantId);
+                          }}
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>

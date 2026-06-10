@@ -8,6 +8,7 @@ import { formatPrice } from '@/lib/shopify';
 import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
 import { fetchCustomerAccount } from '@/lib/customer-account';
 import { toast } from 'sonner';
+import { trackAddShippingInfo, trackAddPaymentInfo, shopifyToGA4Item } from '@/lib/ga4-ecommerce';
 
 const B2B_MIN_ORDER = 300;
 const SHIPPING_THRESHOLD = 75;
@@ -82,7 +83,19 @@ export default function Checkout() {
       }));
       const checkoutUrl = await createCheckout(lineItems);
       if (checkoutUrl) {
-        // Meta Pixel: AddPaymentInfo (결제 페이지로 이동 직전)
+        const ga4Items = items.map(item => shopifyToGA4Item(
+          item.product.node,
+          { title: item.variantTitle, price: item.price },
+          item.quantity
+        ));
+
+        // GA4: add_shipping_info (Shopify 외부 결제로 이동 직전 — 앱 내 배송 단계 없음)
+        try { trackAddShippingInfo(ga4Items, currencyCode, total); } catch { /* non-fatal */ }
+
+        // GA4: add_payment_info
+        try { trackAddPaymentInfo(ga4Items, currencyCode, total); } catch { /* non-fatal */ }
+
+        // Meta Pixel: AddPaymentInfo
         const fbq = (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
         if (fbq) {
           fbq('track', 'AddPaymentInfo', {

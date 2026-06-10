@@ -6,6 +6,7 @@ import { CheckCircle, Home } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Confetti } from "@/components/checkout/Confetti";
+import { trackPurchase, shopifyToGA4Item } from "@/lib/ga4-ecommerce";
 
 export default function CheckoutReturn() {
   const navigate = useNavigate();
@@ -13,19 +14,38 @@ export default function CheckoutReturn() {
   const clearCart = useCartStore(state => state.clearCart);
 
   useEffect(() => {
-    // Meta Pixel: Purchase (카트 클리어 전에 구매 데이터 읽기)
+    // clearCart 전에 cart 상태 읽기 (클리어 후에는 데이터 없음)
     const cartItems = useCartStore.getState().items;
+    if (cartItems.length === 0) {
+      clearCart();
+      localStorage.removeItem('affiliate_discount');
+      return;
+    }
+
+    const currency = cartItems[0]?.price.currencyCode ?? 'USD';
+    const value = cartItems.reduce((sum, item) => sum + parseFloat(item.price.amount) * item.quantity, 0);
+    const transactionId = `order_${Date.now()}`;
+
+    // GA4: purchase
+    const ga4Items = cartItems.map(item => shopifyToGA4Item(
+      item.product.node,
+      { title: item.variantTitle, price: item.price },
+      item.quantity
+    ));
+    try { trackPurchase(transactionId, ga4Items, currency, value); } catch { /* non-fatal */ }
+
+    // Meta Pixel: Purchase
     const fbq = (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
-    if (fbq && cartItems.length > 0) {
-      const value = cartItems.reduce((sum, item) => sum + parseFloat(item.price.amount) * item.quantity, 0);
+    if (fbq) {
       fbq('track', 'Purchase', {
         value,
-        currency: cartItems[0]?.price.currencyCode ?? 'USD',
+        currency,
         content_ids: cartItems.map(i => i.variantId),
         content_type: 'product',
         num_items: cartItems.reduce((n, i) => n + i.quantity, 0),
       });
     }
+
     clearCart();
     localStorage.removeItem('affiliate_discount');
   }, [clearCart]);
