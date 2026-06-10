@@ -494,7 +494,7 @@ async function handleCustomer(req: VercelRequest, res: VercelResponse) {
   }
 
   const token = await getShopifyAccessToken();
-  if (token === 'unconfigured') return res.status(200).json(EMPTY_SHOPIFY);
+  if (token === 'unconfigured') return res.status(200).json({ totalCustomers: 0, newCustomersCount: 0, repeatCustomers: 0, repeatRate: 0, segments: { noOrders: 0, oneOrder: 0, twoThreeOrders: 0, fourPlusOrders: 0 }, avgNewLTV: 0, dailyNewCustomers: [], currency: 'USD' });
   const rangeStart = isCustom ? new Date(`${fromParam}T00:00:00Z`).toISOString() : getRangeStart(range);
 
   const [segmentData, newCustomers] = await Promise.all([
