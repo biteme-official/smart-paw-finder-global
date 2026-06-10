@@ -59,6 +59,7 @@
   ],
   "rewrites": [
     { "source": "/api/shopify", "destination": "/api/shopify" },
+    { "source": "/api/track-event", "destination": "/api/shopify?action=track-event" },
     { "source": "/api/line-callback", "destination": "/api/line-callback" },
     { "source": "/api/wishlist", "destination": "/api/wishlist" },
     { "source": "/api/slack-report", "destination": "/api/slack-report" },

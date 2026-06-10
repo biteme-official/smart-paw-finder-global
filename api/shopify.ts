@@ -311,10 +311,58 @@ function getCorsOrigin(req: VercelRequest): string {
   return isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0];
 }
 
+async function handleTrackEvent(req: VercelRequest, res: VercelResponse): Promise<void> {
+  const corsOrigin = getCorsOrigin(req);
+  res.setHeader('Access-Control-Allow-Origin', corsOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+  if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+
+  const { event_type, session_id, properties, page_path, referrer } = req.body ?? {};
+  if (!event_type || typeof event_type !== 'string') { res.status(400).json({ error: 'event_type required' }); return; }
+  if (!session_id || typeof session_id !== 'string') { res.status(400).json({ error: 'session_id required' }); return; }
+
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) { res.status(500).json({ error: 'Server misconfigured' }); return; }
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/events`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': supabaseKey,
+      'Authorization': `Bearer ${supabaseKey}`,
+      'Prefer': 'return=minimal',
+    },
+    body: JSON.stringify({
+      event_type,
+      session_id,
+      properties: typeof properties === 'object' && properties !== null ? properties : {},
+      page_path: page_path ?? null,
+      referrer: referrer ?? null,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    console.error('[track-event]', err);
+    res.status(500).json({ error: 'Failed to track' });
+    return;
+  }
+  res.status(200).json({ ok: true });
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // OG 크롤러 요청 처리 (action=og)
   if (req.query.action === 'og') {
     return handleOG(req, res);
+  }
+
+  // 커스텀 이벤트 트래킹 (action=track-event)
+  if (req.query.action === 'track-event') {
+    return handleTrackEvent(req, res);
   }
 
   const corsOrigin = getCorsOrigin(req);
