@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 
 // ─── Types ───
 
-type Range = 'today' | '7d' | '28d' | '90d';
+type Range = 'today' | 'thisWeek' | 'thisMonth' | '7d' | '28d' | '90d' | 'custom';
 
 interface ChannelSummary {
   totalOrders: number;
@@ -101,7 +101,10 @@ interface WeeklyReview {
 // ─── Helpers ───
 
 const BRAND = '#f85a24';
-const RANGE_LABELS: Record<Range, string> = { today: '오늘', '7d': '7일', '28d': '28일', '90d': '90일' };
+const RANGE_LABELS: Record<Range, string> = {
+  today: '오늘', thisWeek: '이번주', thisMonth: '이번달',
+  '7d': '7일', '28d': '28일', '90d': '90일', custom: '기간 선택',
+};
 const DEVICE_COLORS: Record<string, string> = { mobile: BRAND, desktop: '#64748b', tablet: '#fdb997' };
 
 function fmtMoney(v: number, currency = 'USD') {
@@ -650,14 +653,15 @@ function ChannelCard({ label, badge, badgeCls, ch, currency }: {
   );
 }
 
-function DashboardTab({ data, currency, range, secret }: {
-  data: DashboardData; currency: string; range: Range; secret: string;
+function DashboardTab({ data, currency, rangeLabel, secret, dateParams }: {
+  data: DashboardData; currency: string; rangeLabel: string; secret: string;
+  dateParams: Record<string, string>;
 }) {
   const { summary, b2b, b2c, dailyOrders, topProducts, lowStock } = data;
 
   const { data: gaData, isLoading: gaLoading } = useQuery<GAOverview>({
-    queryKey: ['ga-overview', range],
-    queryFn: () => fetchSection<GAOverview>('ga-overview', secret, { range }),
+    queryKey: ['ga-overview', dateParams],
+    queryFn: () => fetchSection<GAOverview>('ga-overview', secret, dateParams),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -744,7 +748,7 @@ function DashboardTab({ data, currency, range, secret }: {
       <OperationsPanel lowStock={lowStock} topProducts={topProducts} currency={currency} />
 
       <p className="text-center text-xs text-gray-400 pb-4">
-        Shopify: biteme-one &middot; {RANGE_LABELS[range]} 데이터
+        Shopify: biteme-one &middot; {rangeLabel} 데이터
         {gaOk && ' · GA4 연동'}
       </p>
     </div>
@@ -753,10 +757,10 @@ function DashboardTab({ data, currency, range, secret }: {
 
 // ─── 퍼널 분석 Tab ───
 
-function FunnelTab({ secret, range }: { secret: string; range: Range }) {
+function FunnelTab({ secret, dateParams }: { secret: string; dateParams: Record<string, string> }) {
   const { data, isLoading } = useQuery<GAFunnel>({
-    queryKey: ['ga-funnel', range],
-    queryFn: () => fetchSection<GAFunnel>('ga-funnel', secret, { range }),
+    queryKey: ['ga-funnel', dateParams],
+    queryFn: () => fetchSection<GAFunnel>('ga-funnel', secret, dateParams),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -846,10 +850,10 @@ function FunnelTab({ secret, range }: { secret: string; range: Range }) {
 
 // ─── 행동 분석 Tab ───
 
-function BehaviorTab({ secret, range }: { secret: string; range: Range }) {
+function BehaviorTab({ secret, dateParams }: { secret: string; dateParams: Record<string, string> }) {
   const { data, isLoading } = useQuery<GABehavior>({
-    queryKey: ['ga-behavior', range],
-    queryFn: () => fetchSection<GABehavior>('ga-behavior', secret, { range }),
+    queryKey: ['ga-behavior', dateParams],
+    queryFn: () => fetchSection<GABehavior>('ga-behavior', secret, dateParams),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -1011,7 +1015,7 @@ function BehaviorTab({ secret, range }: { secret: string; range: Range }) {
 
 // ─── 회원 분석 Tab ───
 
-function CustomerTab({ secret, range }: { secret: string; range: Range }) {
+function CustomerTab({ secret, dateParams }: { secret: string; dateParams: Record<string, string> }) {
   const [tab, setTab] = useState('top');
 
   const { data, isLoading } = useQuery<CustomerSummary>({
@@ -1021,8 +1025,8 @@ function CustomerTab({ secret, range }: { secret: string; range: Range }) {
   });
 
   const { data: retentionData } = useQuery<GARetention>({
-    queryKey: ['ga-retention', range],
-    queryFn: () => fetchSection<GARetention>('ga-retention', secret, { range }),
+    queryKey: ['ga-retention', dateParams],
+    queryFn: () => fetchSection<GARetention>('ga-retention', secret, dateParams),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -1376,11 +1380,24 @@ const TABS = [
 function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => void }) {
   const [range, setRange] = useState<Range>('7d');
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const todayISO = localISO(new Date());
+  const rangeLabel = range === 'custom' && customStart && customEnd
+    ? `${customStart} ~ ${customEnd}`
+    : RANGE_LABELS[range];
+
+  const dateParams: Record<string, string> = range === 'custom'
+    ? { start: customStart, end: customEnd }
+    : { range };
 
   const { data: dashboard, isLoading, isError, error, refetch } = useQuery<DashboardData>({
-    queryKey: ['admin-dashboard', range],
-    queryFn: () => fetchSection<DashboardData>('dashboard', secret, { range }),
+    queryKey: ['admin-dashboard', dateParams],
+    queryFn: () => fetchSection<DashboardData>('dashboard', secret, dateParams),
     staleTime: 5 * 60 * 1000,
+    enabled: range !== 'custom' || (customStart !== '' && customEnd !== ''),
     retry: (count, err) => {
       if (err instanceof Error && err.message === 'UNAUTHORIZED') return false;
       return count < 2;
@@ -1400,15 +1417,57 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
             <span className="font-bold text-sm" style={{ color: BRAND }}>BITEME</span>
             <span className="text-xs text-gray-400">Analytics · Global</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <div className="flex rounded-lg border bg-white overflow-hidden text-xs">
-              {(['today', '7d', '28d', '90d'] as Range[]).map(r => (
-                <button key={r} onClick={() => setRange(r)}
+              {(['today', 'thisWeek', 'thisMonth', '7d', '28d', '90d'] as Range[]).map(r => (
+                <button key={r} onClick={() => { setRange(r); setShowDatePicker(false); }}
                   className={`px-3 py-1.5 transition-colors ${range === r ? 'text-white font-medium' : 'text-gray-500 hover:text-gray-700'}`}
                   style={range === r ? { backgroundColor: BRAND } : {}}>
                   {RANGE_LABELS[r]}
                 </button>
               ))}
+            </div>
+            <div className="relative">
+              <button onClick={() => setShowDatePicker(!showDatePicker)}
+                className={`px-3 py-1.5 rounded-lg border text-xs transition-colors flex items-center gap-1 ${range === 'custom' ? 'text-white font-medium border-transparent' : 'text-gray-500 hover:text-gray-700'}`}
+                style={range === 'custom' ? { backgroundColor: BRAND } : {}}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                {range === 'custom' && customStart && customEnd
+                  ? `${customStart.slice(5)} ~ ${customEnd.slice(5)}`
+                  : '기간 선택'}
+              </button>
+              {showDatePicker && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowDatePicker(false)} />
+                  <div className="absolute right-0 top-full mt-2 bg-white border rounded-xl shadow-lg p-4 z-20 w-72">
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">시작일</label>
+                        <input type="date" value={customStart} max={customEnd || todayISO}
+                          onChange={e => setCustomStart(e.target.value)}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-200" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">종료일</label>
+                        <input type="date" value={customEnd} min={customStart} max={todayISO}
+                          onChange={e => setCustomEnd(e.target.value)}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-200" />
+                      </div>
+                      <button onClick={() => {
+                        if (customStart && customEnd && customStart <= customEnd) {
+                          setRange('custom');
+                          setShowDatePicker(false);
+                        }
+                      }}
+                        disabled={!customStart || !customEnd || customStart > customEnd}
+                        className="w-full py-2 rounded-lg text-xs font-medium text-white transition-opacity disabled:opacity-40"
+                        style={{ backgroundColor: BRAND }}>
+                        적용
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
             <button onClick={() => refetch()} className="text-xs px-3 py-1.5 rounded-lg border hover:bg-gray-50 transition-colors">새로고침</button>
             <button onClick={onLogout} className="text-xs text-gray-400 hover:text-gray-700 transition-colors">로그아웃</button>
@@ -1439,11 +1498,11 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
         {activeTab === 'dashboard' && (
           isLoading || !dashboard
             ? <div className="flex items-center justify-center h-64 text-sm text-gray-400">데이터를 불러오는 중...</div>
-            : <DashboardTab data={dashboard} currency={dashboard.currency} range={range} secret={secret} />
+            : <DashboardTab data={dashboard} currency={dashboard.currency} rangeLabel={rangeLabel} secret={secret} dateParams={dateParams} />
         )}
-        {activeTab === 'funnel' && <FunnelTab secret={secret} range={range} />}
-        {activeTab === 'behavior' && <BehaviorTab secret={secret} range={range} />}
-        {activeTab === 'members' && <CustomerTab secret={secret} range={range} />}
+        {activeTab === 'funnel' && <FunnelTab secret={secret} dateParams={dateParams} />}
+        {activeTab === 'behavior' && <BehaviorTab secret={secret} dateParams={dateParams} />}
+        {activeTab === 'members' && <CustomerTab secret={secret} dateParams={dateParams} />}
         {activeTab === 'review' && <WeeklyReviewTab secret={secret} />}
       </div>
     </div>
