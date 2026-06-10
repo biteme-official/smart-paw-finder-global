@@ -158,6 +158,18 @@ export default function ProductDetail() {
         if (data) {
           const variant = data.variants.edges[0]?.node;
           trackViewItem(shopifyToGA4Item(data, variant));
+
+          // Meta Pixel: ViewContent
+          const fbq = (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
+          if (fbq) {
+            fbq('track', 'ViewContent', {
+              content_ids: [variant?.id ?? data.id],
+              content_type: 'product',
+              content_name: data.title,
+              value: variant?.price ? parseFloat(variant.price.amount) : 0,
+              currency: variant?.price?.currencyCode ?? 'USD',
+            });
+          }
         }
         if (data?.options) {
           const defaults: Record<string, string> = {};

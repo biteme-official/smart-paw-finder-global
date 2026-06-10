@@ -67,6 +67,9 @@ export default function AuthCallback() {
         // Non-fatal: profile sync failed but login succeeded
       }
 
+      // Meta Pixel: CompleteRegistration (로그인/회원가입 완료)
+      const fbq = (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
+      if (fbq) fbq('track', 'CompleteRegistration', { status: 'success' });
       toast.success('Logged in successfully', { position: 'top-center' });
       navigate(result.returnTo || '/mypage', { replace: true });
     });

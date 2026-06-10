@@ -146,6 +146,9 @@ export function SearchAutocomplete({ onSearch }: SearchAutocompleteProps) {
       onSearch(query.trim());
       setIsOpen(false);
       inputRef.current?.blur();
+      // Meta Pixel: Search
+      const fbq = (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
+      if (fbq) fbq('track', 'Search', { search_string: query.trim() });
     }
   }, [query, onSearch, saveRecentSearch]);
 

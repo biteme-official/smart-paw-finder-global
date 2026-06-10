@@ -26,6 +26,9 @@ export function useFavoriteAction() {
     } else {
       addFavorite(authUserId, handle);
       toast.success('Added to favorites', { position: 'top-center' });
+      // Meta Pixel: AddToWishlist
+      const fbq = (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
+      if (fbq) fbq('track', 'AddToWishlist', { content_ids: [handle], content_type: 'product' });
     }
   };
 

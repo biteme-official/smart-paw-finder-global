@@ -53,6 +53,13 @@ const ContactUs = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-start gap-4 group"
+                  onClick={() => {
+                    const fbq = (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
+                    if (fbq) {
+                      fbq('track', 'Contact');
+                      fbq('track', 'Lead');
+                    }
+                  }}
                 >
                   <span className="shrink-0 w-10 h-10 rounded-full bg-[#25D366] flex items-center justify-center text-white shadow-sm group-hover:bg-[#20bd5a] transition-colors">
                     <WhatsAppIcon />

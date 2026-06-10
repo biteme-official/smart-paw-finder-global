@@ -13,6 +13,19 @@ export default function CheckoutReturn() {
   const clearCart = useCartStore(state => state.clearCart);
 
   useEffect(() => {
+    // Meta Pixel: Purchase (카트 클리어 전에 구매 데이터 읽기)
+    const cartItems = useCartStore.getState().items;
+    const fbq = (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
+    if (fbq && cartItems.length > 0) {
+      const value = cartItems.reduce((sum, item) => sum + parseFloat(item.price.amount) * item.quantity, 0);
+      fbq('track', 'Purchase', {
+        value,
+        currency: cartItems[0]?.price.currencyCode ?? 'USD',
+        content_ids: cartItems.map(i => i.variantId),
+        content_type: 'product',
+        num_items: cartItems.reduce((n, i) => n + i.quantity, 0),
+      });
+    }
     clearCart();
     localStorage.removeItem('affiliate_discount');
   }, [clearCart]);

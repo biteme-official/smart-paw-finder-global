@@ -66,6 +66,16 @@ export default function Checkout() {
       }));
       const checkoutUrl = await createCheckout(lineItems);
       if (checkoutUrl) {
+        // Meta Pixel: AddPaymentInfo (결제 페이지로 이동 직전)
+        const fbq = (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
+        if (fbq) {
+          fbq('track', 'AddPaymentInfo', {
+            value: total,
+            currency: currencyCode,
+            content_ids: items.map(i => i.variantId),
+            content_type: 'product',
+          });
+        }
         window.location.href = checkoutUrl;
       }
     } catch (err) {
