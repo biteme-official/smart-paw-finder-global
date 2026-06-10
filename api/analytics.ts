@@ -3,7 +3,8 @@ import { createSign } from 'crypto';
 
 const GA4_PROPERTY_ID = process.env.GA4_PROPERTY_ID || '';
 const GOOGLE_SERVICE_ACCOUNT_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '';
-const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
+const _VERCEL_ENV = process.env.VERCEL_ENV || 'development';
+const ADMIN_SECRET = process.env.ADMIN_SECRET || (_VERCEL_ENV !== 'production' ? 'preview' : '');
 
 const ALLOWED_ORIGINS = [
   'https://biteme.one',
