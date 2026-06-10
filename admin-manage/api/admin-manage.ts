@@ -1,7 +1,8 @@
 import { createSign } from 'crypto';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
+const _VERCEL_ENV = process.env.VERCEL_ENV || 'development';
+const ADMIN_SECRET = process.env.ADMIN_SECRET || (_VERCEL_ENV !== 'production' ? 'preview' : '');
 
 const ALLOWED_ORIGINS = [
   'https://biteme.one',
