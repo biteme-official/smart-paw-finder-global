@@ -65,6 +65,20 @@ interface GABehavior {
   topLandingPages?: { path: string; sessions: number; bounceRate: number }[];
 }
 
+
+interface GARetention {
+  configured: boolean;
+  breakdown?: {
+    type: string;
+    sessions: number;
+    users: number;
+    conversions: number;
+    percentage: number;
+    conversionRate: number;
+  }[];
+  trend?: { date: string; 신규: number; 재방문: number }[];
+}
+
 interface WeeklyReview {
   gaConfigured: boolean;
   currentWeek: {
@@ -997,13 +1011,19 @@ function BehaviorTab({ secret, range }: { secret: string; range: Range }) {
 
 // ─── 회원 분석 Tab ───
 
-function CustomerTab({ secret }: { secret: string }) {
+function CustomerTab({ secret, range }: { secret: string; range: Range }) {
   const [tab, setTab] = useState('top');
 
   const { data, isLoading } = useQuery<CustomerSummary>({
     queryKey: ['admin-customers'],
     queryFn: () => fetchSection<CustomerSummary>('customers', secret, { view: 'all' }),
     staleTime: 60_000,
+  });
+
+  const { data: retentionData } = useQuery<GARetention>({
+    queryKey: ['ga-retention', range],
+    queryFn: () => fetchSection<GARetention>('ga-retention', secret, { range }),
+    staleTime: 5 * 60 * 1000,
   });
 
   if (isLoading || !data) {
@@ -1119,7 +1139,110 @@ function CustomerTab({ secret }: { secret: string }) {
       </div>
 
       <SectionLabel>유저 재방문</SectionLabel>
-      <GANotConfigured title="신규 vs 재방문 유저 — GA4 연동 후 활성화" />
+      {retentionData?.configured ? (
+        <div className="space-y-4">
+          {retentionData.breakdown && retentionData.breakdown.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+                <div className="px-5 py-3 border-b border-gray-100">
+                  <h3 className="text-sm font-semibold text-gray-900">신규 vs 재방문</h3>
+                  <p className="text-xs text-gray-400">세션 기준 비율</p>
+                </div>
+                <div className="p-4 flex items-center gap-4">
+                  <PieChart width={130} height={130}>
+                    <Pie data={retentionData.breakdown} dataKey="sessions" cx={60} cy={60} innerRadius={34} outerRadius={56} paddingAngle={2}>
+                      {retentionData.breakdown.map((d, i) => (
+                        <Cell key={i} fill={d.type === '신규' ? BRAND : '#64748b'} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                  <div className="flex-1 space-y-3 text-xs">
+                    {retentionData.breakdown.map((d, i) => (
+                      <div key={i} className="space-y-0.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.type === '신규' ? BRAND : '#64748b' }} />
+                            <span className="font-medium">{d.type}</span>
+                          </div>
+                          <span className="font-semibold">{d.percentage}%</span>
+                        </div>
+                        <div className="flex justify-between text-gray-400 text-[11px] pl-4">
+                          <span>세션 {d.sessions.toLocaleString()}</span>
+                          <span>전환율 {d.conversionRate}%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="lg:col-span-2 rounded-xl border bg-white border-gray-200 overflow-hidden">
+                <div className="px-5 py-3 border-b border-gray-100">
+                  <h3 className="text-sm font-semibold text-gray-900">신규 · 재방문 세션 추이</h3>
+                </div>
+                <div className="p-4">
+                  <ResponsiveContainer width="100%" height={160}>
+                    <ComposedChart data={retentionData.trend} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} width={36} />
+                      <Tooltip />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="신규" stackId="a" fill={BRAND} opacity={0.85} radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="재방문" stackId="a" fill="#64748b" opacity={0.7} radius={[3, 3, 0, 0]} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {retentionData.breakdown && retentionData.breakdown.length > 0 && (
+            <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-900">신규 vs 재방문 상세</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="border-b">
+                    <tr>
+                      <th className="text-left px-5 py-2.5 font-medium text-gray-400">유형</th>
+                      <th className="text-right px-5 py-2.5 font-medium text-gray-400">세션</th>
+                      <th className="text-right px-5 py-2.5 font-medium text-gray-400">유저</th>
+                      <th className="text-right px-5 py-2.5 font-medium text-gray-400">전환</th>
+                      <th className="text-right px-5 py-2.5 font-medium text-gray-400">전환율</th>
+                      <th className="text-right px-5 py-2.5 font-medium text-gray-400">비율</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {retentionData.breakdown.map((d, i) => (
+                      <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.type === '신규' ? BRAND : '#64748b' }} />
+                            <span className="font-medium">{d.type} 유저</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 text-right">{d.sessions.toLocaleString()}</td>
+                        <td className="px-5 py-3 text-right">{d.users.toLocaleString()}</td>
+                        <td className="px-5 py-3 text-right">{d.conversions.toLocaleString()}</td>
+                        <td className="px-5 py-3 text-right">
+                          <span className={`font-semibold ${d.conversionRate > 3 ? 'text-emerald-600' : d.conversionRate > 1 ? 'text-orange-500' : 'text-gray-500'}`}>
+                            {d.conversionRate}%
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-right font-medium">{d.percentage}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <GANotConfigured title="신규 vs 재방문 유저 — GA4 연동 후 활성화" />
+      )}
 
       <p className="text-center text-xs text-gray-400 pb-4">
         Shopify: biteme-one &middot; 회원 데이터
@@ -1320,7 +1443,7 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
         )}
         {activeTab === 'funnel' && <FunnelTab secret={secret} range={range} />}
         {activeTab === 'behavior' && <BehaviorTab secret={secret} range={range} />}
-        {activeTab === 'members' && <CustomerTab secret={secret} />}
+        {activeTab === 'members' && <CustomerTab secret={secret} range={range} />}
         {activeTab === 'review' && <WeeklyReviewTab secret={secret} />}
       </div>
     </div>
@@ -1343,3 +1466,4 @@ export default function AdminManage() {
     />
   );
 }
+
