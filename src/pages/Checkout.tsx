@@ -47,6 +47,22 @@ export default function Checkout() {
     if (allItems.length === 0) navigate('/');
   }, [allItems.length, navigate]);
 
+  // Meta Pixel: InitiateCheckout — /checkout 페이지 진입 시 (SPA 라우트 이동 후 Helper에서 확인 가능)
+  useEffect(() => {
+    if (items.length === 0) return;
+    const fbq = (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
+    if (fbq) {
+      fbq('track', 'InitiateCheckout', {
+        value: items.reduce((s, i) => s + parseFloat(i.price.amount) * i.quantity, 0),
+        currency: items[0]?.price.currencyCode ?? 'USD',
+        num_items: items.reduce((n, i) => n + i.quantity, 0),
+        content_ids: items.map(i => i.variantId),
+        content_type: 'product',
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const subtotal = items.reduce((sum, item) => sum + parseFloat(item.price.amount) * item.quantity, 0);
   const currencyCode = items[0]?.price.currencyCode || 'USD';
 
