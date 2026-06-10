@@ -134,6 +134,18 @@ export const CartDrawer = ({ open: controlledOpen, onOpenChange, showTrigger = t
 
     trackBeginCheckout(ga4Items, currencyCode, totalPrice);
 
+    // Meta Pixel: InitiateCheckout
+    const fbq = (window as Window & { fbq?: (...args: unknown[]) => void }).fbq;
+    if (fbq) {
+      fbq('track', 'InitiateCheckout', {
+        value: totalPrice,
+        currency: currencyCode,
+        num_items: itemsToCheckout.reduce((n, i) => n + i.quantity, 0),
+        content_ids: itemsToCheckout.map(i => i.variantId),
+        content_type: 'product',
+      });
+    }
+
     setIsOpen(false);
     const selectedVariantIds = selectedItems.size > 0
       ? Array.from(selectedItems)
