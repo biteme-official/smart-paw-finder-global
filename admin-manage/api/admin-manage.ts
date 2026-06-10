@@ -835,6 +835,63 @@ async function handleGAWeekly(shopifyToken: string, res: VercelResponse) {
   });
 }
 
+
+// ─── GA Retention Handler ───
+
+async function handleGARetention(req: VercelRequest, res: VercelResponse) {
+  const range = (req.query.range as string) || '7d';
+  const dr = gaDateRange(range);
+
+  const token = await getGAAccessToken();
+  if (!token) return res.status(200).json({ configured: false });
+
+  const [breakdownReport, trendReport] = await Promise.all([
+    gaReport(token, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'newVsReturning' }],
+      metrics: [{ name: 'sessions' }, { name: 'totalUsers' }, { name: 'conversions' }],
+    }),
+    gaReport(token, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'date' }, { name: 'newVsReturning' }],
+      metrics: [{ name: 'sessions' }],
+      orderBys: [{ dimension: { dimensionName: 'date' } }],
+    }),
+  ]);
+
+  const breakdownRows = gaRows(breakdownReport);
+  const totalSessions = breakdownRows.reduce((s, r) => s + parseInt(r.sessions || '0'), 0);
+
+  const breakdown = breakdownRows.map(r => ({
+    type: r.newVsReturning === 'new' ? '신규' : '재방문',
+    sessions: parseInt(r.sessions || '0'),
+    users: parseInt(r.totalUsers || '0'),
+    conversions: parseInt(r.conversions || '0'),
+    percentage: totalSessions > 0 ? Math.round(parseInt(r.sessions || '0') / totalSessions * 100) : 0,
+    conversionRate: parseInt(r.sessions || '0') > 0
+      ? Math.round(parseInt(r.conversions || '0') / parseInt(r.sessions || '0') * 1000) / 10
+      : 0,
+  }));
+
+  const dateMap = new Map<string, { new: number; returning: number }>();
+  for (const row of gaRows(trendReport)) {
+    const d = row.date;
+    const ex = dateMap.get(d) || { new: 0, returning: 0 };
+    if (row.newVsReturning === 'new') ex.new += parseInt(row.sessions || '0');
+    else ex.returning += parseInt(row.sessions || '0');
+    dateMap.set(d, ex);
+  }
+
+  const trend = Array.from(dateMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({
+      date: `${date.slice(4, 6)}/${date.slice(6, 8)}`,
+      신규: v.new,
+      재방문: v.returning,
+    }));
+
+  return res.status(200).json({ configured: true, breakdown, trend });
+}
 // ─── Router ───
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -857,6 +914,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (section === 'ga-overview') return await handleGAOverview(req, res);
     if (section === 'ga-funnel') return await handleGAFunnel(req, res);
     if (section === 'ga-behavior') return await handleGABehavior(req, res);
+    if (section === 'ga-retention') return await handleGARetention(req, res);
 
     const token = await getShopifyAccessToken();
 
@@ -876,3 +934,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 }
+
