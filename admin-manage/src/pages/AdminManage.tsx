@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Legend, PieChart, Pie, Cell, AreaChart, Area,
+  ResponsiveContainer, Legend, PieChart, Pie, Cell,
 } from 'recharts';
 import { toast } from 'sonner';
 
 // ─── Types ───
 
-type Range = 'today' | 'thisWeek' | 'thisMonth' | '7d' | '28d' | '90d' | 'custom';
+type Range = 'today' | '7d' | '28d' | '90d';
 
 interface ChannelSummary {
   totalOrders: number;
@@ -26,6 +26,18 @@ interface DashboardData {
   currency: string;
 }
 
+interface GaData {
+  available: boolean;
+  sessions: number;
+  users: number;
+  bounceRate: number;
+  avgSessionDuration: number;
+  conversionRate: number;
+  purchases: number;
+  funnel: { step: string; label: string; count: number }[];
+  daily: { date: string; sessions: number; users: number }[];
+}
+
 interface Customer {
   id: string; name: string; email: string;
   orders: number; spent: string; currency: string;
@@ -38,83 +50,14 @@ interface CustomerSummary {
   recentCustomers: Customer[];
 }
 
-interface GAOverview {
-  configured: boolean;
-  sessions?: number;
-  totalUsers?: number;
-  newUsers?: number;
-  bounceRate?: number;
-  avgEngagementTime?: number;
-  conversionRate?: number;
-  funnelSteps?: { name: string; count: number; rate: number }[];
-  topChannels?: { channel: string; sessions: number }[];
-  deviceBreakdown?: { device: string; sessions: number; percentage: number }[];
-}
-
-interface GAFunnel {
-  configured: boolean;
-  byDate?: { date: string; views: number; addToCart: number; checkout: number; purchases: number }[];
-  bySource?: { source: string; medium: string; sessions: number; conversions: number; rate: number }[];
-}
-
-interface GABehavior {
-  configured: boolean;
-  topPages?: { path: string; views: number; sessions: number; bounceRate: number; avgTime: number }[];
-  topEvents?: { name: string; count: number; users: number }[];
-  deviceBreakdown?: { device: string; sessions: number; bounceRate: number; avgTime: number; percentage: number }[];
-  topLandingPages?: { path: string; sessions: number; bounceRate: number }[];
-}
-
-
-interface GARetention {
-  configured: boolean;
-  breakdown?: {
-    type: string;
-    sessions: number;
-    users: number;
-    conversions: number;
-    percentage: number;
-    conversionRate: number;
-  }[];
-  trend?: { date: string; 신규: number; 재방문: number }[];
-}
-
-interface WeeklyReview {
-  gaConfigured: boolean;
-  currentWeek: {
-    start: string; end: string; currency: string;
-    revenue: number; orders: number;
-    sessions: number; newUsers: number; conversions: number; conversionRate: number;
-    daily: { date: string; revenue: number; orders: number }[];
-  };
-  previousWeek: {
-    start: string; end: string; currency: string;
-    revenue: number; orders: number;
-    sessions: number; newUsers: number; conversions: number; conversionRate: number;
-  };
-  delta: {
-    revenue: number | null; orders: number | null;
-    sessions: number | null; newUsers: number | null; conversionRate: number | null;
-  };
-}
-
 // ─── Helpers ───
 
 const BRAND = '#f85a24';
-const RANGE_LABELS: Record<Range, string> = {
-  today: '오늘', thisWeek: '이번주', thisMonth: '이번달',
-  '7d': '7일', '28d': '28일', '90d': '90일', custom: '기간 선택',
-};
-const DEVICE_COLORS: Record<string, string> = { mobile: BRAND, desktop: '#64748b', tablet: '#fdb997' };
+const RANGE_LABELS: Record<Range, string> = { today: '오늘', '7d': '7일', '28d': '28일', '90d': '90일' };
 
 function fmtMoney(v: number, currency = 'USD') {
   if (currency === 'JPY') return `¥${Math.round(v).toLocaleString('ja-JP')}`;
   return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function fmtSec(s: number) {
-  if (s < 60) return `${s}초`;
-  return `${Math.floor(s / 60)}분 ${s % 60}초`;
 }
 
 function isoToLabel(iso: string) {
@@ -173,7 +116,7 @@ function PasswordGate({ onAuth }: { onAuth: (s: string) => void }) {
       <div className="w-full max-w-sm px-6">
         <div className="mb-8 text-center">
           <div className="text-2xl font-bold" style={{ color: BRAND }}>BITEME</div>
-          <p className="text-sm text-gray-500 mt-1">Admin Dashboard · Global</p>
+          <p className="text-sm text-gray-500 mt-1">Admin Dashboard</p>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div>
@@ -215,32 +158,21 @@ function KpiCard({ label, value, sub, accent }: { label: string; value: string; 
   );
 }
 
-function KpiSkeleton({ label }: { label: string }) {
+function GaPlaceholder({ title, compact }: { title?: string; compact?: boolean }) {
+  if (compact) {
+    return (
+      <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50/50 p-4">
+        <p className="text-xs text-gray-500 mb-1">{title}</p>
+        <p className="text-sm font-medium text-gray-400">GA 데이터 연동필요</p>
+      </div>
+    );
+  }
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 animate-pulse">
-      <p className="text-xs text-gray-500 mb-2">{label}</p>
-      <div className="h-8 bg-gray-100 rounded-md w-3/4" />
+    <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50/50 flex flex-col items-center justify-center py-16">
+      {title && <h3 className="text-sm font-semibold text-gray-500 mb-2">{title}</h3>}
+      <p className="text-sm text-gray-400">GA 데이터 연동필요</p>
+      <p className="text-xs mt-2 text-gray-300">Google Analytics 서비스 계정 연동 후 데이터가 표시됩니다</p>
     </div>
-  );
-}
-
-function GANotConfigured({ title }: { title?: string }) {
-  return (
-    <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50/50 flex flex-col items-center justify-center py-10">
-      {title && <p className="text-xs font-semibold text-gray-400 mb-1">{title}</p>}
-      <p className="text-xs text-gray-400">GA4 미연동 — <code className="bg-gray-100 px-1 py-0.5 rounded text-[11px]">GA4_PROPERTY_ID</code> · <code className="bg-gray-100 px-1 py-0.5 rounded text-[11px]">GA_SERVICE_ACCOUNT_JSON</code> 환경변수 설정 필요</p>
-    </div>
-  );
-}
-
-function Delta({ value }: { value: number | null }) {
-  if (value === null) return <span className="text-gray-400 text-xs">—</span>;
-  const isPos = value > 0;
-  const isNeg = value < 0;
-  return (
-    <span className={`text-xs font-semibold ${isPos ? 'text-emerald-600' : isNeg ? 'text-red-500' : 'text-gray-400'}`}>
-      {isPos ? '↑' : isNeg ? '↓' : '→'} {Math.abs(value)}%
-    </span>
   );
 }
 
@@ -286,13 +218,14 @@ function CombinedChart({ dailyOrders, currency }: { dailyOrders: DashboardData['
 
 type AggRow = { label: string; sortKey: string; orders: number; revenue: number };
 
-function TimelineTable({ dailyOrders, currency, gaData }: {
-  dailyOrders: DashboardData['dailyOrders'];
-  currency: string;
-  gaData?: GAOverview | null;
-}) {
+function TimelineTable({ dailyOrders, currency, ga }: { dailyOrders: DashboardData['dailyOrders']; currency: string; ga?: GaData | null }) {
   const [tab, setTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const sorted = [...dailyOrders].sort((a, b) => a.date.localeCompare(b.date));
+
+  const gaMap = new Map<string, { sessions: number; users: number }>();
+  if (ga?.available && ga.daily) {
+    for (const d of ga.daily) gaMap.set(d.date, { sessions: d.sessions, users: d.users });
+  }
 
   function groupBy(keyFn: (iso: string) => string, labelFn: (iso: string, key: string) => string): AggRow[] {
     const map = new Map<string, AggRow>();
@@ -319,9 +252,6 @@ function TimelineTable({ dailyOrders, currency, gaData }: {
 
   const totals = rows.reduce((acc, r) => ({ orders: acc.orders + r.orders, revenue: acc.revenue + r.revenue }), { orders: 0, revenue: 0 });
 
-  const gaAvailableSessions = gaData?.configured && gaData.sessions != null;
-  const gaAvailableUsers = gaData?.configured && gaData.totalUsers != null;
-
   return (
     <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
@@ -341,149 +271,43 @@ function TimelineTable({ dailyOrders, currency, gaData }: {
           <thead className="sticky top-0 bg-white border-b z-10">
             <tr>
               <th className="text-left px-4 py-2 font-medium text-gray-400">날짜</th>
-              <th className="text-right px-4 py-2 font-medium text-gray-400">총 유저</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">총 사용자</th>
               <th className="text-right px-4 py-2 font-medium text-gray-400">세션</th>
               <th className="text-right px-4 py-2 font-medium text-gray-400">주문 수</th>
               <th className="text-right px-4 py-2 font-medium text-gray-400">매출</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, i) => (
-              <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
-                <td className="px-4 py-2 font-mono">{row.label}</td>
-                <td className="px-4 py-2 text-right text-gray-300">
-                  {i === 0 && gaAvailableUsers ? gaData!.totalUsers!.toLocaleString() : '—'}
-                </td>
-                <td className="px-4 py-2 text-right text-gray-300">
-                  {i === 0 && gaAvailableSessions ? gaData!.sessions!.toLocaleString() : '—'}
-                </td>
-                <td className="px-4 py-2 text-right">{row.orders > 0 ? `${row.orders}건` : '—'}</td>
-                <td className="px-4 py-2 text-right font-medium">{row.revenue > 0 ? fmtMoney(row.revenue, currency) : '—'}</td>
-              </tr>
-            ))}
+            {rows.map((row, i) => {
+              const g = tab === 'daily' ? gaMap.get(row.sortKey) : undefined;
+              return (
+                <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+                  <td className="px-4 py-2 font-mono">{row.label}</td>
+                  <td className="px-4 py-2 text-right">{g ? g.users.toLocaleString() : <span className="text-gray-300">—</span>}</td>
+                  <td className="px-4 py-2 text-right">{g ? g.sessions.toLocaleString() : <span className="text-gray-300">—</span>}</td>
+                  <td className="px-4 py-2 text-right">{row.orders > 0 ? `${row.orders}건` : '—'}</td>
+                  <td className="px-4 py-2 text-right font-medium">{row.revenue > 0 ? fmtMoney(row.revenue, currency) : '—'}</td>
+                </tr>
+              );
+            })}
           </tbody>
           <tfoot className="sticky bottom-0 bg-white border-t">
-            <tr>
-              <td className="px-4 py-2 font-semibold text-xs">합계</td>
-              <td className="px-4 py-2 text-right font-semibold">
-                {gaAvailableUsers ? gaData!.totalUsers!.toLocaleString() : '—'}
-              </td>
-              <td className="px-4 py-2 text-right font-semibold">
-                {gaAvailableSessions ? gaData!.sessions!.toLocaleString() : '—'}
-              </td>
-              <td className="px-4 py-2 text-right font-semibold">{totals.orders}건</td>
-              <td className="px-4 py-2 text-right font-semibold">{fmtMoney(totals.revenue, currency)}</td>
-            </tr>
+            {(() => {
+              const gaTotal = ga?.available && ga.daily
+                ? ga.daily.reduce((a, d) => ({ u: a.u + d.users, s: a.s + d.sessions }), { u: 0, s: 0 })
+                : null;
+              return (
+                <tr>
+                  <td className="px-4 py-2 font-semibold text-xs">합계</td>
+                  <td className="px-4 py-2 text-right font-semibold">{gaTotal ? gaTotal.u.toLocaleString() : <span className="text-gray-300">—</span>}</td>
+                  <td className="px-4 py-2 text-right font-semibold">{gaTotal ? gaTotal.s.toLocaleString() : <span className="text-gray-300">—</span>}</td>
+                  <td className="px-4 py-2 text-right font-semibold">{totals.orders}건</td>
+                  <td className="px-4 py-2 text-right font-semibold">{fmtMoney(totals.revenue, currency)}</td>
+                </tr>
+              );
+            })()}
           </tfoot>
         </table>
-      </div>
-    </div>
-  );
-}
-
-// ─── GA: Funnel Mini Chart ───
-
-function GAFunnelMini({ steps }: { steps: GAOverview['funnelSteps'] }) {
-  if (!steps || steps.length === 0) return null;
-  const maxCount = steps[0].count || 1;
-
-  return (
-    <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-100">
-        <h3 className="text-sm font-semibold text-gray-900">EC 구매 퍼널</h3>
-        <p className="text-xs text-gray-400">GA4 이벤트 기반</p>
-      </div>
-      <div className="p-4 space-y-2.5">
-        {steps.map((step, i) => (
-          <div key={i} className="space-y-1">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-700 font-medium">{step.name}</span>
-              <div className="flex items-center gap-2">
-                {i > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-50 text-orange-600 font-medium">
-                    {(step.rate * 100).toFixed(1)}%
-                  </span>
-                )}
-                <span className="font-semibold text-gray-900">{step.count.toLocaleString()}</span>
-              </div>
-            </div>
-            <div className="h-5 bg-gray-100 rounded-md overflow-hidden">
-              <div
-                className="h-full rounded-md transition-all duration-700"
-                style={{
-                  width: `${(step.count / maxCount) * 100}%`,
-                  backgroundColor: BRAND,
-                  opacity: 1 - i * 0.18,
-                }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── GA: Top Channels ───
-
-function GAChannelsBar({ channels }: { channels: GAOverview['topChannels'] }) {
-  if (!channels || channels.length === 0) return null;
-  const max = channels[0].sessions || 1;
-
-  return (
-    <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-100">
-        <h3 className="text-sm font-semibold text-gray-900">유입 채널</h3>
-      </div>
-      <div className="p-4 space-y-2.5">
-        {channels.map((ch, i) => (
-          <div key={i} className="flex items-center gap-3 text-xs">
-            <span className="w-28 truncate text-gray-600 shrink-0">{ch.channel}</span>
-            <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${(ch.sessions / max) * 100}%`, backgroundColor: BRAND, opacity: 0.7 }}
-              />
-            </div>
-            <span className="font-medium text-right w-14">{ch.sessions.toLocaleString()}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── GA: Device Pie ───
-
-function GADevicePie({ devices }: { devices: GAOverview['deviceBreakdown'] }) {
-  if (!devices || devices.length === 0) return null;
-  const getColor = (d: string) => DEVICE_COLORS[d.toLowerCase()] || '#94a3b8';
-
-  return (
-    <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-100">
-        <h3 className="text-sm font-semibold text-gray-900">디바이스</h3>
-      </div>
-      <div className="p-4 flex items-center gap-4">
-        <PieChart width={120} height={120}>
-          <Pie data={devices} dataKey="sessions" cx={55} cy={55} innerRadius={28} outerRadius={50} paddingAngle={2}>
-            {devices.map((d, i) => <Cell key={i} fill={getColor(d.device)} />)}
-          </Pie>
-        </PieChart>
-        <div className="flex-1 space-y-2">
-          {devices.map((d, i) => (
-            <div key={i} className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getColor(d.device) }} />
-                <span className="capitalize">{d.device}</span>
-              </div>
-              <div className="text-right">
-                <span className="font-medium">{d.sessions.toLocaleString()}</span>
-                <span className="text-gray-400 ml-1">{d.percentage}%</span>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
@@ -596,6 +420,7 @@ function OperationsPanel({ lowStock, topProducts, currency }: {
             <thead className="sticky top-0 bg-white border-b">
               <tr>
                 <th className="text-left px-4 py-2 font-medium text-gray-400">상품명</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-400">조회</th>
                 <th className="text-right px-4 py-2 font-medium text-gray-400">판매</th>
                 <th className="text-right px-4 py-2 font-medium text-gray-400">매출</th>
               </tr>
@@ -612,6 +437,7 @@ function OperationsPanel({ lowStock, topProducts, currency }: {
                       <span className="truncate max-w-[160px]">{row.title}</span>
                     </div>
                   </td>
+                  <td className="px-4 py-2.5 text-right text-gray-300">—</td>
                   <td className="px-4 py-2.5 text-right">{row.quantity}개</td>
                   <td className="px-4 py-2.5 text-right font-medium">{fmtMoney(row.revenue, currency)}</td>
                 </tr>
@@ -653,19 +479,60 @@ function ChannelCard({ label, badge, badgeCls, ch, currency }: {
   );
 }
 
-function DashboardTab({ data, currency, rangeLabel, secret, dateParams }: {
-  data: DashboardData; currency: string; rangeLabel: string; secret: string;
-  dateParams: Record<string, string>;
-}) {
+function FunnelChart({ funnel }: { funnel: GaData['funnel'] }) {
+  const maxCount = funnel[0]?.count || 1;
+  return (
+    <div className="rounded-xl border bg-white border-gray-200 overflow-hidden h-full">
+      <div className="px-5 py-3 border-b border-gray-100">
+        <h3 className="text-sm font-semibold text-gray-900">EC 퍼널</h3>
+        <p className="text-xs text-gray-400">GA4 이커머스 이벤트</p>
+      </div>
+      <div className="p-4 space-y-2">
+        {funnel.map((step, i) => {
+          const pct = maxCount > 0 ? (step.count / maxCount) * 100 : 0;
+          const dropoff = i > 0 && funnel[i - 1].count > 0
+            ? ((1 - step.count / funnel[i - 1].count) * 100).toFixed(1)
+            : null;
+          return (
+            <div key={step.step}>
+              <div className="flex justify-between text-xs mb-0.5">
+                <span className="text-gray-600">{step.label}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{step.count.toLocaleString()}</span>
+                  {dropoff && <span className="text-red-400 text-[10px]">-{dropoff}%</span>}
+                </div>
+              </div>
+              <div className="h-5 bg-gray-100 rounded overflow-hidden">
+                <div className="h-full rounded transition-all" style={{
+                  width: `${Math.max(pct, 1)}%`,
+                  backgroundColor: BRAND,
+                  opacity: 1 - i * 0.15,
+                }} />
+              </div>
+            </div>
+          );
+        })}
+        {funnel[0]?.count > 0 && funnel[funnel.length - 1] && (
+          <div className="pt-2 border-t border-gray-100 text-xs text-center">
+            <span className="text-gray-500">전체 전환율: </span>
+            <span className="font-bold" style={{ color: BRAND }}>
+              {((funnel[funnel.length - 1].count / funnel[0].count) * 100).toFixed(2)}%
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DashboardTab({ data, currency, range, ga }: { data: DashboardData; currency: string; range: Range; ga: GaData | null }) {
   const { summary, b2b, b2c, dailyOrders, topProducts, lowStock } = data;
 
-  const { data: gaData, isLoading: gaLoading } = useQuery<GAOverview>({
-    queryKey: ['ga-overview', dateParams],
-    queryFn: () => fetchSection<GAOverview>('ga-overview', secret, dateParams),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const gaOk = gaData?.configured;
+  const fmtDuration = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = Math.round(s % 60);
+    return m > 0 ? `${m}분 ${sec}초` : `${sec}초`;
+  };
 
   return (
     <div className="space-y-5">
@@ -674,12 +541,10 @@ function DashboardTab({ data, currency, rangeLabel, secret, dateParams }: {
         <KpiCard label="총 매출" value={fmtMoney(summary.totalRevenue, currency)} accent />
         <KpiCard label="주문 수" value={`${summary.totalOrders.toLocaleString()}건`} accent />
         <KpiCard label="평균 주문금액" value={fmtMoney(summary.averageOrderValue, currency)} accent />
-        {gaLoading
-          ? <KpiSkeleton label="구매 전환율" />
-          : gaOk
-            ? <KpiCard label="구매 전환율" value={`${gaData!.conversionRate}%`} sub={`${gaData!.sessions!.toLocaleString()} 세션`} />
-            : <GANotConfigured title="구매 전환율" />
-        }
+        {ga?.available
+          ? <KpiCard label="구매 전환율" value={`${ga.conversionRate.toFixed(2)}%`}
+              sub={`${ga.purchases}건 / ${ga.sessions.toLocaleString()} 세션`} accent />
+          : <GaPlaceholder title="구매 전환율" compact />}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -688,68 +553,50 @@ function DashboardTab({ data, currency, rangeLabel, secret, dateParams }: {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {gaLoading ? (
+        {ga?.available ? (
           <>
-            <KpiSkeleton label="세션" />
-            <KpiSkeleton label="유저" />
-            <KpiSkeleton label="이탈률" />
-            <KpiSkeleton label="평균 체류 시간" />
-          </>
-        ) : gaOk ? (
-          <>
-            <KpiCard label="세션" value={gaData!.sessions!.toLocaleString()} sub={`신규 ${gaData!.newUsers!.toLocaleString()}명`} />
-            <KpiCard label="유저" value={gaData!.totalUsers!.toLocaleString()} />
-            <KpiCard label="이탈률" value={`${gaData!.bounceRate}%`} />
-            <KpiCard label="평균 체류 시간" value={fmtSec(gaData!.avgEngagementTime!)} />
+            <KpiCard label="세션" value={ga.sessions.toLocaleString()} />
+            <KpiCard label="유저" value={ga.users.toLocaleString()} />
+            <KpiCard label="이탈률" value={`${(ga.bounceRate * 100).toFixed(1)}%`} />
+            <KpiCard label="평균 체류 시간" value={fmtDuration(ga.avgSessionDuration)} />
           </>
         ) : (
-          <div className="col-span-4">
-            <GANotConfigured title="세션 · 유저 · 이탈률 · 체류시간 (GA4 미연동)" />
-          </div>
+          <>
+            <GaPlaceholder title="세션" compact />
+            <GaPlaceholder title="유저" compact />
+            <GaPlaceholder title="이탈률" compact />
+            <GaPlaceholder title="평균 체류 시간" compact />
+          </>
         )}
       </div>
 
       {dailyOrders.length > 0 && (
         <>
           <CombinedChart dailyOrders={dailyOrders} currency={currency} />
-          <TimelineTable dailyOrders={dailyOrders} currency={currency} gaData={gaData} />
+          <TimelineTable dailyOrders={dailyOrders} currency={currency} ga={ga} />
         </>
       )}
 
       <SectionLabel>전환 · 상품</SectionLabel>
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="lg:col-span-2">
-          {gaLoading ? (
-            <div className="rounded-xl border border-gray-200 bg-white p-4 animate-pulse h-48" />
-          ) : gaOk && gaData!.funnelSteps?.length ? (
-            <GAFunnelMini steps={gaData!.funnelSteps!} />
-          ) : (
-            <GANotConfigured title="EC 퍼널" />
-          )}
+          {ga?.available && ga.funnel.length > 0
+            ? <FunnelChart funnel={ga.funnel} />
+            : <GaPlaceholder title="EC 퍼널" />}
         </div>
         <div className="lg:col-span-3">
           <TopProductsTable data={topProducts} currency={currency} />
         </div>
       </div>
 
-      <SectionLabel>트래픽 · 디바이스</SectionLabel>
-      {gaLoading ? (
-        <div className="rounded-xl border border-gray-200 bg-white animate-pulse h-32" />
-      ) : gaOk ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <GAChannelsBar channels={gaData!.topChannels!} />
-          <GADevicePie devices={gaData!.deviceBreakdown!} />
-        </div>
-      ) : (
-        <GANotConfigured title="유입 채널 · 디바이스 분석" />
-      )}
+      <SectionLabel>트래픽 분석</SectionLabel>
+      <GaPlaceholder title="유입 소스 · 디바이스 · 상위 페이지" />
 
       <SectionLabel>운영 현황</SectionLabel>
       <OperationsPanel lowStock={lowStock} topProducts={topProducts} currency={currency} />
 
       <p className="text-center text-xs text-gray-400 pb-4">
-        Shopify: biteme-one &middot; {rangeLabel} 데이터
-        {gaOk && ' · GA4 연동'}
+        Shopify: biteme-one {ga?.available ? '· GA4' : ''} &middot; {RANGE_LABELS[range]} 데이터
       </p>
     </div>
   );
@@ -757,277 +604,43 @@ function DashboardTab({ data, currency, rangeLabel, secret, dateParams }: {
 
 // ─── 퍼널 분석 Tab ───
 
-function FunnelTab({ secret, dateParams }: { secret: string; dateParams: Record<string, string> }) {
-  const { data, isLoading } = useQuery<GAFunnel>({
-    queryKey: ['ga-funnel', dateParams],
-    queryFn: () => fetchSection<GAFunnel>('ga-funnel', secret, dateParams),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  if (isLoading) {
-    return <div className="flex justify-center py-16 text-sm text-gray-400">퍼널 데이터 로딩 중...</div>;
-  }
-
-  if (!data?.configured) {
-    return (
-      <div className="space-y-5">
-        <SectionLabel>구매 전환 퍼널</SectionLabel>
-        <GANotConfigured title="GA4 이벤트 기반 퍼널 분석" />
-      </div>
-    );
-  }
-
+function FunnelTab() {
   return (
     <div className="space-y-5">
-      <SectionLabel>퍼널 이벤트 추이</SectionLabel>
-      {data.byDate && data.byDate.length > 0 ? (
-        <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900">일자별 퍼널 이벤트</h3>
-            <p className="text-xs text-gray-400">view_item → add_to_cart → begin_checkout → purchase</p>
-          </div>
-          <div className="p-4">
-            <ResponsiveContainer width="100%" height={240}>
-              <AreaChart data={data.byDate} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} width={40} />
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Area type="monotone" dataKey="views" name="PDP 조회" stroke="#e2e8f0" fill="#e2e8f0" strokeWidth={1.5} />
-                <Area type="monotone" dataKey="addToCart" name="장바구니" stroke="#fdb997" fill="#fdb997" strokeWidth={1.5} />
-                <Area type="monotone" dataKey="checkout" name="결제 시작" stroke="#fb8c5a" fill="#fb8c5a" strokeWidth={1.5} />
-                <Area type="monotone" dataKey="purchases" name="구매 완료" stroke={BRAND} fill={BRAND} strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      ) : (
-        <GANotConfigured title="퍼널 이벤트 데이터 없음" />
-      )}
-
-      <SectionLabel>소스 · 매체별 전환율</SectionLabel>
-      {data.bySource && data.bySource.length > 0 ? (
-        <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900">소스 / 매체별 전환율</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead className="border-b">
-                <tr>
-                  <th className="text-left px-4 py-2 font-medium text-gray-400">소스</th>
-                  <th className="text-left px-4 py-2 font-medium text-gray-400">매체</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-400">세션</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-400">전환</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-400">전환율</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.bySource.map((row, i) => (
-                  <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-2.5 font-medium">{row.source || '(direct)'}</td>
-                    <td className="px-4 py-2.5 text-gray-500">{row.medium || '(none)'}</td>
-                    <td className="px-4 py-2.5 text-right">{row.sessions.toLocaleString()}</td>
-                    <td className="px-4 py-2.5 text-right">{row.conversions.toLocaleString()}</td>
-                    <td className="px-4 py-2.5 text-right">
-                      <span className={`font-semibold ${row.rate > 3 ? 'text-emerald-600' : row.rate > 1 ? 'text-orange-500' : 'text-gray-500'}`}>
-                        {row.rate}%
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : (
-        <GANotConfigured title="소스/매체 전환 데이터 없음" />
-      )}
+      <SectionLabel>구매 전환 퍼널</SectionLabel>
+      <GaPlaceholder title="구매 전환 퍼널" />
+      <SectionLabel>소스 / 매체별 전환</SectionLabel>
+      <GaPlaceholder title="소스/매체별 전환율" />
+      <SectionLabel>이탈 포인트 분석</SectionLabel>
+      <GaPlaceholder title="페이지별 이탈 포인트" />
     </div>
   );
 }
 
 // ─── 행동 분석 Tab ───
 
-function BehaviorTab({ secret, dateParams }: { secret: string; dateParams: Record<string, string> }) {
-  const { data, isLoading } = useQuery<GABehavior>({
-    queryKey: ['ga-behavior', dateParams],
-    queryFn: () => fetchSection<GABehavior>('ga-behavior', secret, dateParams),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  if (isLoading) {
-    return <div className="flex justify-center py-16 text-sm text-gray-400">행동 데이터 로딩 중...</div>;
-  }
-
-  if (!data?.configured) {
-    return (
-      <div className="space-y-5">
-        <SectionLabel>행동 분석</SectionLabel>
-        <GANotConfigured title="GA4 행동 분석" />
-      </div>
-    );
-  }
-
+function BehaviorTab() {
   return (
     <div className="space-y-5">
       <SectionLabel>페이지 분석</SectionLabel>
-      {data.topPages && data.topPages.length > 0 ? (
-        <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900">상위 페이지</h3>
-          </div>
-          <div className="overflow-x-auto max-h-72 overflow-y-auto">
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-white border-b">
-                <tr>
-                  <th className="text-left px-4 py-2 font-medium text-gray-400">페이지 경로</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-400">조회수</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-400">세션</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-400">이탈률</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-400">체류시간</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.topPages.map((row, i) => (
-                  <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-2.5 font-mono text-[11px] max-w-[280px] truncate">{row.path}</td>
-                    <td className="px-4 py-2.5 text-right">{row.views.toLocaleString()}</td>
-                    <td className="px-4 py-2.5 text-right">{row.sessions.toLocaleString()}</td>
-                    <td className="px-4 py-2.5 text-right">
-                      <span className={row.bounceRate > 60 ? 'text-red-500' : row.bounceRate > 40 ? 'text-orange-400' : 'text-emerald-600'}>
-                        {row.bounceRate}%
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-right text-gray-600">{fmtSec(row.avgTime)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : <GANotConfigured title="페이지 데이터 없음" />}
-
-      <SectionLabel>이벤트 · 디바이스</SectionLabel>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {data.topEvents && data.topEvents.length > 0 ? (
-          <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-900">상위 이벤트</h3>
-            </div>
-            <div className="overflow-x-auto max-h-64 overflow-y-auto">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-white border-b">
-                  <tr>
-                    <th className="text-left px-4 py-2 font-medium text-gray-400">이벤트</th>
-                    <th className="text-right px-4 py-2 font-medium text-gray-400">횟수</th>
-                    <th className="text-right px-4 py-2 font-medium text-gray-400">유저</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.topEvents.map((ev, i) => (
-                    <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
-                      <td className="px-4 py-2.5 font-mono text-[11px]">{ev.name}</td>
-                      <td className="px-4 py-2.5 text-right font-medium">{ev.count.toLocaleString()}</td>
-                      <td className="px-4 py-2.5 text-right text-gray-500">{ev.users.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ) : <GANotConfigured title="이벤트 데이터 없음" />}
-
-        {data.deviceBreakdown && data.deviceBreakdown.length > 0 ? (
-          <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-900">디바이스별 세션</h3>
-            </div>
-            <div className="p-4">
-              <div className="flex items-center gap-4">
-                <PieChart width={130} height={130}>
-                  <Pie data={data.deviceBreakdown} dataKey="sessions" cx={60} cy={60} innerRadius={32} outerRadius={55} paddingAngle={2}>
-                    {data.deviceBreakdown.map((d, i) => (
-                      <Cell key={i} fill={DEVICE_COLORS[d.device.toLowerCase()] || '#94a3b8'} />
-                    ))}
-                  </Pie>
-                </PieChart>
-                <div className="flex-1 space-y-2.5 text-xs">
-                  {data.deviceBreakdown.map((d, i) => (
-                    <div key={i} className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: DEVICE_COLORS[d.device.toLowerCase()] || '#94a3b8' }} />
-                          <span className="capitalize font-medium">{d.device}</span>
-                        </div>
-                        <span>{d.sessions.toLocaleString()} ({d.percentage}%)</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px] text-gray-400">
-                        <span>이탈 {d.bounceRate}%</span>
-                        <span>·</span>
-                        <span>체류 {fmtSec(d.avgTime)}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : <GANotConfigured title="디바이스 데이터 없음" />}
-      </div>
-
-      <SectionLabel>랜딩 페이지</SectionLabel>
-      {data.topLandingPages && data.topLandingPages.length > 0 ? (
-        <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900">상위 랜딩 페이지</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead className="border-b">
-                <tr>
-                  <th className="text-left px-4 py-2 font-medium text-gray-400">경로</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-400">세션</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-400">이탈률</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.topLandingPages.map((row, i) => (
-                  <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-2.5 font-mono text-[11px] max-w-[320px] truncate">{row.path}</td>
-                    <td className="px-4 py-2.5 text-right">{row.sessions.toLocaleString()}</td>
-                    <td className="px-4 py-2.5 text-right">
-                      <span className={row.bounceRate > 60 ? 'text-red-500' : row.bounceRate > 40 ? 'text-orange-400' : 'text-emerald-600'}>
-                        {row.bounceRate}%
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : <GANotConfigured title="랜딩 페이지 데이터 없음" />}
+      <GaPlaceholder title="상위 페이지 · 페이지뷰" />
+      <SectionLabel>사용자 행동</SectionLabel>
+      <GaPlaceholder title="이벤트 분석 · 사용자 흐름" />
+      <SectionLabel>디바이스 분석</SectionLabel>
+      <GaPlaceholder title="디바이스별 세션 · 전환율" />
     </div>
   );
 }
 
 // ─── 회원 분석 Tab ───
 
-function CustomerTab({ secret, dateParams }: { secret: string; dateParams: Record<string, string> }) {
+function CustomerTab({ secret }: { secret: string }) {
   const [tab, setTab] = useState('top');
 
   const { data, isLoading } = useQuery<CustomerSummary>({
     queryKey: ['admin-customers'],
     queryFn: () => fetchSection<CustomerSummary>('customers', secret, { view: 'all' }),
     staleTime: 60_000,
-  });
-
-  const { data: retentionData } = useQuery<GARetention>({
-    queryKey: ['ga-retention', dateParams],
-    queryFn: () => fetchSection<GARetention>('ga-retention', secret, dateParams),
-    staleTime: 5 * 60 * 1000,
   });
 
   if (isLoading || !data) {
@@ -1143,110 +756,7 @@ function CustomerTab({ secret, dateParams }: { secret: string; dateParams: Recor
       </div>
 
       <SectionLabel>유저 재방문</SectionLabel>
-      {retentionData?.configured ? (
-        <div className="space-y-4">
-          {retentionData.breakdown && retentionData.breakdown.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
-                <div className="px-5 py-3 border-b border-gray-100">
-                  <h3 className="text-sm font-semibold text-gray-900">신규 vs 재방문</h3>
-                  <p className="text-xs text-gray-400">세션 기준 비율</p>
-                </div>
-                <div className="p-4 flex items-center gap-4">
-                  <PieChart width={130} height={130}>
-                    <Pie data={retentionData.breakdown} dataKey="sessions" cx={60} cy={60} innerRadius={34} outerRadius={56} paddingAngle={2}>
-                      {retentionData.breakdown.map((d, i) => (
-                        <Cell key={i} fill={d.type === '신규' ? BRAND : '#64748b'} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                  <div className="flex-1 space-y-3 text-xs">
-                    {retentionData.breakdown.map((d, i) => (
-                      <div key={i} className="space-y-0.5">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.type === '신규' ? BRAND : '#64748b' }} />
-                            <span className="font-medium">{d.type}</span>
-                          </div>
-                          <span className="font-semibold">{d.percentage}%</span>
-                        </div>
-                        <div className="flex justify-between text-gray-400 text-[11px] pl-4">
-                          <span>세션 {d.sessions.toLocaleString()}</span>
-                          <span>전환율 {d.conversionRate}%</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="lg:col-span-2 rounded-xl border bg-white border-gray-200 overflow-hidden">
-                <div className="px-5 py-3 border-b border-gray-100">
-                  <h3 className="text-sm font-semibold text-gray-900">신규 · 재방문 세션 추이</h3>
-                </div>
-                <div className="p-4">
-                  <ResponsiveContainer width="100%" height={160}>
-                    <ComposedChart data={retentionData.trend} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                      <YAxis tick={{ fontSize: 10 }} width={36} />
-                      <Tooltip />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar dataKey="신규" stackId="a" fill={BRAND} opacity={0.85} radius={[0, 0, 0, 0]} />
-                      <Bar dataKey="재방문" stackId="a" fill="#64748b" opacity={0.7} radius={[3, 3, 0, 0]} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {retentionData.breakdown && retentionData.breakdown.length > 0 && (
-            <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
-              <div className="px-5 py-3 border-b border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-900">신규 vs 재방문 상세</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="border-b">
-                    <tr>
-                      <th className="text-left px-5 py-2.5 font-medium text-gray-400">유형</th>
-                      <th className="text-right px-5 py-2.5 font-medium text-gray-400">세션</th>
-                      <th className="text-right px-5 py-2.5 font-medium text-gray-400">유저</th>
-                      <th className="text-right px-5 py-2.5 font-medium text-gray-400">전환</th>
-                      <th className="text-right px-5 py-2.5 font-medium text-gray-400">전환율</th>
-                      <th className="text-right px-5 py-2.5 font-medium text-gray-400">비율</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {retentionData.breakdown.map((d, i) => (
-                      <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.type === '신규' ? BRAND : '#64748b' }} />
-                            <span className="font-medium">{d.type} 유저</span>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3 text-right">{d.sessions.toLocaleString()}</td>
-                        <td className="px-5 py-3 text-right">{d.users.toLocaleString()}</td>
-                        <td className="px-5 py-3 text-right">{d.conversions.toLocaleString()}</td>
-                        <td className="px-5 py-3 text-right">
-                          <span className={`font-semibold ${d.conversionRate > 3 ? 'text-emerald-600' : d.conversionRate > 1 ? 'text-orange-500' : 'text-gray-500'}`}>
-                            {d.conversionRate}%
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 text-right font-medium">{d.percentage}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        <GANotConfigured title="신규 vs 재방문 유저 — GA4 연동 후 활성화" />
-      )}
+      <GaPlaceholder title="신규 vs 재방문 유저" />
 
       <p className="text-center text-xs text-gray-400 pb-4">
         Shopify: biteme-one &middot; 회원 데이터
@@ -1257,112 +767,15 @@ function CustomerTab({ secret, dateParams }: { secret: string; dateParams: Recor
 
 // ─── 주간회고 Tab ───
 
-function WeeklyReviewTab({ secret }: { secret: string }) {
-  const { data, isLoading, isError } = useQuery<WeeklyReview>({
-    queryKey: ['ga-weekly'],
-    queryFn: () => fetchSection<WeeklyReview>('ga-weekly', secret),
-    staleTime: 10 * 60 * 1000,
-  });
-
-  if (isLoading) {
-    return <div className="flex justify-center py-16 text-sm text-gray-400">주간 데이터 집계 중...</div>;
-  }
-
-  if (isError || !data) {
-    return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        주간 데이터를 불러오지 못했습니다.
-      </div>
-    );
-  }
-
-  const { currentWeek: cw, previousWeek: pw, delta } = data;
-
-  const kpis = [
-    { label: '매출', cur: fmtMoney(cw.revenue, cw.currency), prev: fmtMoney(pw.revenue, pw.currency), delta: delta.revenue },
-    { label: '주문 수', cur: `${cw.orders}건`, prev: `${pw.orders}건`, delta: delta.orders },
-    { label: '세션', cur: cw.sessions > 0 ? cw.sessions.toLocaleString() : '—', prev: pw.sessions > 0 ? pw.sessions.toLocaleString() : '—', delta: delta.sessions },
-    { label: '신규 유저', cur: cw.newUsers > 0 ? `${cw.newUsers.toLocaleString()}명` : '—', prev: pw.newUsers > 0 ? `${pw.newUsers.toLocaleString()}명` : '—', delta: delta.newUsers },
-    { label: '전환율', cur: cw.conversionRate > 0 ? `${cw.conversionRate}%` : '—', prev: pw.conversionRate > 0 ? `${pw.conversionRate}%` : '—', delta: delta.conversionRate },
-  ];
-
+function WeeklyReviewTab() {
   return (
     <div className="space-y-5">
-      <SectionLabel>주간 비교</SectionLabel>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="rounded-xl border border-orange-200 bg-orange-50/30 p-4">
-          <p className="text-xs font-semibold text-orange-600 mb-1">이번 주</p>
-          <p className="text-[11px] text-gray-500">{cw.start} ~ {cw.end}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs font-semibold text-gray-500 mb-1">지난 주</p>
-          <p className="text-[11px] text-gray-400">{pw.start} ~ {pw.end}</p>
-        </div>
+      <SectionLabel>주간 회고</SectionLabel>
+      <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50/50 flex flex-col items-center justify-center py-20">
+        <h3 className="text-sm font-semibold text-gray-500 mb-2">주간 회고</h3>
+        <p className="text-sm text-gray-400">추후 업데이트 예정</p>
+        <p className="text-xs mt-2 text-gray-300">주간 주요 지표 변동 요약 및 액션 리뷰가 자동 생성됩니다</p>
       </div>
-
-      <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900">KPI 비교</h3>
-          {!data.gaConfigured && (
-            <p className="text-[11px] text-orange-500 mt-0.5">GA4 미연동 — 세션·유저·전환율은 Shopify 데이터만 표시</p>
-          )}
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b">
-              <tr>
-                <th className="text-left px-5 py-3 font-medium text-gray-400">지표</th>
-                <th className="text-right px-5 py-3 font-medium" style={{ color: BRAND }}>이번 주</th>
-                <th className="text-right px-5 py-3 font-medium text-gray-400">지난 주</th>
-                <th className="text-right px-5 py-3 font-medium text-gray-400">증감</th>
-              </tr>
-            </thead>
-            <tbody>
-              {kpis.map((kpi, i) => (
-                <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
-                  <td className="px-5 py-3.5 font-medium text-gray-700">{kpi.label}</td>
-                  <td className="px-5 py-3.5 text-right font-bold text-gray-900">{kpi.cur}</td>
-                  <td className="px-5 py-3.5 text-right text-gray-400">{kpi.prev}</td>
-                  <td className="px-5 py-3.5 text-right"><Delta value={kpi.delta} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {cw.daily && cw.daily.length > 0 && (
-        <>
-          <SectionLabel>이번 주 일별 매출</SectionLabel>
-          <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
-            <div className="p-4">
-              <ResponsiveContainer width="100%" height={200}>
-                <ComposedChart
-                  data={cw.daily.map(d => ({ date: isoToLabel(d.date), revenue: d.revenue, orders: d.orders }))}
-                  margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                  <YAxis yAxisId="rev" tick={{ fontSize: 10 }}
-                    tickFormatter={v => `$${v.toFixed(0)}`} width={48} />
-                  <YAxis yAxisId="orders" orientation="right" tick={{ fontSize: 10 }} width={32} />
-                  <Tooltip formatter={(value, name) => {
-                    if (name === 'revenue') return [fmtMoney(Number(value), cw.currency), '매출'];
-                    return [Number(value), '주문'];
-                  }} />
-                  <Bar yAxisId="rev" dataKey="revenue" fill={BRAND} opacity={0.3} radius={[3, 3, 0, 0]} />
-                  <Line yAxisId="orders" type="monotone" dataKey="orders" stroke={BRAND} strokeWidth={2.5} dot={{ r: 3 }} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </>
-      )}
-
-      <p className="text-center text-xs text-gray-400 pb-4">
-        Shopify: biteme-one · 주간 회고 데이터
-        {data.gaConfigured && ' · GA4 연동'}
-      </p>
     </div>
   );
 }
@@ -1380,28 +793,22 @@ const TABS = [
 function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => void }) {
   const [range, setRange] = useState<Range>('7d');
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
-  const [showDatePicker, setShowDatePicker] = useState(false);
-
-  const todayISO = localISO(new Date());
-  const rangeLabel = range === 'custom' && customStart && customEnd
-    ? `${customStart} ~ ${customEnd}`
-    : RANGE_LABELS[range];
-
-  const dateParams: Record<string, string> = range === 'custom'
-    ? { start: customStart, end: customEnd }
-    : { range };
 
   const { data: dashboard, isLoading, isError, error, refetch } = useQuery<DashboardData>({
-    queryKey: ['admin-dashboard', dateParams],
-    queryFn: () => fetchSection<DashboardData>('dashboard', secret, dateParams),
+    queryKey: ['admin-dashboard', range],
+    queryFn: () => fetchSection<DashboardData>('dashboard', secret, { range }),
     staleTime: 5 * 60 * 1000,
-    enabled: range !== 'custom' || (customStart !== '' && customEnd !== ''),
     retry: (count, err) => {
       if (err instanceof Error && err.message === 'UNAUTHORIZED') return false;
       return count < 2;
     },
+  });
+
+  const { data: gaData, refetch: refetchGa } = useQuery<GaData>({
+    queryKey: ['admin-ga', range],
+    queryFn: () => fetchSection<GaData>('ga-overview', secret, { range }),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
   });
 
   useEffect(() => {
@@ -1415,61 +822,19 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="font-bold text-sm" style={{ color: BRAND }}>BITEME</span>
-            <span className="text-xs text-gray-400">Analytics · Global</span>
+            <span className="text-xs text-gray-400">Analytics</span>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
             <div className="flex rounded-lg border bg-white overflow-hidden text-xs">
-              {(['today', 'thisWeek', 'thisMonth', '7d', '28d', '90d'] as Range[]).map(r => (
-                <button key={r} onClick={() => { setRange(r); setShowDatePicker(false); }}
+              {(['today', '7d', '28d', '90d'] as Range[]).map(r => (
+                <button key={r} onClick={() => setRange(r)}
                   className={`px-3 py-1.5 transition-colors ${range === r ? 'text-white font-medium' : 'text-gray-500 hover:text-gray-700'}`}
                   style={range === r ? { backgroundColor: BRAND } : {}}>
                   {RANGE_LABELS[r]}
                 </button>
               ))}
             </div>
-            <div className="relative">
-              <button onClick={() => setShowDatePicker(!showDatePicker)}
-                className={`px-3 py-1.5 rounded-lg border text-xs transition-colors flex items-center gap-1 ${range === 'custom' ? 'text-white font-medium border-transparent' : 'text-gray-500 hover:text-gray-700'}`}
-                style={range === 'custom' ? { backgroundColor: BRAND } : {}}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                {range === 'custom' && customStart && customEnd
-                  ? `${customStart.slice(5)} ~ ${customEnd.slice(5)}`
-                  : '기간 선택'}
-              </button>
-              {showDatePicker && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowDatePicker(false)} />
-                  <div className="absolute right-0 top-full mt-2 bg-white border rounded-xl shadow-lg p-4 z-20 w-72">
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">시작일</label>
-                        <input type="date" value={customStart} max={customEnd || todayISO}
-                          onChange={e => setCustomStart(e.target.value)}
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-200" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 mb-1 block">종료일</label>
-                        <input type="date" value={customEnd} min={customStart} max={todayISO}
-                          onChange={e => setCustomEnd(e.target.value)}
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange-200" />
-                      </div>
-                      <button onClick={() => {
-                        if (customStart && customEnd && customStart <= customEnd) {
-                          setRange('custom');
-                          setShowDatePicker(false);
-                        }
-                      }}
-                        disabled={!customStart || !customEnd || customStart > customEnd}
-                        className="w-full py-2 rounded-lg text-xs font-medium text-white transition-opacity disabled:opacity-40"
-                        style={{ backgroundColor: BRAND }}>
-                        적용
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-            <button onClick={() => refetch()} className="text-xs px-3 py-1.5 rounded-lg border hover:bg-gray-50 transition-colors">새로고침</button>
+            <button onClick={() => { refetch(); refetchGa(); }} className="text-xs px-3 py-1.5 rounded-lg border hover:bg-gray-50 transition-colors">새로고침</button>
             <button onClick={onLogout} className="text-xs text-gray-400 hover:text-gray-700 transition-colors">로그아웃</button>
           </div>
         </div>
@@ -1498,12 +863,12 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
         {activeTab === 'dashboard' && (
           isLoading || !dashboard
             ? <div className="flex items-center justify-center h-64 text-sm text-gray-400">데이터를 불러오는 중...</div>
-            : <DashboardTab data={dashboard} currency={dashboard.currency} rangeLabel={rangeLabel} secret={secret} dateParams={dateParams} />
+            : <DashboardTab data={dashboard} currency={dashboard.currency} range={range} ga={gaData || null} />
         )}
-        {activeTab === 'funnel' && <FunnelTab secret={secret} dateParams={dateParams} />}
-        {activeTab === 'behavior' && <BehaviorTab secret={secret} dateParams={dateParams} />}
-        {activeTab === 'members' && <CustomerTab secret={secret} dateParams={dateParams} />}
-        {activeTab === 'review' && <WeeklyReviewTab secret={secret} />}
+        {activeTab === 'funnel' && <FunnelTab />}
+        {activeTab === 'behavior' && <BehaviorTab />}
+        {activeTab === 'members' && <CustomerTab secret={secret} />}
+        {activeTab === 'review' && <WeeklyReviewTab />}
       </div>
     </div>
   );
@@ -1525,4 +890,3 @@ export default function AdminManage() {
     />
   );
 }
-
