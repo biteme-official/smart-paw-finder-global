@@ -53,6 +53,14 @@ interface GaTrafficData {
   pages: { path: string; views: number; users: number }[];
 }
 
+interface GaBehaviorData {
+  available: boolean;
+  pages: { path: string; views: number; users: number; bounceRate: number; avgEngagement: number }[];
+  events: { name: string; count: number }[];
+  devices: { device: string; sessions: number; users: number; bounceRate: number; avgDuration: number; conversionRate: number }[];
+  totalDeviceSessions: number;
+}
+
 interface Customer {
   id: string; name: string; email: string;
   orders: number; spent: string; currency: string;
@@ -910,15 +918,172 @@ function FunnelTab({ secret, range, ga }: { secret: string; range: Range; ga: Ga
 
 // ─── 행동 분석 Tab ───
 
-function BehaviorTab() {
+function BehaviorTab({ secret, range }: { secret: string; range: Range }) {
+  const { data, isLoading } = useQuery<GaBehaviorData>({
+    queryKey: ['admin-ga-behavior', range],
+    queryFn: () => fetchSection<GaBehaviorData>('ga-behavior', secret, { range }),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  if (isLoading) {
+    return <div className="flex justify-center py-16 text-sm text-gray-400">행동 분석 데이터를 불러오는 중...</div>;
+  }
+
+  if (!data?.available) {
+    return (
+      <div className="space-y-5">
+        <SectionLabel>페이지 분석</SectionLabel>
+        <GaPlaceholder title="상위 페이지 · 페이지뷰" />
+        <SectionLabel>사용자 행동</SectionLabel>
+        <GaPlaceholder title="이벤트 분석 · 사용자 흐름" />
+        <SectionLabel>디바이스 분석</SectionLabel>
+        <GaPlaceholder title="디바이스별 세션 · 전환율" />
+      </div>
+    );
+  }
+
+  const { pages, events, devices, totalDeviceSessions } = data;
+  const maxPageViews = pages[0]?.views || 1;
+  const maxEventCount = events[0]?.count || 1;
+
   return (
     <div className="space-y-5">
+      {/* 페이지 분석 */}
       <SectionLabel>페이지 분석</SectionLabel>
-      <GaPlaceholder title="상위 페이지 · 페이지뷰" />
+      <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-900">상위 페이지</h3>
+          <p className="text-xs text-gray-400">페이지뷰 기준 상위 20개</p>
+        </div>
+        <div className="overflow-y-auto max-h-72">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-white border-b">
+              <tr>
+                <th className="text-left px-4 py-2 font-medium text-gray-400">페이지</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-400">PV</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-400">유저</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-400">이탈률</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-400">체류</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pages.map((row, i) => (
+                <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+                  <td className="px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 w-8 shrink-0 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${(row.views / maxPageViews) * 100}%`, backgroundColor: BRAND }} />
+                      </div>
+                      <span className="font-mono truncate max-w-[200px]">{row.path}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2 text-right font-medium">{row.views.toLocaleString()}</td>
+                  <td className="px-4 py-2 text-right text-gray-500">{row.users.toLocaleString()}</td>
+                  <td className="px-4 py-2 text-right text-gray-500">{row.bounceRate.toFixed(1)}%</td>
+                  <td className="px-4 py-2 text-right text-gray-500">
+                    {row.avgEngagement > 60
+                      ? `${Math.floor(row.avgEngagement / 60)}분 ${row.avgEngagement % 60}초`
+                      : `${row.avgEngagement}초`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 사용자 행동 — 이벤트 분석 */}
       <SectionLabel>사용자 행동</SectionLabel>
-      <GaPlaceholder title="이벤트 분석 · 사용자 흐름" />
+      <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-900">이벤트 분석</h3>
+          <p className="text-xs text-gray-400">발생 건수 기준 상위 20개</p>
+        </div>
+        <div className="overflow-y-auto max-h-72">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-white border-b">
+              <tr>
+                <th className="text-left px-4 py-2 font-medium text-gray-400">이벤트</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-400">발생 건수</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-400">비율</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((row, i) => (
+                <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+                  <td className="px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 w-16 shrink-0 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${(row.count / maxEventCount) * 100}%`, backgroundColor: BRAND }} />
+                      </div>
+                      <span className="font-mono">{row.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2 text-right font-medium">{row.count.toLocaleString()}</td>
+                  <td className="px-4 py-2 text-right text-gray-500">
+                    {maxEventCount > 0 ? ((row.count / maxEventCount) * 100).toFixed(1) : 0}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 디바이스 분석 */}
       <SectionLabel>디바이스 분석</SectionLabel>
-      <GaPlaceholder title="디바이스별 세션 · 전환율" />
+      <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-900">디바이스별 세션 · 전환율</h3>
+          <p className="text-xs text-gray-400">디바이스 유형별 상세 분석</p>
+        </div>
+        <div className="p-4 flex items-start gap-6">
+          <PieChart width={120} height={120}>
+            <Pie data={devices.map(d => ({ name: d.device, value: d.sessions }))} dataKey="value"
+              cx={55} cy={55} innerRadius={32} outerRadius={50} paddingAngle={2}>
+              {devices.map((d, i) => <Cell key={i} fill={DEVICE_COLORS[d.device] || '#d4d4d4'} />)}
+            </Pie>
+          </PieChart>
+          <div className="flex-1 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr>
+                  <th className="text-left pb-2 font-medium text-gray-400">디바이스</th>
+                  <th className="text-right pb-2 font-medium text-gray-400">세션</th>
+                  <th className="text-right pb-2 font-medium text-gray-400">비중</th>
+                  <th className="text-right pb-2 font-medium text-gray-400">이탈률</th>
+                  <th className="text-right pb-2 font-medium text-gray-400">전환율</th>
+                  <th className="text-right pb-2 font-medium text-gray-400">체류</th>
+                </tr>
+              </thead>
+              <tbody>
+                {devices.map((d, i) => (
+                  <tr key={i} className="border-t border-gray-100">
+                    <td className="py-2">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: DEVICE_COLORS[d.device] || '#d4d4d4' }} />
+                        <span>{DEVICE_LABELS[d.device] || d.device}</span>
+                      </div>
+                    </td>
+                    <td className="py-2 text-right font-medium">{d.sessions.toLocaleString()}</td>
+                    <td className="py-2 text-right text-gray-500">
+                      {totalDeviceSessions > 0 ? ((d.sessions / totalDeviceSessions) * 100).toFixed(1) : 0}%
+                    </td>
+                    <td className="py-2 text-right text-gray-500">{d.bounceRate.toFixed(1)}%</td>
+                    <td className="py-2 text-right text-gray-500">{d.conversionRate.toFixed(2)}%</td>
+                    <td className="py-2 text-right text-gray-500">
+                      {d.avgDuration > 60
+                        ? `${Math.floor(d.avgDuration / 60)}분 ${d.avgDuration % 60}초`
+                        : `${d.avgDuration}초`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1164,7 +1329,7 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
             : <DashboardTab data={dashboard} currency={dashboard.currency} range={range} ga={gaData || null} traffic={trafficData || null} />
         )}
         {activeTab === 'funnel' && <FunnelTab secret={secret} range={range} ga={gaData || null} />}
-        {activeTab === 'behavior' && <BehaviorTab />}
+        {activeTab === 'behavior' && <BehaviorTab secret={secret} range={range} />}
         {activeTab === 'members' && <CustomerTab secret={secret} />}
         {activeTab === 'review' && <WeeklyReviewTab />}
       </div>

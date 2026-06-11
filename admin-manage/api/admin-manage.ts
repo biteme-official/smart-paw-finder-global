@@ -831,6 +831,78 @@ async function handleGaFunnel(req: VercelRequest, res: VercelResponse) {
   });
 }
 
+async function handleGaBehavior(req: VercelRequest, res: VercelResponse) {
+  const gaToken = await getGAAccessToken();
+  if (!gaToken) return res.status(200).json({ available: false });
+
+  const range = (req.query.range as string) || '7d';
+  const dr = gaDateRange(range);
+
+  const [pageReport, eventReport, deviceReport] = await Promise.all([
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'pagePath' }],
+      metrics: [
+        { name: 'screenPageViews' },
+        { name: 'totalUsers' },
+        { name: 'bounceRate' },
+        { name: 'userEngagementDuration' },
+      ],
+      orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+      limit: 20,
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'eventName' }],
+      metrics: [{ name: 'eventCount' }],
+      orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+      limit: 20,
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'deviceCategory' }],
+      metrics: [
+        { name: 'sessions' },
+        { name: 'totalUsers' },
+        { name: 'bounceRate' },
+        { name: 'averageSessionDuration' },
+        { name: 'ecommercePurchases' },
+      ],
+      orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+    }),
+  ]);
+
+  const pages = gaRows(pageReport).map(r => ({
+    path: r.pagePath || '/',
+    views: parseInt(r.screenPageViews || '0'),
+    users: parseInt(r.totalUsers || '0'),
+    bounceRate: Math.round(parseFloat(r.bounceRate || '0') * 10000) / 100,
+    avgEngagement: Math.round(parseFloat(r.userEngagementDuration || '0')),
+  }));
+
+  const events = gaRows(eventReport).map(r => ({
+    name: r.eventName || '(unknown)',
+    count: parseInt(r.eventCount || '0'),
+  }));
+
+  const deviceRows = gaRows(deviceReport);
+  const totalDeviceSessions = deviceRows.reduce((s, r) => s + parseInt(r.sessions || '0'), 0);
+  const devices = deviceRows.map(r => {
+    const sessions = parseInt(r.sessions || '0');
+    const purchases = parseInt(r.ecommercePurchases || '0');
+    return {
+      device: r.deviceCategory || 'unknown',
+      sessions,
+      users: parseInt(r.totalUsers || '0'),
+      bounceRate: Math.round(parseFloat(r.bounceRate || '0') * 10000) / 100,
+      avgDuration: Math.round(parseFloat(r.averageSessionDuration || '0')),
+      conversionRate: sessions > 0 ? Math.round((purchases / sessions) * 10000) / 100 : 0,
+    };
+  });
+
+  return res.status(200).json({ available: true, pages, events, devices, totalDeviceSessions });
+}
+
 // ─── Router ───
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -853,6 +925,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (section === 'ga-overview') return await handleGaOverview(req, res);
     if (section === 'ga-funnel') return await handleGaFunnel(req, res);
     if (section === 'ga-traffic') return await handleGaTraffic(req, res);
+    if (section === 'ga-behavior') return await handleGaBehavior(req, res);
 
     const token = await getShopifyAccessToken();
     if (section === 'overview') return await handleOverview(token, res);
