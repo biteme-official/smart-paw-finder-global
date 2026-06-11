@@ -874,6 +874,155 @@ async function handleGAWeekly(shopifyToken: string, res: VercelResponse) {
   });
 }
 
+// ─── Meta Marketing API ───
+
+function metaDateRange(range: string, customStart?: string, customEnd?: string): { since: string; until: string } {
+  const toISO = (d: Date) => d.toISOString().slice(0, 10);
+  if (customStart && customEnd) return { since: customStart, until: customEnd };
+  const now = new Date();
+  const today = toISO(now);
+  if (range === 'today') return { since: today, until: today };
+  if (range === 'thisWeek') {
+    const day = now.getUTCDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + diff));
+    return { since: toISO(monday), until: today };
+  }
+  if (range === 'thisMonth') {
+    return { since: toISO(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))), until: today };
+  }
+  const days = range === '7d' ? 7 : range === '28d' ? 28 : 90;
+  const past = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days));
+  return { since: toISO(past), until: today };
+}
+
+async function handleMetaOverview(req: VercelRequest, res: VercelResponse) {
+  const token = process.env.META_ACCESS_TOKEN;
+  const adAccountId = process.env.META_AD_ACCOUNT_ID;
+  const pixelId = process.env.META_PIXEL_ID;
+
+  if (!token || !adAccountId || !pixelId) return res.status(200).json({ configured: false });
+
+  const range = (req.query.range as string) || '7d';
+  const customStart = req.query.start as string | undefined;
+  const customEnd = req.query.end as string | undefined;
+  const { since, until } = metaDateRange(range, customStart, customEnd);
+
+  const timeRange = JSON.stringify({ since, until });
+  const BASE = 'https://graph.facebook.com/v19.0';
+
+  const [insightsRes, pixelRes] = await Promise.all([
+    fetch(
+      `${BASE}/act_${adAccountId}/insights?access_token=${token}&fields=spend,impressions,clicks,reach,actions,action_values,ctr,cpc&time_range=${encodeURIComponent(timeRange)}&limit=1`,
+    ),
+    fetch(
+      `${BASE}/${pixelId}/stats?access_token=${token}&aggregation=event&start_time=${Math.floor(new Date(since + 'T00:00:00Z').getTime() / 1000)}&end_time=${Math.floor(new Date(until + 'T23:59:59Z').getTime() / 1000)}`,
+    ),
+  ]);
+
+  if (!insightsRes.ok && !pixelRes.ok) {
+    const err = await insightsRes.text();
+    console.error('[Meta Overview]', err);
+    return res.status(200).json({ configured: true, error: true });
+  }
+
+  const insightsData = insightsRes.ok ? await insightsRes.json() : { data: [] };
+  const pixelData = pixelRes.ok ? await pixelRes.json() : { data: [] };
+
+  const ins = insightsData.data?.[0] || {};
+  const spend = parseFloat(ins.spend || '0');
+  const impressions = parseInt(ins.impressions || '0');
+  const clicks = parseInt(ins.clicks || '0');
+  const reach = parseInt(ins.reach || '0');
+  const ctr = parseFloat(ins.ctr || '0');
+  const cpc = parseFloat(ins.cpc || '0');
+
+  const getAction = (actions: { action_type: string; value: string }[], type: string) =>
+    parseInt(actions?.find(a => a.action_type === type)?.value || '0');
+  const getActionValue = (avs: { action_type: string; value: string }[], type: string) =>
+    parseFloat(avs?.find(a => a.action_type === type)?.value || '0');
+
+  const purchases = getAction(ins.actions, 'offsite_conversion.fb_pixel_purchase');
+  const purchaseValue = getActionValue(ins.action_values, 'offsite_conversion.fb_pixel_purchase');
+  const roas = spend > 0 ? Math.round(purchaseValue / spend * 100) / 100 : 0;
+
+  const funnelEventMap: Record<string, number> = {};
+  for (const row of (pixelData.data || []) as { event_name: string; count: number }[]) {
+    funnelEventMap[row.event_name] = row.count;
+  }
+
+  const FUNNEL_EVENTS = ['PageView', 'ViewContent', 'AddToCart', 'InitiateCheckout', 'Purchase'];
+  const baseCount = funnelEventMap.PageView || funnelEventMap.ViewContent || 1;
+  const pixelFunnel = FUNNEL_EVENTS.map((name, i) => ({
+    name,
+    label: ['페이지 조회', 'PDP 조회', '장바구니', '결제 시작', '구매 완료'][i],
+    count: funnelEventMap[name] || 0,
+    rate: baseCount > 0 && i > 0 ? Math.round((funnelEventMap[name] || 0) / baseCount * 1000) / 10 : 100,
+  }));
+
+  return res.status(200).json({
+    configured: true,
+    spend: Math.round(spend * 100) / 100,
+    impressions,
+    clicks,
+    reach,
+    ctr: Math.round(ctr * 100) / 100,
+    cpc: Math.round(cpc * 100) / 100,
+    purchases,
+    purchaseValue: Math.round(purchaseValue * 100) / 100,
+    roas,
+    pixelFunnel,
+  });
+}
+
+async function handleMetaCampaigns(req: VercelRequest, res: VercelResponse) {
+  const token = process.env.META_ACCESS_TOKEN;
+  const adAccountId = process.env.META_AD_ACCOUNT_ID;
+
+  if (!token || !adAccountId) return res.status(200).json({ configured: false });
+
+  const range = (req.query.range as string) || '7d';
+  const customStart = req.query.start as string | undefined;
+  const customEnd = req.query.end as string | undefined;
+  const { since, until } = metaDateRange(range, customStart, customEnd);
+  const timeRange = JSON.stringify({ since, until });
+
+  const campaignRes = await fetch(
+    `https://graph.facebook.com/v19.0/act_${adAccountId}/insights?access_token=${token}&level=campaign&fields=campaign_name,spend,impressions,clicks,reach,actions,action_values,ctr,cpc&time_range=${encodeURIComponent(timeRange)}&sort=spend_descending&limit=20`,
+  );
+
+  if (!campaignRes.ok) {
+    console.error('[Meta Campaigns]', await campaignRes.text());
+    return res.status(200).json({ configured: true, campaigns: [] });
+  }
+
+  const data = await campaignRes.json();
+
+  const campaigns = (data.data || []).map((row: Record<string, unknown>) => {
+    const actions = (row.actions as { action_type: string; value: string }[]) || [];
+    const actionValues = (row.action_values as { action_type: string; value: string }[]) || [];
+    const getAction = (type: string) => parseInt(actions.find(a => a.action_type === type)?.value || '0');
+    const getActionValue = (type: string) => parseFloat(actionValues.find(a => a.action_type === type)?.value || '0');
+    const spend = parseFloat((row.spend as string) || '0');
+    const purchaseValue = getActionValue('offsite_conversion.fb_pixel_purchase');
+
+    return {
+      name: row.campaign_name as string,
+      spend: Math.round(spend * 100) / 100,
+      impressions: parseInt((row.impressions as string) || '0'),
+      clicks: parseInt((row.clicks as string) || '0'),
+      reach: parseInt((row.reach as string) || '0'),
+      ctr: Math.round(parseFloat((row.ctr as string) || '0') * 100) / 100,
+      cpc: Math.round(parseFloat((row.cpc as string) || '0') * 100) / 100,
+      purchases: getAction('offsite_conversion.fb_pixel_purchase'),
+      purchaseValue: Math.round(purchaseValue * 100) / 100,
+      roas: spend > 0 ? Math.round(purchaseValue / spend * 100) / 100 : 0,
+    };
+  });
+
+  return res.status(200).json({ configured: true, campaigns });
+}
+
 // ─── GA Retention Handler ───
 
 async function handleGARetention(req: VercelRequest, res: VercelResponse) {
@@ -953,6 +1102,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (section === 'ga-funnel') return await handleGAFunnel(req, res);
     if (section === 'ga-behavior') return await handleGABehavior(req, res);
     if (section === 'ga-retention') return await handleGARetention(req, res);
+    if (section === 'meta-overview') return await handleMetaOverview(req, res);
+    if (section === 'meta-campaigns') return await handleMetaCampaigns(req, res);
 
     const token = await getShopifyAccessToken();
 

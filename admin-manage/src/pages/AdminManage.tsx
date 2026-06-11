@@ -66,6 +66,30 @@ interface GABehavior {
 }
 
 
+interface MetaOverview {
+  configured: boolean;
+  error?: boolean;
+  spend?: number;
+  impressions?: number;
+  clicks?: number;
+  reach?: number;
+  ctr?: number;
+  cpc?: number;
+  purchases?: number;
+  purchaseValue?: number;
+  roas?: number;
+  pixelFunnel?: { name: string; label: string; count: number; rate: number }[];
+}
+
+interface MetaCampaigns {
+  configured: boolean;
+  campaigns?: {
+    name: string; spend: number; impressions: number; clicks: number;
+    reach: number; ctr: number; cpc: number;
+    purchases: number; purchaseValue: number; roas: number;
+  }[];
+}
+
 interface GARetention {
   configured: boolean;
   breakdown?: {
@@ -233,6 +257,17 @@ function GANotConfigured({ title }: { title?: string }) {
   );
 }
 
+const META_BLUE = '#1877F2';
+
+function MetaNotConfigured({ title }: { title?: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50/50 flex flex-col items-center justify-center py-10">
+      {title && <p className="text-xs font-semibold text-gray-400 mb-1">{title}</p>}
+      <p className="text-xs text-gray-400">Meta 미연동 — <code className="bg-gray-100 px-1 py-0.5 rounded text-[11px]">META_ACCESS_TOKEN</code> · <code className="bg-gray-100 px-1 py-0.5 rounded text-[11px]">META_AD_ACCOUNT_ID</code> · <code className="bg-gray-100 px-1 py-0.5 rounded text-[11px]">META_PIXEL_ID</code> 환경변수 설정 필요</p>
+    </div>
+  );
+}
+
 function Delta({ value }: { value: number | null }) {
   if (value === null) return <span className="text-gray-400 text-xs">—</span>;
   const isPos = value > 0;
@@ -241,6 +276,156 @@ function Delta({ value }: { value: number | null }) {
     <span className={`text-xs font-semibold ${isPos ? 'text-emerald-600' : isNeg ? 'text-red-500' : 'text-gray-400'}`}>
       {isPos ? '↑' : isNeg ? '↓' : '→'} {Math.abs(value)}%
     </span>
+  );
+}
+
+// ─── Meta: KPI Section ───
+
+function MetaKpiSection({ secret, dateParams }: { secret: string; dateParams: Record<string, string> }) {
+  const { data, isLoading } = useQuery<MetaOverview>({
+    queryKey: ['meta-overview', dateParams],
+    queryFn: () => fetchSection<MetaOverview>('meta-overview', secret, dateParams),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        {['광고비', '노출', '클릭', '구매', 'ROAS'].map(l => <KpiSkeleton key={l} label={l} />)}
+      </div>
+    );
+  }
+
+  if (!data?.configured) return <MetaNotConfigured title="Meta 광고 지표" />;
+  if (data.error) return <MetaNotConfigured title="Meta API 오류 — 토큰 만료 여부 확인 필요" />;
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+          <p className="text-xs text-gray-500 mb-1">총 광고비</p>
+          <p className="text-2xl font-bold tracking-tight" style={{ color: META_BLUE }}>
+            ${(data.spend ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+          </p>
+        </div>
+        <KpiCard label="노출" value={(data.impressions ?? 0).toLocaleString()} sub={`도달 ${(data.reach ?? 0).toLocaleString()}`} />
+        <KpiCard label="클릭" value={(data.clicks ?? 0).toLocaleString()} sub={`CTR ${data.ctr ?? 0}%`} />
+        <KpiCard label="구매 전환" value={`${data.purchases ?? 0}건`} sub={`$${(data.purchaseValue ?? 0).toFixed(2)}`} />
+        <KpiCard label="ROAS" value={`${data.roas ?? 0}x`} sub={`CPC $${data.cpc ?? 0}`} accent />
+      </div>
+    </div>
+  );
+}
+
+// ─── Meta: Pixel Funnel ───
+
+function MetaPixelFunnel({ secret, dateParams }: { secret: string; dateParams: Record<string, string> }) {
+  const { data, isLoading } = useQuery<MetaOverview>({
+    queryKey: ['meta-overview', dateParams],
+    queryFn: () => fetchSection<MetaOverview>('meta-overview', secret, dateParams),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (isLoading) return <div className="rounded-xl border border-gray-200 bg-white animate-pulse h-48" />;
+  if (!data?.configured || data.error) return <MetaNotConfigured title="Meta Pixel 퍼널" />;
+
+  const steps = data.pixelFunnel || [];
+  const maxCount = steps[0]?.count || 1;
+
+  return (
+    <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+        <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: META_BLUE }} />
+        <h3 className="text-sm font-semibold text-gray-900">Meta Pixel 퍼널</h3>
+        <p className="text-xs text-gray-400 ml-1">Pixel 이벤트 기반</p>
+      </div>
+      <div className="p-4 space-y-2.5">
+        {steps.map((step, i) => (
+          <div key={i} className="space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-700 font-medium">{step.label}</span>
+              <div className="flex items-center gap-2">
+                {i > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 font-medium" style={{ color: META_BLUE }}>
+                    {step.rate}%
+                  </span>
+                )}
+                <span className="font-semibold text-gray-900">{step.count.toLocaleString()}</span>
+              </div>
+            </div>
+            <div className="h-5 bg-gray-100 rounded-md overflow-hidden">
+              <div
+                className="h-full rounded-md transition-all duration-700"
+                style={{
+                  width: `${maxCount > 0 ? (step.count / maxCount) * 100 : 0}%`,
+                  backgroundColor: META_BLUE,
+                  opacity: 1 - i * 0.15,
+                }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Meta: Campaigns Table ───
+
+function MetaCampaignsTable({ secret, dateParams }: { secret: string; dateParams: Record<string, string> }) {
+  const { data, isLoading } = useQuery<MetaCampaigns>({
+    queryKey: ['meta-campaigns', dateParams],
+    queryFn: () => fetchSection<MetaCampaigns>('meta-campaigns', secret, dateParams),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (isLoading) return <div className="rounded-xl border border-gray-200 bg-white animate-pulse h-40" />;
+  if (!data?.configured) return <MetaNotConfigured title="Meta 캠페인 데이터" />;
+
+  const campaigns = data.campaigns || [];
+  if (campaigns.length === 0) return (
+    <div className="rounded-xl border border-gray-200 bg-white p-6 text-center text-xs text-gray-400">집계된 캠페인 없음</div>
+  );
+
+  return (
+    <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+        <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: META_BLUE }} />
+        <h3 className="text-sm font-semibold text-gray-900">캠페인별 성과</h3>
+      </div>
+      <div className="overflow-x-auto max-h-72 overflow-y-auto">
+        <table className="w-full text-xs">
+          <thead className="sticky top-0 bg-white border-b">
+            <tr>
+              <th className="text-left px-4 py-2 font-medium text-gray-400">캠페인</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">광고비</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">노출</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">클릭</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">CTR</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">구매</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">ROAS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {campaigns.map((c, i) => (
+              <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+                <td className="px-4 py-2.5 max-w-[200px] truncate font-medium">{c.name}</td>
+                <td className="px-4 py-2.5 text-right">${c.spend.toFixed(2)}</td>
+                <td className="px-4 py-2.5 text-right">{c.impressions.toLocaleString()}</td>
+                <td className="px-4 py-2.5 text-right">{c.clicks.toLocaleString()}</td>
+                <td className="px-4 py-2.5 text-right">{c.ctr}%</td>
+                <td className="px-4 py-2.5 text-right">{c.purchases}건</td>
+                <td className="px-4 py-2.5 text-right">
+                  <span className={`font-semibold ${c.roas >= 3 ? 'text-emerald-600' : c.roas >= 1 ? 'text-orange-500' : 'text-gray-500'}`}>
+                    {c.roas}x
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -764,23 +949,14 @@ function FunnelTab({ secret, dateParams }: { secret: string; dateParams: Record<
     staleTime: 5 * 60 * 1000,
   });
 
-  if (isLoading) {
-    return <div className="flex justify-center py-16 text-sm text-gray-400">퍼널 데이터 로딩 중...</div>;
-  }
-
-  if (!data?.configured) {
-    return (
-      <div className="space-y-5">
-        <SectionLabel>구매 전환 퍼널</SectionLabel>
-        <GANotConfigured title="GA4 이벤트 기반 퍼널 분석" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-5">
-      <SectionLabel>퍼널 이벤트 추이</SectionLabel>
-      {data.byDate && data.byDate.length > 0 ? (
+      <SectionLabel>퍼널 이벤트 추이 (GA4)</SectionLabel>
+      {isLoading ? (
+        <div className="rounded-xl border border-gray-200 bg-white animate-pulse h-48" />
+      ) : !data?.configured ? (
+        <GANotConfigured title="GA4 이벤트 기반 퍼널 분석" />
+      ) : data.byDate && data.byDate.length > 0 ? (
         <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100">
             <h3 className="text-sm font-semibold text-gray-900">일자별 퍼널 이벤트</h3>
@@ -806,8 +982,8 @@ function FunnelTab({ secret, dateParams }: { secret: string; dateParams: Record<
         <GANotConfigured title="퍼널 이벤트 데이터 없음" />
       )}
 
-      <SectionLabel>소스 · 매체별 전환율</SectionLabel>
-      {data.bySource && data.bySource.length > 0 ? (
+      <SectionLabel>소스 · 매체별 전환율 (GA4)</SectionLabel>
+      {data?.bySource && data.bySource.length > 0 ? (
         <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100">
             <h3 className="text-sm font-semibold text-gray-900">소스 / 매체별 전환율</h3>
@@ -844,6 +1020,12 @@ function FunnelTab({ secret, dateParams }: { secret: string; dateParams: Record<
       ) : (
         <GANotConfigured title="소스/매체 전환 데이터 없음" />
       )}
+
+      <SectionLabel>Meta Pixel 퍼널 · 광고 성과</SectionLabel>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <MetaPixelFunnel secret={secret} dateParams={dateParams} />
+        <MetaCampaignsTable secret={secret} dateParams={dateParams} />
+      </div>
     </div>
   );
 }
