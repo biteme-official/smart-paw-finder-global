@@ -46,6 +46,13 @@ interface GaFunnelData {
   pages: { path: string; views: number; bounceRate: number; avgEngagement: number }[];
 }
 
+interface GaTrafficData {
+  available: boolean;
+  sources: { source: string; sessions: number; users: number; bounceRate: number }[];
+  devices: { device: string; sessions: number; users: number; bounceRate: number; avgDuration: number }[];
+  pages: { path: string; views: number; users: number }[];
+}
+
 interface Customer {
   id: string; name: string; email: string;
   orders: number; spent: string; currency: string;
@@ -533,7 +540,124 @@ function FunnelChart({ funnel }: { funnel: GaData['funnel'] }) {
   );
 }
 
-function DashboardTab({ data, currency, range, ga }: { data: DashboardData; currency: string; range: Range; ga: GaData | null }) {
+const DEVICE_LABELS: Record<string, string> = { desktop: '데스크톱', mobile: '모바일', tablet: '태블릿' };
+const DEVICE_COLORS: Record<string, string> = { desktop: '#f85a24', mobile: '#fb8c5a', tablet: '#fdb997' };
+
+function TrafficSection({ traffic }: { traffic: GaTrafficData }) {
+  const { sources, devices, pages } = traffic;
+  const totalDeviceSessions = devices.reduce((s, d) => s + d.sessions, 0);
+  const maxPageViews = pages[0]?.views || 1;
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* 유입 소스 */}
+      <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-900">유입 소스</h3>
+          <p className="text-xs text-gray-400">세션 기준 상위 소스</p>
+        </div>
+        <div className="overflow-y-auto max-h-64">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-white border-b">
+              <tr>
+                <th className="text-left px-4 py-2 font-medium text-gray-400">소스</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-400">세션</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-400">이탈률</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sources.map((row, i) => (
+                <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+                  <td className="px-4 py-2 truncate max-w-[140px]">{row.source}</td>
+                  <td className="px-4 py-2 text-right font-medium">{row.sessions.toLocaleString()}</td>
+                  <td className="px-4 py-2 text-right">{row.bounceRate.toFixed(1)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 디바이스 */}
+      <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-900">디바이스</h3>
+          <p className="text-xs text-gray-400">디바이스별 세션 분포</p>
+        </div>
+        <div className="p-4 flex items-center gap-4">
+          <PieChart width={120} height={120}>
+            <Pie data={devices.map(d => ({ name: d.device, value: d.sessions }))} dataKey="value"
+              cx={55} cy={55} innerRadius={32} outerRadius={50} paddingAngle={2}>
+              {devices.map((d, i) => <Cell key={i} fill={DEVICE_COLORS[d.device] || '#d4d4d4'} />)}
+            </Pie>
+          </PieChart>
+          <div className="flex-1 space-y-2">
+            {devices.map((d, i) => (
+              <div key={i} className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: DEVICE_COLORS[d.device] || '#d4d4d4' }} />
+                  <span>{DEVICE_LABELS[d.device] || d.device}</span>
+                </div>
+                <div className="text-right">
+                  <span className="font-medium">{d.sessions.toLocaleString()}</span>
+                  <span className="text-gray-400 ml-1.5">{totalDeviceSessions > 0 ? ((d.sessions / totalDeviceSessions) * 100).toFixed(1) : 0}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="px-4 pb-3">
+          <table className="w-full text-xs">
+            <tbody>
+              {devices.map((d, i) => (
+                <tr key={i} className="border-t border-gray-100">
+                  <td className="py-1.5 text-gray-400">{DEVICE_LABELS[d.device] || d.device}</td>
+                  <td className="py-1.5 text-right text-gray-500">이탈 {d.bounceRate.toFixed(1)}%</td>
+                  <td className="py-1.5 text-right text-gray-500">{d.avgDuration > 60 ? `${Math.floor(d.avgDuration / 60)}분 ${d.avgDuration % 60}초` : `${d.avgDuration}초`}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 상위 페이지 */}
+      <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-900">상위 페이지</h3>
+          <p className="text-xs text-gray-400">페이지뷰 기준</p>
+        </div>
+        <div className="overflow-y-auto max-h-64">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-white border-b">
+              <tr>
+                <th className="text-left px-4 py-2 font-medium text-gray-400">페이지</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-400">PV</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pages.map((row, i) => (
+                <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+                  <td className="px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 w-10 shrink-0 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${(row.views / maxPageViews) * 100}%`, backgroundColor: BRAND }} />
+                      </div>
+                      <span className="font-mono truncate max-w-[140px]">{row.path}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2 text-right font-medium">{row.views.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardTab({ data, currency, range, ga, traffic }: { data: DashboardData; currency: string; range: Range; ga: GaData | null; traffic: GaTrafficData | null }) {
   const { summary, b2b, b2c, dailyOrders, topProducts, lowStock } = data;
 
   const fmtDuration = (s: number) => {
@@ -598,7 +722,9 @@ function DashboardTab({ data, currency, range, ga }: { data: DashboardData; curr
       </div>
 
       <SectionLabel>트래픽 분석</SectionLabel>
-      <GaPlaceholder title="유입 소스 · 디바이스 · 상위 페이지" />
+      {traffic?.available
+        ? <TrafficSection traffic={traffic} />
+        : <GaPlaceholder title="유입 소스 · 디바이스 · 상위 페이지" />}
 
       <SectionLabel>운영 현황</SectionLabel>
       <OperationsPanel lowStock={lowStock} topProducts={topProducts} currency={currency} />
@@ -976,6 +1102,13 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
     retry: 1,
   });
 
+  const { data: trafficData, refetch: refetchTraffic } = useQuery<GaTrafficData>({
+    queryKey: ['admin-ga-traffic', range],
+    queryFn: () => fetchSection<GaTrafficData>('ga-traffic', secret, { range }),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
   useEffect(() => {
     if (isError && error instanceof Error && error.message === 'UNAUTHORIZED') onLogout();
   }, [isError, error, onLogout]);
@@ -999,7 +1132,7 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
                 </button>
               ))}
             </div>
-            <button onClick={() => { refetch(); refetchGa(); }} className="text-xs px-3 py-1.5 rounded-lg border hover:bg-gray-50 transition-colors">새로고침</button>
+            <button onClick={() => { refetch(); refetchGa(); refetchTraffic(); }} className="text-xs px-3 py-1.5 rounded-lg border hover:bg-gray-50 transition-colors">새로고침</button>
             <button onClick={onLogout} className="text-xs text-gray-400 hover:text-gray-700 transition-colors">로그아웃</button>
           </div>
         </div>
@@ -1028,7 +1161,7 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
         {activeTab === 'dashboard' && (
           isLoading || !dashboard
             ? <div className="flex items-center justify-center h-64 text-sm text-gray-400">데이터를 불러오는 중...</div>
-            : <DashboardTab data={dashboard} currency={dashboard.currency} range={range} ga={gaData || null} />
+            : <DashboardTab data={dashboard} currency={dashboard.currency} range={range} ga={gaData || null} traffic={trafficData || null} />
         )}
         {activeTab === 'funnel' && <FunnelTab secret={secret} range={range} ga={gaData || null} />}
         {activeTab === 'behavior' && <BehaviorTab />}

@@ -683,6 +683,60 @@ async function handleGaOverview(req: VercelRequest, res: VercelResponse) {
   });
 }
 
+async function handleGaTraffic(req: VercelRequest, res: VercelResponse) {
+  const gaToken = await getGAAccessToken();
+  if (!gaToken) return res.status(200).json({ available: false });
+
+  const range = (req.query.range as string) || '7d';
+  const dr = gaDateRange(range);
+
+  const [sourceReport, deviceReport, pageReport] = await Promise.all([
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'sessionSourceMedium' }],
+      metrics: [{ name: 'sessions' }, { name: 'totalUsers' }, { name: 'bounceRate' }],
+      orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+      limit: 10,
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'deviceCategory' }],
+      metrics: [{ name: 'sessions' }, { name: 'totalUsers' }, { name: 'bounceRate' }, { name: 'averageSessionDuration' }],
+      orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'pagePath' }],
+      metrics: [{ name: 'screenPageViews' }, { name: 'totalUsers' }],
+      orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+      limit: 10,
+    }),
+  ]);
+
+  const sources = gaRows(sourceReport).map(r => ({
+    source: r.sessionSourceMedium || '(unknown)',
+    sessions: parseInt(r.sessions || '0'),
+    users: parseInt(r.totalUsers || '0'),
+    bounceRate: Math.round(parseFloat(r.bounceRate || '0') * 10000) / 100,
+  }));
+
+  const devices = gaRows(deviceReport).map(r => ({
+    device: r.deviceCategory || 'unknown',
+    sessions: parseInt(r.sessions || '0'),
+    users: parseInt(r.totalUsers || '0'),
+    bounceRate: Math.round(parseFloat(r.bounceRate || '0') * 10000) / 100,
+    avgDuration: Math.round(parseFloat(r.averageSessionDuration || '0')),
+  }));
+
+  const pages = gaRows(pageReport).map(r => ({
+    path: r.pagePath || '/',
+    views: parseInt(r.screenPageViews || '0'),
+    users: parseInt(r.totalUsers || '0'),
+  }));
+
+  return res.status(200).json({ available: true, sources, devices, pages });
+}
+
 async function handleGaFunnel(req: VercelRequest, res: VercelResponse) {
   const gaToken = await getGAAccessToken();
   if (!gaToken) return res.status(200).json({ available: false });
@@ -798,6 +852,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     if (section === 'ga-overview') return await handleGaOverview(req, res);
     if (section === 'ga-funnel') return await handleGaFunnel(req, res);
+    if (section === 'ga-traffic') return await handleGaTraffic(req, res);
 
     const token = await getShopifyAccessToken();
     if (section === 'overview') return await handleOverview(token, res);
