@@ -683,6 +683,100 @@ async function handleGaOverview(req: VercelRequest, res: VercelResponse) {
   });
 }
 
+async function handleGaFunnel(req: VercelRequest, res: VercelResponse) {
+  const gaToken = await getGAAccessToken();
+  if (!gaToken) return res.status(200).json({ available: false });
+
+  const range = (req.query.range as string) || '7d';
+  const dr = gaDateRange(range);
+
+  const [funnelByDateReport, sourceReport, pageReport] = await Promise.all([
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'date' }, { name: 'eventName' }],
+      metrics: [{ name: 'eventCount' }],
+      dimensionFilter: {
+        filter: {
+          fieldName: 'eventName',
+          inListFilter: {
+            values: ['view_item', 'add_to_cart', 'begin_checkout', 'add_payment_info', 'purchase'],
+          },
+        },
+      },
+      orderBys: [{ dimension: { dimensionName: 'date' } }],
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'sessionSourceMedium' }],
+      metrics: [
+        { name: 'sessions' },
+        { name: 'ecommercePurchases' },
+        { name: 'purchaseRevenue' },
+      ],
+      orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+      limit: 15,
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'pagePath' }],
+      metrics: [
+        { name: 'screenPageViews' },
+        { name: 'bounceRate' },
+        { name: 'userEngagementDuration' },
+      ],
+      orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+      limit: 20,
+    }),
+  ]);
+
+  const funnelSteps = ['view_item', 'add_to_cart', 'begin_checkout', 'add_payment_info', 'purchase'];
+  const funnelLabels: Record<string, string> = {
+    view_item: '상품 조회', add_to_cart: '장바구니',
+    begin_checkout: '결제 시작', add_payment_info: '결제 정보', purchase: '구매 완료',
+  };
+
+  const dailyFunnelMap = new Map<string, Record<string, number>>();
+  for (const row of gaRows(funnelByDateReport)) {
+    const date = `${row.date.slice(0, 4)}-${row.date.slice(4, 6)}-${row.date.slice(6, 8)}`;
+    const entry = dailyFunnelMap.get(date) || {};
+    entry[row.eventName] = parseInt(row.eventCount || '0');
+    dailyFunnelMap.set(date, entry);
+  }
+  const dailyFunnel = Array.from(dailyFunnelMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, events]) => ({
+      date,
+      ...Object.fromEntries(funnelSteps.map(s => [s, events[s] || 0])),
+    }));
+
+  const sources = gaRows(sourceReport).map(row => {
+    const sessions = parseInt(row.sessions || '0');
+    const purchases = parseInt(row.ecommercePurchases || '0');
+    return {
+      source: row.sessionSourceMedium || '(unknown)',
+      sessions,
+      purchases,
+      revenue: Math.round(parseFloat(row.purchaseRevenue || '0') * 100) / 100,
+      conversionRate: sessions > 0 ? Math.round((purchases / sessions) * 10000) / 100 : 0,
+    };
+  });
+
+  const pages = gaRows(pageReport).map(row => ({
+    path: row.pagePath || '/',
+    views: parseInt(row.screenPageViews || '0'),
+    bounceRate: Math.round(parseFloat(row.bounceRate || '0') * 10000) / 100,
+    avgEngagement: Math.round(parseFloat(row.userEngagementDuration || '0')),
+  }));
+
+  return res.status(200).json({
+    available: true,
+    funnelSteps: funnelSteps.map(s => ({ step: s, label: funnelLabels[s] })),
+    dailyFunnel,
+    sources,
+    pages,
+  });
+}
+
 // ─── Router ───
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -703,6 +797,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     if (section === 'ga-overview') return await handleGaOverview(req, res);
+    if (section === 'ga-funnel') return await handleGaFunnel(req, res);
 
     const token = await getShopifyAccessToken();
     if (section === 'overview') return await handleOverview(token, res);

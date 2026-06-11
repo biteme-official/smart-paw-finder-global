@@ -38,6 +38,14 @@ interface GaData {
   daily: { date: string; sessions: number; users: number }[];
 }
 
+interface GaFunnelData {
+  available: boolean;
+  funnelSteps: { step: string; label: string }[];
+  dailyFunnel: Record<string, unknown>[];
+  sources: { source: string; sessions: number; purchases: number; revenue: number; conversionRate: number }[];
+  pages: { path: string; views: number; bounceRate: number; avgEngagement: number }[];
+}
+
 interface Customer {
   id: string; name: string; email: string;
   orders: number; spent: string; currency: string;
@@ -604,15 +612,172 @@ function DashboardTab({ data, currency, range, ga }: { data: DashboardData; curr
 
 // ─── 퍼널 분석 Tab ───
 
-function FunnelTab() {
+function SourceConversionTable({ sources, currency }: { sources: GaFunnelData['sources']; currency: string }) {
+  return (
+    <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100">
+        <h3 className="text-sm font-semibold text-gray-900">소스 / 매체별 전환</h3>
+        <p className="text-xs text-gray-400">세션 수 기준 상위 소스</p>
+      </div>
+      <div className="overflow-x-auto max-h-80 overflow-y-auto">
+        <table className="w-full text-xs">
+          <thead className="sticky top-0 bg-white border-b z-10">
+            <tr>
+              <th className="text-left px-4 py-2 font-medium text-gray-400">소스 / 매체</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">세션</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">구매</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">전환율</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">매출</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sources.map((row, i) => (
+              <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+                <td className="px-4 py-2.5 font-medium">{row.source}</td>
+                <td className="px-4 py-2.5 text-right">{row.sessions.toLocaleString()}</td>
+                <td className="px-4 py-2.5 text-right">{row.purchases > 0 ? row.purchases : '—'}</td>
+                <td className="px-4 py-2.5 text-right">
+                  {row.conversionRate > 0
+                    ? <span style={{ color: BRAND }} className="font-semibold">{row.conversionRate.toFixed(2)}%</span>
+                    : <span className="text-gray-300">0%</span>}
+                </td>
+                <td className="px-4 py-2.5 text-right font-medium">{row.revenue > 0 ? fmtMoney(row.revenue, currency) : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function PageDropoffTable({ pages }: { pages: GaFunnelData['pages'] }) {
+  const maxViews = pages[0]?.views || 1;
+  return (
+    <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100">
+        <h3 className="text-sm font-semibold text-gray-900">페이지별 이탈 분석</h3>
+        <p className="text-xs text-gray-400">페이지뷰 상위 페이지 · 이탈률</p>
+      </div>
+      <div className="overflow-x-auto max-h-80 overflow-y-auto">
+        <table className="w-full text-xs">
+          <thead className="sticky top-0 bg-white border-b z-10">
+            <tr>
+              <th className="text-left px-4 py-2 font-medium text-gray-400">페이지</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">페이지뷰</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">이탈률</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">참여 시간</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pages.map((row, i) => (
+              <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+                <td className="px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-12 shrink-0 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${(row.views / maxViews) * 100}%`, backgroundColor: BRAND }} />
+                    </div>
+                    <span className="font-mono truncate max-w-[240px]">{row.path}</span>
+                  </div>
+                </td>
+                <td className="px-4 py-2.5 text-right">{row.views.toLocaleString()}</td>
+                <td className="px-4 py-2.5 text-right">
+                  <span className={row.bounceRate > 50 ? 'text-red-500 font-semibold' : ''}>{row.bounceRate.toFixed(1)}%</span>
+                </td>
+                <td className="px-4 py-2.5 text-right">{row.avgEngagement > 60 ? `${Math.floor(row.avgEngagement / 60)}분 ${row.avgEngagement % 60}초` : `${row.avgEngagement}초`}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function DailyFunnelChart({ dailyFunnel, funnelSteps }: { dailyFunnel: GaFunnelData['dailyFunnel']; funnelSteps: GaFunnelData['funnelSteps'] }) {
+  const FUNNEL_COLORS = ['#f85a24', '#fb8c5a', '#fdb997', '#d4d4d4', '#a3a3a3'];
+  const chartData = dailyFunnel.map((d: Record<string, unknown>) => ({
+    date: isoToLabel(d.date as string),
+    ...Object.fromEntries(funnelSteps.map(s => [s.label, (d[s.step] as number) || 0])),
+  }));
+  const interval = Math.max(0, Math.ceil(chartData.length / 10) - 1);
+
+  return (
+    <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100">
+        <h3 className="text-sm font-semibold text-gray-900">일별 퍼널 이벤트 추이</h3>
+        <p className="text-xs text-gray-400">GA4 이커머스 이벤트 일별 발생 건수</p>
+      </div>
+      <div className="p-4">
+        <ResponsiveContainer width="100%" height={260}>
+          <ComposedChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={interval} />
+            <YAxis tick={{ fontSize: 10 }} width={48} />
+            <Tooltip />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            {funnelSteps.map((s, i) => (
+              <Line key={s.step} type="monotone" dataKey={s.label} stroke={FUNNEL_COLORS[i]} strokeWidth={2} dot={false} />
+            ))}
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function FunnelTab({ secret, range, ga }: { secret: string; range: Range; ga: GaData | null }) {
+  const { data: funnelData, isLoading } = useQuery<GaFunnelData>({
+    queryKey: ['admin-ga-funnel', range],
+    queryFn: () => fetchSection<GaFunnelData>('ga-funnel', secret, { range }),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const currency = 'KRW';
+
+  if (!ga?.available && !funnelData?.available) {
+    return (
+      <div className="space-y-5">
+        <SectionLabel>구매 전환 퍼널</SectionLabel>
+        <GaPlaceholder title="구매 전환 퍼널" />
+        <SectionLabel>소스 / 매체별 전환</SectionLabel>
+        <GaPlaceholder title="소스/매체별 전환율" />
+        <SectionLabel>이탈 포인트 분석</SectionLabel>
+        <GaPlaceholder title="페이지별 이탈 포인트" />
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return <div className="flex justify-center py-16 text-sm text-gray-400">퍼널 데이터를 불러오는 중...</div>;
+  }
+
   return (
     <div className="space-y-5">
       <SectionLabel>구매 전환 퍼널</SectionLabel>
-      <GaPlaceholder title="구매 전환 퍼널" />
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div className="lg:col-span-2">
+          {ga?.funnel && ga.funnel.length > 0
+            ? <FunnelChart funnel={ga.funnel} />
+            : <GaPlaceholder title="EC 퍼널" />}
+        </div>
+        <div className="lg:col-span-3">
+          {funnelData?.dailyFunnel && funnelData.dailyFunnel.length > 0
+            ? <DailyFunnelChart dailyFunnel={funnelData.dailyFunnel} funnelSteps={funnelData.funnelSteps} />
+            : <GaPlaceholder title="일별 퍼널 추이" />}
+        </div>
+      </div>
+
       <SectionLabel>소스 / 매체별 전환</SectionLabel>
-      <GaPlaceholder title="소스/매체별 전환율" />
+      {funnelData?.sources && funnelData.sources.length > 0
+        ? <SourceConversionTable sources={funnelData.sources} currency={currency} />
+        : <GaPlaceholder title="소스/매체별 전환율" />}
+
       <SectionLabel>이탈 포인트 분석</SectionLabel>
-      <GaPlaceholder title="페이지별 이탈 포인트" />
+      {funnelData?.pages && funnelData.pages.length > 0
+        ? <PageDropoffTable pages={funnelData.pages} />
+        : <GaPlaceholder title="페이지별 이탈 포인트" />}
     </div>
   );
 }
@@ -865,7 +1030,7 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
             ? <div className="flex items-center justify-center h-64 text-sm text-gray-400">데이터를 불러오는 중...</div>
             : <DashboardTab data={dashboard} currency={dashboard.currency} range={range} ga={gaData || null} />
         )}
-        {activeTab === 'funnel' && <FunnelTab />}
+        {activeTab === 'funnel' && <FunnelTab secret={secret} range={range} ga={gaData || null} />}
         {activeTab === 'behavior' && <BehaviorTab />}
         {activeTab === 'members' && <CustomerTab secret={secret} />}
         {activeTab === 'review' && <WeeklyReviewTab />}
