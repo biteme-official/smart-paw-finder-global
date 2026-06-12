@@ -74,6 +74,8 @@ function fmtPagePath(path: string) {
   return path === '/' ? 'Home (/)' : path;
 }
 
+const FUNNEL_STEP_ORDER = ['view_item', 'add_to_cart', 'begin_checkout', 'add_payment_info', 'purchase'];
+
 function fmtMoney(v: number, currency = 'USD') {
   if (currency === 'JPY') return `¥${Math.round(v).toLocaleString('ja-JP')}`;
   return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -826,9 +828,12 @@ function PageDropoffTable({ pages }: { pages: GaFunnelData['pages'] }) {
 
 function DailyFunnelChart({ dailyFunnel, funnelSteps }: { dailyFunnel: GaFunnelData['dailyFunnel']; funnelSteps: GaFunnelData['funnelSteps'] }) {
   const FUNNEL_COLORS = ['#f85a24', '#fb8c5a', '#fdb997', '#d4d4d4', '#a3a3a3'];
+  const orderedSteps = [...funnelSteps].sort(
+    (a, b) => FUNNEL_STEP_ORDER.indexOf(a.step) - FUNNEL_STEP_ORDER.indexOf(b.step)
+  );
   const chartData = dailyFunnel.map((d: Record<string, unknown>) => ({
     date: isoToLabel(d.date as string),
-    ...Object.fromEntries(funnelSteps.map(s => [s.label, (d[s.step] as number) || 0])),
+    ...Object.fromEntries(orderedSteps.map(s => [s.label, (d[s.step] as number) || 0])),
   }));
   const interval = Math.max(0, Math.ceil(chartData.length / 10) - 1);
 
@@ -846,7 +851,7 @@ function DailyFunnelChart({ dailyFunnel, funnelSteps }: { dailyFunnel: GaFunnelD
             <YAxis tick={{ fontSize: 10 }} width={48} />
             <Tooltip />
             <Legend wrapperStyle={{ fontSize: 11 }} />
-            {funnelSteps.map((s, i) => (
+            {orderedSteps.map((s, i) => (
               <Line key={s.step} type="monotone" dataKey={s.label} stroke={FUNNEL_COLORS[i]} strokeWidth={2} dot={false} />
             ))}
           </ComposedChart>
