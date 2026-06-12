@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ComposedChart, LineChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, PieChart, Pie, Cell,
 } from 'recharts';
 import { toast } from 'sonner';
@@ -200,59 +200,113 @@ function GaPlaceholder({ title, compact }: { title?: string; compact?: boolean }
 // ─── Dashboard: Combined Chart ───
 
 const USERS_COLOR = '#6366f1';
+const SESSIONS_COLOR = '#10b981';
+const AOV_COLOR = '#8b5cf6';
 
-function CombinedChart({ dailyOrders, currency, ga }: { dailyOrders: DashboardData['dailyOrders']; currency: string; ga?: GaData | null }) {
-  const gaMap = new Map<string, number>();
-  if (ga?.available && ga.daily) {
-    for (const d of ga.daily) gaMap.set(d.date, d.users);
+function TrafficTrendChart({ ga }: { ga?: GaData | null }) {
+  if (!ga?.available || !ga.daily || ga.daily.length === 0) {
+    return <GaPlaceholder title="유입 추이" />;
   }
-  const hasGa = !!(ga?.available && ga.daily && ga.daily.length > 0);
+  const chartData = [...ga.daily]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(d => ({ date: isoToLabel(d.date), sessions: d.sessions, users: d.users }));
+  const interval = Math.max(0, Math.ceil(chartData.length / 10) - 1);
 
-  const chartData = dailyOrders.map(d => ({
-    date: isoToLabel(d.date),
-    revenue: Math.round(d.revenue * 100) / 100,
-    orders: d.orders,
-    ...(hasGa ? { users: gaMap.get(d.date) ?? 0 } : {}),
-  }));
+  return (
+    <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100">
+        <h3 className="text-sm font-semibold text-gray-900">유입 추이</h3>
+        <p className="text-xs text-gray-400">총 사용자 · 세션 일별 추이</p>
+      </div>
+      <div className="p-4">
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={interval} />
+            <YAxis tick={{ fontSize: 10 }} width={40} />
+            <Tooltip content={({ active, payload, label }) => {
+              if (!active || !payload || !payload.length) return null;
+              const map = new Map(payload.map(p => [p.dataKey as string, p]));
+              return (
+                <div className="bg-white border border-gray-200 rounded-lg shadow-md p-3 text-xs min-w-[140px]">
+                  <p className="font-semibold text-gray-700 mb-2">{label}</p>
+                  {[
+                    { key: 'sessions', label: '세션', color: SESSIONS_COLOR },
+                    { key: 'users', label: '총 사용자', color: USERS_COLOR },
+                  ].map(({ key, label: lbl, color }) => {
+                    const item = map.get(key);
+                    return item ? (
+                      <div key={key} className="flex justify-between gap-4 py-0.5">
+                        <span className="flex items-center gap-1.5 text-gray-600">
+                          <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                          {lbl}
+                        </span>
+                        <span className="font-medium">{Number(item.value).toLocaleString()}</span>
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+              );
+            }} />
+            <Legend content={() => (
+              <div className="flex gap-4 justify-center mt-2">
+                {[
+                  { color: SESSIONS_COLOR, label: '세션' },
+                  { color: USERS_COLOR, label: '총 사용자' },
+                ].map(({ color, label: lbl }) => (
+                  <div key={lbl} className="flex items-center gap-1.5 text-xs text-gray-600">
+                    <span className="inline-block w-6 h-0.5 rounded" style={{ backgroundColor: color }} />
+                    {lbl}
+                  </div>
+                ))}
+              </div>
+            )} />
+            <Line type="monotone" dataKey="sessions" stroke={SESSIONS_COLOR} strokeWidth={2.5} dot={false} />
+            <Line type="monotone" dataKey="users" stroke={USERS_COLOR} strokeWidth={2} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function CombinedChart({ dailyOrders, currency }: { dailyOrders: DashboardData['dailyOrders']; currency: string }) {
+  const chartData = [...dailyOrders]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(d => ({
+      date: isoToLabel(d.date),
+      revenue: Math.round(d.revenue * 100) / 100,
+      orders: d.orders,
+    }));
   const interval = Math.max(0, Math.ceil(chartData.length / 10) - 1);
 
   return (
     <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-100">
         <h3 className="text-sm font-semibold text-gray-900">주문 · 매출 추이</h3>
-        <p className="text-xs text-gray-400">매출(막대) / 주문수 · {hasGa ? '총 사용자' : ''}(선)</p>
+        <p className="text-xs text-gray-400">매출(막대) / 주문 수(선)</p>
       </div>
       <div className="p-4">
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height={200}>
           <ComposedChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={interval} />
             <YAxis yAxisId="rev" tick={{ fontSize: 10 }}
               tickFormatter={v => currency === 'JPY' ? `¥${(v / 1000).toFixed(0)}k` : `$${v.toFixed(0)}`} width={48} />
             <YAxis yAxisId="orders" orientation="right" tick={{ fontSize: 10 }} width={36} />
-            {hasGa && <YAxis yAxisId="users" orientation="right" hide />}
             <Tooltip content={({ active, payload, label }) => {
               if (!active || !payload || !payload.length) return null;
               const map = new Map(payload.map(p => [p.dataKey as string, p]));
               return (
                 <div className="bg-white border border-gray-200 rounded-lg shadow-md p-3 text-xs min-w-[160px]">
                   <p className="font-semibold text-gray-700 mb-2">{label}</p>
-                  {hasGa && map.get('users') && (
-                    <div className="flex justify-between gap-4 py-0.5">
-                      <span className="flex items-center gap-1.5 text-gray-600">
-                        <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: USERS_COLOR }} />
-                        총 사용자
-                      </span>
-                      <span className="font-medium">{Number(map.get('users')!.value).toLocaleString()}</span>
-                    </div>
-                  )}
                   {map.get('orders') && (
                     <div className="flex justify-between gap-4 py-0.5">
                       <span className="flex items-center gap-1.5 text-gray-600">
                         <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: BRAND }} />
                         주문 수
                       </span>
-                      <span className="font-medium">{Number(map.get('orders')!.value)}</span>
+                      <span className="font-medium">{Number(map.get('orders')!.value).toLocaleString()}</span>
                     </div>
                   )}
                   {map.get('revenue') && (
@@ -269,12 +323,6 @@ function CombinedChart({ dailyOrders, currency, ga }: { dailyOrders: DashboardDa
             }} />
             <Legend content={() => (
               <div className="flex flex-wrap gap-x-4 gap-y-1 justify-center mt-2">
-                {hasGa && (
-                  <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                    <span className="inline-block w-6 h-0.5 rounded" style={{ backgroundColor: USERS_COLOR }} />
-                    총 사용자
-                  </div>
-                )}
                 <div className="flex items-center gap-1.5 text-xs text-gray-600">
                   <span className="inline-block w-6 h-0.5 rounded" style={{ backgroundColor: BRAND }} />
                   주문 수
@@ -287,7 +335,6 @@ function CombinedChart({ dailyOrders, currency, ga }: { dailyOrders: DashboardDa
             )} />
             <Bar yAxisId="rev" dataKey="revenue" fill={BRAND} opacity={0.25} radius={[2, 2, 0, 0]} />
             <Line yAxisId="orders" type="monotone" dataKey="orders" stroke={BRAND} strokeWidth={2.5} dot={false} />
-            {hasGa && <Line yAxisId="users" type="monotone" dataKey="users" stroke={USERS_COLOR} strokeWidth={2} dot={false} />}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -299,13 +346,23 @@ function CombinedChart({ dailyOrders, currency, ga }: { dailyOrders: DashboardDa
 
 type AggRow = { label: string; sortKey: string; orders: number; revenue: number };
 
-function TimelineTable({ dailyOrders, currency, ga }: { dailyOrders: DashboardData['dailyOrders']; currency: string; ga?: GaData | null }) {
+function TimelineTable({ dailyOrders, currency, ga, funnel }: { dailyOrders: DashboardData['dailyOrders']; currency: string; ga?: GaData | null; funnel?: GaFunnelData | null }) {
   const [tab, setTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const sorted = [...dailyOrders].sort((a, b) => a.date.localeCompare(b.date));
 
   const gaMap = new Map<string, { sessions: number; users: number }>();
   if (ga?.available && ga.daily) {
     for (const d of ga.daily) gaMap.set(d.date, { sessions: d.sessions, users: d.users });
+  }
+
+  const funnelMap = new Map<string, { addToCart: number; beginCheckout: number }>();
+  if (funnel?.available && funnel.dailyFunnel) {
+    for (const d of funnel.dailyFunnel) {
+      funnelMap.set(d.date as string, {
+        addToCart: (d.add_to_cart as number) || 0,
+        beginCheckout: (d.begin_checkout as number) || 0,
+      });
+    }
   }
 
   function groupBy(keyFn: (iso: string) => string, labelFn: (iso: string, key: string) => string): AggRow[] {
@@ -331,7 +388,10 @@ function TimelineTable({ dailyOrders, currency, ga }: { dailyOrders: DashboardDa
     return groupBy(iso => iso.slice(0, 7), (_iso, key) => `${key.slice(0, 4)}/${key.slice(5, 7)}`);
   })();
 
-  const totals = rows.reduce((acc, r) => ({ orders: acc.orders + r.orders, revenue: acc.revenue + r.revenue }), { orders: 0, revenue: 0 });
+  const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
+  const totalOrders = rows.reduce((s, r) => s + r.orders, 0);
+
+  const dash = <span className="text-gray-300">—</span>;
 
   return (
     <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
@@ -351,22 +411,34 @@ function TimelineTable({ dailyOrders, currency, ga }: { dailyOrders: DashboardDa
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-white border-b z-10">
             <tr>
-              <th className="text-left px-4 py-2 font-medium text-gray-400">날짜</th>
-              <th className="text-right px-4 py-2 font-medium text-gray-400">총 사용자</th>
-              <th className="text-right px-4 py-2 font-medium text-gray-400">세션</th>
-              <th className="text-right px-4 py-2 font-medium text-gray-400">주문 수</th>
-              <th className="text-right px-4 py-2 font-medium text-gray-400">매출</th>
+              <th className="text-left px-4 py-2 font-medium text-gray-400 whitespace-nowrap">날짜</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">총 사용자</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">세션</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">장바구니</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">결제 시작</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">구매 수</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">CVR</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">AOV</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">매출</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row, i) => {
               const g = tab === 'daily' ? gaMap.get(row.sortKey) : undefined;
+              const f = tab === 'daily' ? funnelMap.get(row.sortKey) : undefined;
+              // CVR/AOV: 주문 수·매출 모두 DB(Net) 기준 사용
+              const cvr = g && g.sessions > 0 && row.orders > 0 ? (row.orders / g.sessions * 100).toFixed(2) + '%' : null;
+              const aov = row.orders > 0 ? fmtMoney(row.revenue / row.orders, currency) : null;
               return (
                 <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
-                  <td className="px-4 py-2 font-mono">{row.label}</td>
-                  <td className="px-4 py-2 text-right">{g ? g.users.toLocaleString() : <span className="text-gray-300">—</span>}</td>
-                  <td className="px-4 py-2 text-right">{g ? g.sessions.toLocaleString() : <span className="text-gray-300">—</span>}</td>
-                  <td className="px-4 py-2 text-right">{row.orders > 0 ? `${row.orders}건` : '—'}</td>
+                  <td className="px-4 py-2 font-mono whitespace-nowrap">{row.label}</td>
+                  <td className="px-4 py-2 text-right">{g ? g.users.toLocaleString() : dash}</td>
+                  <td className="px-4 py-2 text-right">{g ? g.sessions.toLocaleString() : dash}</td>
+                  <td className="px-4 py-2 text-right">{f ? f.addToCart.toLocaleString() : dash}</td>
+                  <td className="px-4 py-2 text-right">{f ? f.beginCheckout.toLocaleString() : dash}</td>
+                  <td className="px-4 py-2 text-right">{row.orders > 0 ? row.orders.toLocaleString() : '—'}</td>
+                  <td className="px-4 py-2 text-right">{cvr ?? dash}</td>
+                  <td className="px-4 py-2 text-right">{aov ?? dash}</td>
                   <td className="px-4 py-2 text-right font-medium">{row.revenue > 0 ? fmtMoney(row.revenue, currency) : '—'}</td>
                 </tr>
               );
@@ -374,16 +446,26 @@ function TimelineTable({ dailyOrders, currency, ga }: { dailyOrders: DashboardDa
           </tbody>
           <tfoot className="sticky bottom-0 bg-white border-t">
             {(() => {
-              const gaAvailable = ga?.available && ga.daily;
-              const periodUsers = gaAvailable ? ga!.users : null;
-              const totalSessions = gaAvailable ? ga!.daily.reduce((s, d) => s + d.sessions, 0) : null;
+              const gaAvail = ga?.available && ga.daily;
+              const periodUsers = gaAvail ? ga!.users : null;
+              const totalSessions = gaAvail ? ga!.daily.reduce((s, d) => s + d.sessions, 0) : null;
+              const funnelAvail = funnel?.available && funnel.dailyFunnel;
+              const ftAddToCart = funnelAvail ? funnel!.dailyFunnel.reduce((s, d) => s + ((d.add_to_cart as number) || 0), 0) : null;
+              const ftBeginCheckout = funnelAvail ? funnel!.dailyFunnel.reduce((s, d) => s + ((d.begin_checkout as number) || 0), 0) : null;
+              // 구매 수·CVR·AOV: DB Net 기준
+              const ftCvr = totalSessions && totalOrders > 0 ? (totalOrders / totalSessions * 100).toFixed(2) + '%' : null;
+              const ftAov = totalOrders > 0 ? fmtMoney(totalRevenue / totalOrders, currency) : null;
               return (
-                <tr>
-                  <td className="px-4 py-2 font-semibold text-xs">합계</td>
-                  <td className="px-4 py-2 text-right font-semibold">{periodUsers !== null ? periodUsers.toLocaleString() : <span className="text-gray-300">—</span>}</td>
-                  <td className="px-4 py-2 text-right font-semibold">{totalSessions !== null ? totalSessions.toLocaleString() : <span className="text-gray-300">—</span>}</td>
-                  <td className="px-4 py-2 text-right font-semibold">{totals.orders}건</td>
-                  <td className="px-4 py-2 text-right font-semibold">{fmtMoney(totals.revenue, currency)}</td>
+                <tr className="font-semibold">
+                  <td className="px-4 py-2 text-xs">합계</td>
+                  <td className="px-4 py-2 text-right">{periodUsers !== null ? periodUsers.toLocaleString() : dash}</td>
+                  <td className="px-4 py-2 text-right">{totalSessions !== null ? totalSessions.toLocaleString() : dash}</td>
+                  <td className="px-4 py-2 text-right">{ftAddToCart !== null ? ftAddToCart.toLocaleString() : dash}</td>
+                  <td className="px-4 py-2 text-right">{ftBeginCheckout !== null ? ftBeginCheckout.toLocaleString() : dash}</td>
+                  <td className="px-4 py-2 text-right">{totalOrders > 0 ? totalOrders.toLocaleString() : dash}</td>
+                  <td className="px-4 py-2 text-right">{ftCvr ?? dash}</td>
+                  <td className="px-4 py-2 text-right">{ftAov ?? dash}</td>
+                  <td className="px-4 py-2 text-right">{fmtMoney(totalRevenue, currency)}</td>
                 </tr>
               );
             })()}
@@ -723,7 +805,7 @@ function TrafficSection({ traffic }: { traffic: GaTrafficData }) {
   );
 }
 
-function DashboardTab({ data, currency, range, ga, traffic }: { data: DashboardData; currency: string; range: Range; ga: GaData | null; traffic: GaTrafficData | null }) {
+function DashboardTab({ data, currency, range, ga, traffic, funnel }: { data: DashboardData; currency: string; range: Range; ga: GaData | null; traffic: GaTrafficData | null; funnel: GaFunnelData | null }) {
   const { summary, b2b, b2c, dailyOrders, topProducts, lowStock } = data;
 
   const fmtDuration = (s: number) => {
@@ -768,11 +850,15 @@ function DashboardTab({ data, currency, range, ga, traffic }: { data: DashboardD
         )}
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <TrafficTrendChart ga={ga} />
+        {dailyOrders.length > 0
+          ? <CombinedChart dailyOrders={dailyOrders} currency={currency} />
+          : <GaPlaceholder title="주문 · 매출 추이" />}
+      </div>
+
       {dailyOrders.length > 0 && (
-        <>
-          <CombinedChart dailyOrders={dailyOrders} currency={currency} ga={ga} />
-          <TimelineTable dailyOrders={dailyOrders} currency={currency} ga={ga} />
-        </>
+        <TimelineTable dailyOrders={dailyOrders} currency={currency} ga={ga} funnel={funnel} />
       )}
 
       <SectionLabel>전환 · 상품</SectionLabel>
@@ -1223,6 +1309,13 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
     retry: 1,
   });
 
+  const { data: funnelData } = useQuery<GaFunnelData>({
+    queryKey: ['admin-ga-funnel', apiRange],
+    queryFn: () => fetchSection<GaFunnelData>('ga-funnel', secret, { range: apiRange }),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
   useEffect(() => {
     if (isError && error instanceof Error && error.message === 'UNAUTHORIZED') onLogout();
   }, [isError, error, onLogout]);
@@ -1309,7 +1402,7 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
         {activeTab === 'dashboard' && (
           isLoading || !dashboard
             ? <div className="flex items-center justify-center h-64 text-sm text-gray-400">데이터를 불러오는 중...</div>
-            : <DashboardTab data={dashboard} currency={dashboard.currency} range={range} ga={gaData || null} traffic={trafficData || null} />
+            : <DashboardTab data={dashboard} currency={dashboard.currency} range={range} ga={gaData || null} traffic={trafficData || null} funnel={funnelData || null} />
         )}
         {activeTab === 'funnel' && <FunnelTab secret={secret} range={apiRange} ga={gaData || null} />}
         {activeTab === 'behavior' && <BehaviorTab />}
