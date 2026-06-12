@@ -292,6 +292,7 @@ function TimelineTable({ dailyOrders, currency, ga }: { dailyOrders: DashboardDa
           <thead className="sticky top-0 bg-white border-b z-10">
             <tr>
               <th className="text-left px-4 py-2 font-medium text-gray-400">날짜</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">총 사용자</th>
               <th className="text-right px-4 py-2 font-medium text-gray-400">세션</th>
               <th className="text-right px-4 py-2 font-medium text-gray-400">주문 수</th>
               <th className="text-right px-4 py-2 font-medium text-gray-400">매출</th>
@@ -303,6 +304,7 @@ function TimelineTable({ dailyOrders, currency, ga }: { dailyOrders: DashboardDa
               return (
                 <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
                   <td className="px-4 py-2 font-mono">{row.label}</td>
+                  <td className="px-4 py-2 text-right">{g ? g.users.toLocaleString() : <span className="text-gray-300">—</span>}</td>
                   <td className="px-4 py-2 text-right">{g ? g.sessions.toLocaleString() : <span className="text-gray-300">—</span>}</td>
                   <td className="px-4 py-2 text-right">{row.orders > 0 ? `${row.orders}건` : '—'}</td>
                   <td className="px-4 py-2 text-right font-medium">{row.revenue > 0 ? fmtMoney(row.revenue, currency) : '—'}</td>
@@ -312,13 +314,14 @@ function TimelineTable({ dailyOrders, currency, ga }: { dailyOrders: DashboardDa
           </tbody>
           <tfoot className="sticky bottom-0 bg-white border-t">
             {(() => {
-              const gaTotal = ga?.available && ga.daily
-                ? ga.daily.reduce((s, d) => s + d.sessions, 0)
-                : null;
+              const gaAvailable = ga?.available && ga.daily;
+              const periodUsers = gaAvailable ? ga!.users : null;
+              const totalSessions = gaAvailable ? ga!.daily.reduce((s, d) => s + d.sessions, 0) : null;
               return (
                 <tr>
                   <td className="px-4 py-2 font-semibold text-xs">합계</td>
-                  <td className="px-4 py-2 text-right font-semibold">{gaTotal !== null ? gaTotal.toLocaleString() : <span className="text-gray-300">—</span>}</td>
+                  <td className="px-4 py-2 text-right font-semibold">{periodUsers !== null ? periodUsers.toLocaleString() : <span className="text-gray-300">—</span>}</td>
+                  <td className="px-4 py-2 text-right font-semibold">{totalSessions !== null ? totalSessions.toLocaleString() : <span className="text-gray-300">—</span>}</td>
                   <td className="px-4 py-2 text-right font-semibold">{totals.orders}건</td>
                   <td className="px-4 py-2 text-right font-semibold">{fmtMoney(totals.revenue, currency)}</td>
                 </tr>
