@@ -694,14 +694,14 @@ function DashboardTab({ data, currency, range, ga, traffic }: { data: DashboardD
         {ga?.available ? (
           <>
             <KpiCard label="세션" value={ga.sessions.toLocaleString()} />
-            <KpiCard label="유저" value={ga.users.toLocaleString()} />
+            <KpiCard label="총 사용자" value={ga.users.toLocaleString()} />
             <KpiCard label="이탈률" value={`${(ga.bounceRate * 100).toFixed(1)}%`} />
             <KpiCard label="평균 체류 시간" value={fmtDuration(ga.avgSessionDuration)} />
           </>
         ) : (
           <>
             <GaPlaceholder title="세션" compact />
-            <GaPlaceholder title="유저" compact />
+            <GaPlaceholder title="총 사용자" compact />
             <GaPlaceholder title="이탈률" compact />
             <GaPlaceholder title="평균 체류 시간" compact />
           </>
@@ -1055,8 +1055,8 @@ function CustomerTab({ secret }: { secret: string }) {
         </div>
       </div>
 
-      <SectionLabel>유저 재방문</SectionLabel>
-      <GaPlaceholder title="신규 vs 재방문 유저" />
+      <SectionLabel>사용자 재방문</SectionLabel>
+      <GaPlaceholder title="신규 vs 재방문 사용자" />
 
       <p className="text-center text-xs text-gray-400 pb-4">
         Shopify: biteme-one &middot; 회원 데이터
