@@ -874,7 +874,18 @@ function DailyFunnelChart({ dailyFunnel }: { dailyFunnel: GaFunnelData['dailyFun
             <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={interval} />
             <YAxis tick={{ fontSize: 10 }} width={48} />
             <Tooltip content={<FunnelTooltip />} />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Legend
+              content={() => (
+                <div className="flex flex-wrap gap-x-4 gap-y-1 justify-center mt-2">
+                  {FIXED_FUNNEL_STEPS.map(s => (
+                    <div key={s.step} className="flex items-center gap-1.5 text-xs text-gray-600">
+                      <span className="inline-block w-6 h-0.5 rounded" style={{ backgroundColor: s.color }} />
+                      {s.label}
+                    </div>
+                  ))}
+                </div>
+              )}
+            />
             {FIXED_FUNNEL_STEPS.map(s => (
               <Line key={s.step} type="monotone" dataKey={s.label} stroke={s.color} strokeWidth={2} dot={false} />
             ))}
