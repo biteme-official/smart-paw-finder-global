@@ -826,14 +826,18 @@ function PageDropoffTable({ pages }: { pages: GaFunnelData['pages'] }) {
   );
 }
 
-function DailyFunnelChart({ dailyFunnel, funnelSteps }: { dailyFunnel: GaFunnelData['dailyFunnel']; funnelSteps: GaFunnelData['funnelSteps'] }) {
-  const FUNNEL_COLORS = ['#f85a24', '#fb8c5a', '#fdb997', '#d4d4d4', '#a3a3a3'];
-  const orderedSteps = [...funnelSteps].sort(
-    (a, b) => FUNNEL_STEP_ORDER.indexOf(a.step) - FUNNEL_STEP_ORDER.indexOf(b.step)
-  );
+const FIXED_FUNNEL_STEPS = [
+  { step: 'view_item',        label: '상품 조회', color: '#f85a24' },
+  { step: 'add_to_cart',      label: '장바구니',  color: '#fb8c5a' },
+  { step: 'begin_checkout',   label: '결제 시작', color: '#fdb997' },
+  { step: 'add_payment_info', label: '결제 정보', color: '#d4d4d4' },
+  { step: 'purchase',         label: '구매 완료', color: '#a3a3a3' },
+];
+
+function DailyFunnelChart({ dailyFunnel }: { dailyFunnel: GaFunnelData['dailyFunnel']; funnelSteps: GaFunnelData['funnelSteps'] }) {
   const chartData = dailyFunnel.map((d: Record<string, unknown>) => ({
     date: isoToLabel(d.date as string),
-    ...Object.fromEntries(orderedSteps.map(s => [s.label, (d[s.step] as number) || 0])),
+    ...Object.fromEntries(FIXED_FUNNEL_STEPS.map(s => [s.label, (d[s.step] as number) || 0])),
   }));
   const interval = Math.max(0, Math.ceil(chartData.length / 10) - 1);
 
@@ -851,8 +855,8 @@ function DailyFunnelChart({ dailyFunnel, funnelSteps }: { dailyFunnel: GaFunnelD
             <YAxis tick={{ fontSize: 10 }} width={48} />
             <Tooltip />
             <Legend wrapperStyle={{ fontSize: 11 }} />
-            {orderedSteps.map((s, i) => (
-              <Line key={s.step} type="monotone" dataKey={s.label} stroke={FUNNEL_COLORS[i]} strokeWidth={2} dot={false} />
+            {FIXED_FUNNEL_STEPS.map(s => (
+              <Line key={s.step} type="monotone" dataKey={s.label} stroke={s.color} strokeWidth={2} dot={false} />
             ))}
           </ComposedChart>
         </ResponsiveContainer>
