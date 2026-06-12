@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 
 // ─── Types ───
 
-type Range = 'today' | '7d' | '28d' | '90d';
+type Range = 'today' | '7d' | '28d' | '90d' | 'custom';
 
 interface ChannelSummary {
   totalOrders: number;
@@ -68,7 +68,7 @@ interface CustomerSummary {
 // ─── Helpers ───
 
 const BRAND = '#f85a24';
-const RANGE_LABELS: Record<Range, string> = { today: '오늘', '7d': '7일', '28d': '28일', '90d': '90일' };
+const RANGE_LABELS: Record<Range, string> = { today: '오늘', '7d': '7일', '28d': '28일', '90d': '90일', custom: '사용자설정' };
 
 function fmtMoney(v: number, currency = 'USD') {
   if (currency === 'JPY') return `¥${Math.round(v).toLocaleString('ja-JP')}`;
@@ -852,7 +852,7 @@ function DailyFunnelChart({ dailyFunnel, funnelSteps }: { dailyFunnel: GaFunnelD
   );
 }
 
-function FunnelTab({ secret, range, ga }: { secret: string; range: Range; ga: GaData | null }) {
+function FunnelTab({ secret, range, ga }: { secret: string; range: string; ga: GaData | null }) {
   const { data: funnelData, isLoading } = useQuery<GaFunnelData>({
     queryKey: ['admin-ga-funnel', range],
     queryFn: () => fetchSection<GaFunnelData>('ga-funnel', secret, { range }),
@@ -1084,10 +1084,20 @@ const TABS = [
 function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => void }) {
   const [range, setRange] = useState<Range>('7d');
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+  const [customOpen, setCustomOpen] = useState(false);
+
+  const apiRange =
+    range === 'custom' && customStart && customEnd
+      ? `custom:${customStart}:${customEnd}`
+      : range === 'custom'
+      ? '7d'
+      : range;
 
   const { data: dashboard, isLoading, isError, error, refetch } = useQuery<DashboardData>({
-    queryKey: ['admin-dashboard', range],
-    queryFn: () => fetchSection<DashboardData>('dashboard', secret, { range }),
+    queryKey: ['admin-dashboard', apiRange],
+    queryFn: () => fetchSection<DashboardData>('dashboard', secret, { range: apiRange }),
     staleTime: 5 * 60 * 1000,
     retry: (count, err) => {
       if (err instanceof Error && err.message === 'UNAUTHORIZED') return false;
@@ -1096,15 +1106,15 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
   });
 
   const { data: gaData, refetch: refetchGa } = useQuery<GaData>({
-    queryKey: ['admin-ga', range],
-    queryFn: () => fetchSection<GaData>('ga-overview', secret, { range }),
+    queryKey: ['admin-ga', apiRange],
+    queryFn: () => fetchSection<GaData>('ga-overview', secret, { range: apiRange }),
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
   const { data: trafficData, refetch: refetchTraffic } = useQuery<GaTrafficData>({
-    queryKey: ['admin-ga-traffic', range],
-    queryFn: () => fetchSection<GaTrafficData>('ga-traffic', secret, { range }),
+    queryKey: ['admin-ga-traffic', apiRange],
+    queryFn: () => fetchSection<GaTrafficData>('ga-traffic', secret, { range: apiRange }),
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
@@ -1123,14 +1133,48 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
             <span className="text-xs text-gray-400">Analytics</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex rounded-lg border bg-white overflow-hidden text-xs">
-              {(['today', '7d', '28d', '90d'] as Range[]).map(r => (
-                <button key={r} onClick={() => setRange(r)}
-                  className={`px-3 py-1.5 transition-colors ${range === r ? 'text-white font-medium' : 'text-gray-500 hover:text-gray-700'}`}
-                  style={range === r ? { backgroundColor: BRAND } : {}}>
-                  {RANGE_LABELS[r]}
-                </button>
-              ))}
+            <div className="relative">
+              <div className="flex rounded-lg border bg-white overflow-hidden text-xs">
+                {(['today', '7d', '28d', '90d', 'custom'] as Range[]).map(r => (
+                  <button key={r} onClick={() => {
+                    setRange(r);
+                    if (r === 'custom') setCustomOpen(o => !o);
+                    else setCustomOpen(false);
+                  }}
+                    className={`px-3 py-1.5 transition-colors ${range === r ? 'text-white font-medium' : 'text-gray-500 hover:text-gray-700'}`}
+                    style={range === r ? { backgroundColor: BRAND } : {}}>
+                    {r === 'custom' && customStart && customEnd
+                      ? `${customStart.slice(5).replace('-', '/')}~${customEnd.slice(5).replace('-', '/')}`
+                      : RANGE_LABELS[r]}
+                  </button>
+                ))}
+              </div>
+              {customOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setCustomOpen(false)} />
+                  <div className="absolute top-full right-0 mt-2 z-20 bg-white border rounded-xl shadow-lg p-4 flex flex-col gap-3" style={{ minWidth: 220 }}>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-gray-500">시작일</span>
+                      <input type="date" value={customStart} max={customEnd || undefined}
+                        onChange={e => setCustomStart(e.target.value)}
+                        className="text-xs border rounded-lg px-2 py-1.5 outline-none focus:border-orange-400" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-gray-500">종료일</span>
+                      <input type="date" value={customEnd} min={customStart || undefined}
+                        onChange={e => setCustomEnd(e.target.value)}
+                        className="text-xs border rounded-lg px-2 py-1.5 outline-none focus:border-orange-400" />
+                    </div>
+                    <button
+                      disabled={!customStart || !customEnd}
+                      onClick={() => setCustomOpen(false)}
+                      className="text-xs py-1.5 rounded-lg font-medium text-white transition-colors disabled:opacity-40"
+                      style={{ backgroundColor: BRAND }}>
+                      적용
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
             <button onClick={() => { refetch(); refetchGa(); refetchTraffic(); }} className="text-xs px-3 py-1.5 rounded-lg border hover:bg-gray-50 transition-colors">새로고침</button>
             <button onClick={onLogout} className="text-xs text-gray-400 hover:text-gray-700 transition-colors">로그아웃</button>
@@ -1163,7 +1207,7 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
             ? <div className="flex items-center justify-center h-64 text-sm text-gray-400">데이터를 불러오는 중...</div>
             : <DashboardTab data={dashboard} currency={dashboard.currency} range={range} ga={gaData || null} traffic={trafficData || null} />
         )}
-        {activeTab === 'funnel' && <FunnelTab secret={secret} range={range} ga={gaData || null} />}
+        {activeTab === 'funnel' && <FunnelTab secret={secret} range={apiRange} ga={gaData || null} />}
         {activeTab === 'behavior' && <BehaviorTab />}
         {activeTab === 'members' && <CustomerTab secret={secret} />}
         {activeTab === 'review' && <WeeklyReviewTab />}

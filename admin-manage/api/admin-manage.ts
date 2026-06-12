@@ -74,7 +74,12 @@ function gaDateRange(range: string): { startDate: string; endDate: string } {
   if (range === 'today') return { startDate: 'today', endDate: 'today' };
   if (range === '7d') return { startDate: '7daysAgo', endDate: 'yesterday' };
   if (range === '28d') return { startDate: '28daysAgo', endDate: 'yesterday' };
-  return { startDate: '90daysAgo', endDate: 'yesterday' };
+  if (range === '90d') return { startDate: '90daysAgo', endDate: 'yesterday' };
+  if (range.startsWith('custom:')) {
+    const parts = range.split(':');
+    if (parts.length === 3) return { startDate: parts[1], endDate: parts[2] };
+  }
+  return { startDate: '7daysAgo', endDate: 'yesterday' };
 }
 
 const ALLOWED_ORIGINS = [
