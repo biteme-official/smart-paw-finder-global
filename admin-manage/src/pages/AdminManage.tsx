@@ -70,6 +70,10 @@ interface CustomerSummary {
 const BRAND = '#f85a24';
 const RANGE_LABELS: Record<Range, string> = { today: '오늘', '7d': '7일', '28d': '28일', '90d': '90일', custom: '사용자설정' };
 
+function fmtPagePath(path: string) {
+  return path === '/' ? 'Home (/)' : path;
+}
+
 function fmtMoney(v: number, currency = 'USD') {
   if (currency === 'JPY') return `¥${Math.round(v).toLocaleString('ja-JP')}`;
   return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -643,7 +647,7 @@ function TrafficSection({ traffic }: { traffic: GaTrafficData }) {
                       <div className="h-1.5 w-10 shrink-0 rounded-full bg-gray-100 overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${(row.views / maxPageViews) * 100}%`, backgroundColor: BRAND }} />
                       </div>
-                      <span className="font-mono truncate max-w-[140px]">{row.path}</span>
+                      <span className="font-mono truncate max-w-[140px]" title={row.path}>{fmtPagePath(row.path)}</span>
                     </div>
                   </td>
                   <td className="px-4 py-2 text-right font-medium">{row.views.toLocaleString()}</td>
@@ -803,7 +807,7 @@ function PageDropoffTable({ pages }: { pages: GaFunnelData['pages'] }) {
                     <div className="h-1.5 w-12 shrink-0 rounded-full bg-gray-100 overflow-hidden">
                       <div className="h-full rounded-full" style={{ width: `${(row.views / maxViews) * 100}%`, backgroundColor: BRAND }} />
                     </div>
-                    <span className="font-mono truncate max-w-[240px]">{row.path}</span>
+                    <span className="font-mono truncate max-w-[240px]" title={row.path}>{fmtPagePath(row.path)}</span>
                   </div>
                 </td>
                 <td className="px-4 py-2.5 text-right">{row.views.toLocaleString()}</td>
