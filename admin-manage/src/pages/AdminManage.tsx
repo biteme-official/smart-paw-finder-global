@@ -834,6 +834,26 @@ const FIXED_FUNNEL_STEPS = [
   { step: 'purchase',         label: '구매 완료', color: '#a3a3a3' },
 ];
 
+function FunnelTooltip({ active, payload, label }: { active?: boolean; payload?: { dataKey: string; value: number; color: string }[]; label?: string }) {
+  if (!active || !payload || payload.length === 0) return null;
+  const map = new Map(payload.map(p => [p.dataKey, p]));
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-md p-3 text-xs min-w-[160px]">
+      <p className="font-semibold text-gray-700 mb-2">{label}</p>
+      {FIXED_FUNNEL_STEPS.map(s => {
+        const item = map.get(s.label);
+        return (
+          <div key={s.step} className="flex items-center gap-2 py-0.5">
+            <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+            <span className="text-gray-600 flex-1">{s.label}</span>
+            <span className="font-medium text-gray-900 tabular-nums">{(item?.value ?? 0).toLocaleString()}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function DailyFunnelChart({ dailyFunnel }: { dailyFunnel: GaFunnelData['dailyFunnel']; funnelSteps: GaFunnelData['funnelSteps'] }) {
   const chartData = dailyFunnel.map((d: Record<string, unknown>) => ({
     date: isoToLabel(d.date as string),
@@ -853,7 +873,7 @@ function DailyFunnelChart({ dailyFunnel }: { dailyFunnel: GaFunnelData['dailyFun
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={interval} />
             <YAxis tick={{ fontSize: 10 }} width={48} />
-            <Tooltip />
+            <Tooltip content={<FunnelTooltip />} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
             {FIXED_FUNNEL_STEPS.map(s => (
               <Line key={s.step} type="monotone" dataKey={s.label} stroke={s.color} strokeWidth={2} dot={false} />
