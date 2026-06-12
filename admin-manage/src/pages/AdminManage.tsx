@@ -199,11 +199,20 @@ function GaPlaceholder({ title, compact }: { title?: string; compact?: boolean }
 
 // ─── Dashboard: Combined Chart ───
 
-function CombinedChart({ dailyOrders, currency }: { dailyOrders: DashboardData['dailyOrders']; currency: string }) {
+const USERS_COLOR = '#6366f1';
+
+function CombinedChart({ dailyOrders, currency, ga }: { dailyOrders: DashboardData['dailyOrders']; currency: string; ga?: GaData | null }) {
+  const gaMap = new Map<string, number>();
+  if (ga?.available && ga.daily) {
+    for (const d of ga.daily) gaMap.set(d.date, d.users);
+  }
+  const hasGa = !!(ga?.available && ga.daily && ga.daily.length > 0);
+
   const chartData = dailyOrders.map(d => ({
     date: isoToLabel(d.date),
     revenue: Math.round(d.revenue * 100) / 100,
     orders: d.orders,
+    ...(hasGa ? { users: gaMap.get(d.date) ?? 0 } : {}),
   }));
   const interval = Math.max(0, Math.ceil(chartData.length / 10) - 1);
 
@@ -211,7 +220,7 @@ function CombinedChart({ dailyOrders, currency }: { dailyOrders: DashboardData['
     <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-100">
         <h3 className="text-sm font-semibold text-gray-900">주문 · 매출 추이</h3>
-        <p className="text-xs text-gray-400">매출(막대) / 주문수(선)</p>
+        <p className="text-xs text-gray-400">매출(막대) / 주문수 · {hasGa ? '총 사용자' : ''}(선)</p>
       </div>
       <div className="p-4">
         <ResponsiveContainer width="100%" height={220}>
@@ -221,13 +230,64 @@ function CombinedChart({ dailyOrders, currency }: { dailyOrders: DashboardData['
             <YAxis yAxisId="rev" tick={{ fontSize: 10 }}
               tickFormatter={v => currency === 'JPY' ? `¥${(v / 1000).toFixed(0)}k` : `$${v.toFixed(0)}`} width={48} />
             <YAxis yAxisId="orders" orientation="right" tick={{ fontSize: 10 }} width={36} />
-            <Tooltip formatter={(value, name) => {
-              if (name === 'revenue') return [fmtMoney(Number(value), currency), '매출'];
-              return [Number(value), '주문 수'];
+            {hasGa && <YAxis yAxisId="users" orientation="right" hide />}
+            <Tooltip content={({ active, payload, label }) => {
+              if (!active || !payload || !payload.length) return null;
+              const map = new Map(payload.map(p => [p.dataKey as string, p]));
+              return (
+                <div className="bg-white border border-gray-200 rounded-lg shadow-md p-3 text-xs min-w-[160px]">
+                  <p className="font-semibold text-gray-700 mb-2">{label}</p>
+                  {hasGa && map.get('users') && (
+                    <div className="flex justify-between gap-4 py-0.5">
+                      <span className="flex items-center gap-1.5 text-gray-600">
+                        <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: USERS_COLOR }} />
+                        총 사용자
+                      </span>
+                      <span className="font-medium">{Number(map.get('users')!.value).toLocaleString()}</span>
+                    </div>
+                  )}
+                  {map.get('orders') && (
+                    <div className="flex justify-between gap-4 py-0.5">
+                      <span className="flex items-center gap-1.5 text-gray-600">
+                        <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: BRAND }} />
+                        주문 수
+                      </span>
+                      <span className="font-medium">{Number(map.get('orders')!.value)}</span>
+                    </div>
+                  )}
+                  {map.get('revenue') && (
+                    <div className="flex justify-between gap-4 py-0.5">
+                      <span className="flex items-center gap-1.5 text-gray-600">
+                        <span className="inline-block w-3 h-3 rounded-sm opacity-40" style={{ backgroundColor: BRAND }} />
+                        매출
+                      </span>
+                      <span className="font-medium">{fmtMoney(Number(map.get('revenue')!.value), currency)}</span>
+                    </div>
+                  )}
+                </div>
+              );
             }} />
-            <Legend formatter={v => v === 'revenue' ? '매출' : '주문 수'} wrapperStyle={{ fontSize: 11 }} />
+            <Legend content={() => (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 justify-center mt-2">
+                {hasGa && (
+                  <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                    <span className="inline-block w-6 h-0.5 rounded" style={{ backgroundColor: USERS_COLOR }} />
+                    총 사용자
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <span className="inline-block w-6 h-0.5 rounded" style={{ backgroundColor: BRAND }} />
+                  주문 수
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <span className="inline-block w-4 h-3 rounded-sm opacity-40" style={{ backgroundColor: BRAND }} />
+                  매출
+                </div>
+              </div>
+            )} />
             <Bar yAxisId="rev" dataKey="revenue" fill={BRAND} opacity={0.25} radius={[2, 2, 0, 0]} />
             <Line yAxisId="orders" type="monotone" dataKey="orders" stroke={BRAND} strokeWidth={2.5} dot={false} />
+            {hasGa && <Line yAxisId="users" type="monotone" dataKey="users" stroke={USERS_COLOR} strokeWidth={2} dot={false} />}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -710,7 +770,7 @@ function DashboardTab({ data, currency, range, ga, traffic }: { data: DashboardD
 
       {dailyOrders.length > 0 && (
         <>
-          <CombinedChart dailyOrders={dailyOrders} currency={currency} />
+          <CombinedChart dailyOrders={dailyOrders} currency={currency} ga={ga} />
           <TimelineTable dailyOrders={dailyOrders} currency={currency} ga={ga} />
         </>
       )}
