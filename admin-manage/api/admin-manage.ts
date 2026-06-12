@@ -832,6 +832,7 @@ async function handleGaFunnel(req: VercelRequest, res: VercelResponse) {
 }
 
 async function handleGaBehavior(req: VercelRequest, res: VercelResponse) {
+  console.log('[ga-behavior] GA4_PROPERTY_ID:', process.env.GA4_PROPERTY_ID);
   const gaToken = await getGAAccessToken();
   if (!gaToken) return res.status(200).json({ available: false });
 

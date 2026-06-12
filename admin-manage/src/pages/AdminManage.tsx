@@ -975,7 +975,9 @@ function BehaviorTab({ secret, range }: { secret: string; range: Range }) {
                       <div className="h-1.5 w-8 shrink-0 rounded-full bg-gray-100 overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${(row.views / maxPageViews) * 100}%`, backgroundColor: BRAND }} />
                       </div>
-                      <span className="font-mono truncate max-w-[200px]">{row.path}</span>
+                      <span className="font-mono truncate max-w-[200px]" title={row.path}>
+                        {row.path === '/' ? 'Home (/)' : row.path}
+                      </span>
                     </div>
                   </td>
                   <td className="px-4 py-2 text-right font-medium">{row.views.toLocaleString()}</td>
