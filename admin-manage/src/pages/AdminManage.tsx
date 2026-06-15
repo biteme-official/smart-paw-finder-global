@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ComposedChart, LineChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, PieChart, Pie, Cell,
 } from 'recharts';
 import { toast } from 'sonner';
@@ -693,9 +693,11 @@ function FunnelChart({ funnel }: { funnel: GaData['funnel'] }) {
 
 const COUNTRY_COLORS = ['#f85a24', '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#9ca3af'];
 
-function TrafficSection({ traffic, countryOrders }: { traffic: GaTrafficData; countryOrders: { country: string; orders: number }[] }) {
+function TrafficSection({ traffic, countryOrders, funnel }: { traffic: GaTrafficData; countryOrders: { country: string; orders: number }[]; funnel?: GaFunnelData | null }) {
   const { sources, countries, pages } = traffic;
   const totalUsers = countries.reduce((s, c) => s + c.users, 0);
+  const totalSourceUsers = sources.reduce((s, r) => s + r.users, 0);
+  const funnelSourceMap = new Map((funnel?.sources ?? []).map(s => [s.source, s]));
   const totalOrderCount = countryOrders.reduce((s, c) => s + c.orders, 0);
   const orderMap = new Map(countryOrders.map(c => [c.country.toUpperCase(), c.orders]));
   const maxPageViews = pages[0]?.views || 1;
@@ -721,25 +723,32 @@ function TrafficSection({ traffic, countryOrders }: { traffic: GaTrafficData; co
       <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
         <div className="px-5 py-3 border-b border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900">유입 소스</h3>
-          <p className="text-xs text-gray-400">세션 기준 상위 소스</p>
+          <p className="text-xs text-gray-400">사용자 기준 상위 소스</p>
         </div>
         <div className="overflow-y-auto max-h-64">
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-white border-b">
               <tr>
                 <th className="text-left px-4 py-2 font-medium text-gray-400">소스</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-400">세션</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-400">이탈률</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-400">사용자 수</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-400">비중</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-400">CVR</th>
               </tr>
             </thead>
             <tbody>
-              {sources.map((row, i) => (
-                <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
-                  <td className="px-4 py-2 truncate max-w-[140px]">{row.source}</td>
-                  <td className="px-4 py-2 text-right font-medium">{row.sessions.toLocaleString()}</td>
-                  <td className="px-4 py-2 text-right">{row.bounceRate.toFixed(1)}%</td>
-                </tr>
-              ))}
+              {[...sources].sort((a, b) => b.users - a.users).map((row, i) => {
+                const share = totalSourceUsers > 0 ? (row.users / totalSourceUsers * 100).toFixed(1) : '0.0';
+                const fs = funnelSourceMap.get(row.source);
+                const cvr = fs && row.users > 0 ? (fs.purchases / row.users * 100).toFixed(2) : null;
+                return (
+                  <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+                    <td className="px-4 py-2 truncate max-w-[120px]">{row.source}</td>
+                    <td className="px-4 py-2 text-right font-medium">{row.users.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right text-gray-500">{share}%</td>
+                    <td className="px-4 py-2 text-right">{cvr !== null ? `${cvr}%` : <span className="text-gray-300">—</span>}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -924,7 +933,7 @@ function DashboardTab({ data, currency, range, ga, traffic, funnel }: { data: Da
 
       <SectionLabel>트래픽 분석</SectionLabel>
       {traffic?.available
-        ? <TrafficSection traffic={traffic} countryOrders={data.countryOrders ?? []} />
+        ? <TrafficSection traffic={traffic} countryOrders={data.countryOrders ?? []} funnel={funnel} />
         : <GaPlaceholder title="유입 소스 · 국가별 유입·전환 · 상위 페이지" />}
 
       <SectionLabel>운영 현황</SectionLabel>
