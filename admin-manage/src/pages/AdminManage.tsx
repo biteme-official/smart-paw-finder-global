@@ -58,6 +58,14 @@ interface GaFunnelData {
   pages: { path: string; views: number; bounceRate: number; avgEngagement: number }[];
 }
 
+interface GaBehaviorData {
+  available: boolean;
+  pages: { path: string; title: string; views: number; users: number; avgDuration: number; bounceRate: number }[];
+  events: { name: string; count: number; users: number }[];
+  devices: { device: string; sessions: number; users: number; transactions: number; revenue: number }[];
+  newVsReturning: { type: string; sessions: number; users: number; transactions: number }[];
+}
+
 // ─── Helpers ───
 
 const BRAND = '#f85a24';
@@ -86,6 +94,31 @@ function getMondayISO(dateStr: string) {
 
 function fmtDateShort(iso: string) {
   return new Date(iso).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+}
+
+function fmtDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+}
+
+function pageLabel(path: string): string {
+  if (path === '/' || path === '') return '홈';
+  if (path.startsWith('/product/')) return '상품 상세';
+  if (path === '/checkout') return '결제';
+  if (path === '/checkout-return') return '구매 완료';
+  if (path === '/mypage') return '마이페이지';
+  if (path === '/blog') return '블로그';
+  if (path.startsWith('/blog/')) return '블로그 글';
+  if (path === '/new-products') return '신상품';
+  if (path === '/contact') return '문의';
+  return path;
+}
+
+function deviceLabel(d: string): string {
+  if (d === 'mobile') return '모바일';
+  if (d === 'desktop') return '데스크톱';
+  if (d === 'tablet') return '태블릿';
+  return d;
 }
 
 function shopifyUrl(gid: string, type: 'orders' | 'products' | 'customers') {
@@ -817,8 +850,15 @@ function FunnelTab({ secret, range, ga, dashboardCurrency }: { secret: string; r
 
 // ─── 행동 분석 Tab ───
 
-function BehaviorTab() {
-  return (
+function BehaviorTab({ secret, range }: { secret: string; range: string }) {
+  const { data, isLoading } = useQuery<GaBehaviorData>({
+    queryKey: ['ga-behavior', range],
+    queryFn: () => fetchSection<GaBehaviorData>('ga-behavior', secret, { range }),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (isLoading) return <div className="flex justify-center py-16 text-sm text-gray-400">행동 데이터를 불러오는 중...</div>;
+  if (!data?.available) return (
     <div className="space-y-5">
       <SectionLabel>페이지 분석</SectionLabel>
       <GaPlaceholder title="상위 페이지 · 페이지뷰" />
@@ -828,17 +868,123 @@ function BehaviorTab() {
       <GaPlaceholder title="디바이스별 세션 · 전환율" />
     </div>
   );
+
+  const maxViews = data.pages[0]?.views || 1;
+  const maxEventCount = data.events[0]?.count || 1;
+  const totalSessions = data.devices.reduce((s, d) => s + d.sessions, 0) || 1;
+
+  return (
+    <div className="space-y-5">
+      {/* 페이지 분석 */}
+      <SectionLabel>페이지 분석</SectionLabel>
+      <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-900">상위 페이지 · 페이지뷰</h3>
+          <p className="text-xs text-gray-400">GA4 페이지별 방문 현황</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-white border-b">
+              <tr>
+                <th className="text-left px-4 py-2.5 font-medium text-gray-400">페이지</th>
+                <th className="text-right px-4 py-2.5 font-medium text-gray-400">페이지뷰</th>
+                <th className="text-right px-4 py-2.5 font-medium text-gray-400">사용자</th>
+                <th className="text-right px-4 py-2.5 font-medium text-gray-400">평균 체류</th>
+                <th className="text-right px-4 py-2.5 font-medium text-gray-400">이탈률</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.pages.map((p) => (
+                <tr key={p.path} className="border-b last:border-0 hover:bg-gray-50/50">
+                  <td className="px-4 py-2.5">
+                    <div className="font-medium text-gray-800">{pageLabel(p.path)}</div>
+                    <div className="text-gray-400 text-[11px] truncate max-w-[200px]">{p.path}</div>
+                    <div className="mt-1 h-1 bg-gray-100 rounded overflow-hidden w-32">
+                      <div className="h-full rounded" style={{ width: `${(p.views / maxViews) * 100}%`, backgroundColor: BRAND }} />
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-semibold">{p.views.toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-right">{p.users.toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-right text-gray-500">{fmtDuration(p.avgDuration)}</td>
+                  <td className="px-4 py-2.5 text-right">
+                    <span className={p.bounceRate > 60 ? 'text-red-500 font-medium' : 'text-gray-600'}>{p.bounceRate}%</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 이벤트 분석 */}
+      <SectionLabel>사용자 행동</SectionLabel>
+      <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-900">이벤트 분석</h3>
+          <p className="text-xs text-gray-400">상위 GA4 이벤트 발생 현황</p>
+        </div>
+        <div className="p-4 space-y-2">
+          {data.events.map((e) => (
+            <div key={e.name} className="flex items-center gap-3">
+              <span className="text-xs text-gray-600 w-36 shrink-0 truncate font-mono">{e.name}</span>
+              <div className="flex-1 h-5 bg-gray-100 rounded overflow-hidden">
+                <div className="h-full rounded flex items-center px-2"
+                  style={{ width: `${Math.max((e.count / maxEventCount) * 100, 4)}%`, backgroundColor: BRAND, opacity: 0.8 }}>
+                </div>
+              </div>
+              <span className="text-xs font-semibold text-gray-800 w-16 text-right">{e.count.toLocaleString()}</span>
+              <span className="text-xs text-gray-400 w-16 text-right">{e.users.toLocaleString()}명</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 디바이스 분석 */}
+      <SectionLabel>디바이스 분석</SectionLabel>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {data.devices.map((d) => {
+          const cvr = d.sessions > 0 ? ((d.transactions / d.sessions) * 100).toFixed(2) : '0.00';
+          const pct = Math.round((d.sessions / totalSessions) * 100);
+          return (
+            <div key={d.device} className="rounded-xl border bg-white border-gray-200 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-semibold text-gray-800">{deviceLabel(d.device)}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{pct}%</span>
+              </div>
+              <div className="space-y-1.5 text-xs">
+                <div className="flex justify-between"><span className="text-gray-400">세션</span><span className="font-medium">{d.sessions.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-gray-400">사용자</span><span className="font-medium">{d.users.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-gray-400">구매</span><span className="font-medium">{d.transactions}</span></div>
+                <div className="flex justify-between border-t pt-1.5 mt-1"><span className="text-gray-400">전환율</span>
+                  <span className="font-bold" style={{ color: BRAND }}>{cvr}%</span>
+                </div>
+              </div>
+              <div className="mt-3 h-1.5 bg-gray-100 rounded overflow-hidden">
+                <div className="h-full rounded" style={{ width: `${pct}%`, backgroundColor: BRAND }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ─── 회원 분석 Tab ───
 
-function CustomerTab({ secret }: { secret: string }) {
+function CustomerTab({ secret, range }: { secret: string; range: string }) {
   const [tab, setTab] = useState('top');
 
   const { data, isLoading } = useQuery<CustomerSummary>({
     queryKey: ['admin-customers'],
     queryFn: () => fetchSection<CustomerSummary>('customers', secret, { view: 'all' }),
     staleTime: 60_000,
+  });
+
+  const { data: gaData } = useQuery<GaBehaviorData>({
+    queryKey: ['ga-behavior', range],
+    queryFn: () => fetchSection<GaBehaviorData>('ga-behavior', secret, { range }),
+    staleTime: 5 * 60 * 1000,
   });
 
   if (isLoading || !data) {
@@ -954,7 +1100,39 @@ function CustomerTab({ secret }: { secret: string }) {
       </div>
 
       <SectionLabel>유저 재방문</SectionLabel>
-      <GaPlaceholder title="신규 vs 재방문 유저" />
+      {!gaData?.available ? (
+        <GaPlaceholder title="신규 vs 재방문 유저" />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {(['new', 'returning'] as const).map((type) => {
+            const row = gaData.newVsReturning.find(r => r.type === type) || { sessions: 0, users: 0, transactions: 0 };
+            const totalSess = gaData.newVsReturning.reduce((s, r) => s + r.sessions, 0) || 1;
+            const pct = Math.round((row.sessions / totalSess) * 100);
+            const cvr = row.sessions > 0 ? ((row.transactions / row.sessions) * 100).toFixed(2) : '0.00';
+            const label = type === 'new' ? '신규 방문자' : '재방문자';
+            const color = type === 'new' ? BRAND : '#6366f1';
+            return (
+              <div key={type} className="rounded-xl border bg-white border-gray-200 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-sm font-semibold text-gray-800">{label}</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full text-white font-medium" style={{ backgroundColor: color }}>{pct}%</span>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between"><span className="text-gray-400">세션 수</span><span className="text-lg font-bold text-gray-900">{row.sessions.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">사용자</span><span className="font-medium">{row.users.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-400">구매</span><span className="font-medium">{row.transactions}</span></div>
+                  <div className="flex justify-between border-t pt-2 mt-1"><span className="text-gray-400">전환율</span>
+                    <span className="font-bold text-sm" style={{ color }}>{cvr}%</span>
+                  </div>
+                </div>
+                <div className="mt-3 h-1.5 bg-gray-100 rounded overflow-hidden">
+                  <div className="h-full rounded" style={{ width: `${pct}%`, backgroundColor: color }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <p className="text-center text-xs text-gray-400 pb-4">
         Shopify: biteme-one &middot; 회원 데이터
@@ -1064,8 +1242,8 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
             : <DashboardTab data={dashboard} currency={dashboard.currency} range={range} />
         )}
         {activeTab === 'funnel' && <FunnelTab secret={secret} range={range} ga={gaData || null} dashboardCurrency={dashboard?.currency ?? 'KRW'} />}
-        {activeTab === 'behavior' && <BehaviorTab />}
-        {activeTab === 'members' && <CustomerTab secret={secret} />}
+        {activeTab === 'behavior' && <BehaviorTab secret={secret} range={range} />}
+        {activeTab === 'members' && <CustomerTab secret={secret} range={range} />}
         {activeTab === 'review' && <WeeklyReviewTab />}
       </div>
     </div>

@@ -44,6 +44,78 @@ async function adminGraphQL(token: string, query: string, variables: Record<stri
   return res.json();
 }
 
+// ─── GA4 Helpers ───
+
+let gaAccessToken: string | null = null;
+let gaAccessTokenExpiresAt = 0;
+
+async function getGAAccessToken(): Promise<string | null> {
+  const now = Date.now();
+  if (gaAccessToken && now < gaAccessTokenExpiresAt - 60_000) return gaAccessToken;
+  const jsonStr = process.env.GA_SERVICE_ACCOUNT_JSON;
+  if (!jsonStr) return null;
+  try {
+    const sa = JSON.parse(jsonStr);
+    const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
+    const iat = Math.floor(Date.now() / 1000);
+    const payload = Buffer.from(JSON.stringify({
+      iss: sa.client_email,
+      scope: 'https://www.googleapis.com/auth/analytics.readonly',
+      aud: 'https://oauth2.googleapis.com/token',
+      exp: iat + 3600, iat,
+    })).toString('base64url');
+    const { createSign } = await import('crypto');
+    const sign = createSign('RSA-SHA256');
+    sign.update(`${header}.${payload}`);
+    const jwt = `${header}.${payload}.${sign.sign(sa.private_key, 'base64url')}`;
+    const tr = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt }),
+    });
+    if (!tr.ok) return null;
+    const td = await tr.json();
+    gaAccessToken = td.access_token || null;
+    gaAccessTokenExpiresAt = now + (td.expires_in || 3600) * 1000;
+    return gaAccessToken;
+  } catch { return null; }
+}
+
+function gaDateRange(range: string): { startDate: string; endDate: string } {
+  if (range === 'today') return { startDate: 'today', endDate: 'today' };
+  if (range === '28d') return { startDate: '28daysAgo', endDate: 'today' };
+  if (range === '90d') return { startDate: '90daysAgo', endDate: 'today' };
+  return { startDate: '7daysAgo', endDate: 'today' };
+}
+
+async function gaReport(token: string, body: Record<string, unknown>): Promise<unknown> {
+  const pid = process.env.GA4_PROPERTY_ID || '';
+  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${pid}:runReport`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+function gaRows(report: unknown): Record<string, string>[] {
+  if (!report || typeof report !== 'object') return [];
+  const r = report as {
+    dimensionHeaders?: { name: string }[];
+    metricHeaders?: { name: string }[];
+    rows?: { dimensionValues?: { value: string }[]; metricValues?: { value: string }[] }[];
+  };
+  const dH = (r.dimensionHeaders || []).map(h => h.name);
+  const mH = (r.metricHeaders || []).map(h => h.name);
+  return (r.rows || []).map(row => {
+    const obj: Record<string, string> = {};
+    (row.dimensionValues || []).forEach((v, i) => { if (dH[i]) obj[dH[i]] = v.value; });
+    (row.metricValues || []).forEach((v, i) => { if (mH[i]) obj[mH[i]] = v.value; });
+    return obj;
+  });
+}
+
 // ─── Queries ───
 
 const RECENT_ORDERS_QUERY = `
@@ -636,6 +708,86 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
   });
 }
 
+// ─── GA4: Behavior + Member ───
+
+async function handleGaBehavior(req: VercelRequest, res: VercelResponse) {
+  const gaToken = await getGAAccessToken();
+  if (!gaToken) return res.status(200).json({ available: false });
+
+  const range = (req.query.range as string) || '7d';
+  const dr = gaDateRange(range);
+
+  const [pageReport, eventReport, deviceReport, newVsReturningReport] = await Promise.all([
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'pagePath' }, { name: 'pageTitle' }],
+      metrics: [
+        { name: 'screenPageViews' },
+        { name: 'activeUsers' },
+        { name: 'averageSessionDuration' },
+        { name: 'bounceRate' },
+      ],
+      orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+      limit: 10,
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'eventName' }],
+      metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+      orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+      limit: 15,
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'deviceCategory' }],
+      metrics: [
+        { name: 'sessions' },
+        { name: 'activeUsers' },
+        { name: 'transactions' },
+        { name: 'purchaseRevenue' },
+      ],
+      orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'newVsReturning' }],
+      metrics: [{ name: 'sessions' }, { name: 'activeUsers' }, { name: 'transactions' }],
+    }),
+  ]);
+
+  const pages = gaRows(pageReport).map(r => ({
+    path: r.pagePath || '/',
+    title: r.pageTitle || r.pagePath || '/',
+    views: parseInt(r.screenPageViews || '0'),
+    users: parseInt(r.activeUsers || '0'),
+    avgDuration: Math.round(parseFloat(r.averageSessionDuration || '0')),
+    bounceRate: Math.round(parseFloat(r.bounceRate || '0') * 10000) / 100,
+  }));
+
+  const events = gaRows(eventReport).map(r => ({
+    name: r.eventName || '',
+    count: parseInt(r.eventCount || '0'),
+    users: parseInt(r.totalUsers || '0'),
+  }));
+
+  const devices = gaRows(deviceReport).map(r => ({
+    device: r.deviceCategory || '',
+    sessions: parseInt(r.sessions || '0'),
+    users: parseInt(r.activeUsers || '0'),
+    transactions: parseInt(r.transactions || '0'),
+    revenue: Math.round(parseFloat(r.purchaseRevenue || '0') * 100) / 100,
+  }));
+
+  const newVsReturning = gaRows(newVsReturningReport).map(r => ({
+    type: r.newVsReturning || '',
+    sessions: parseInt(r.sessions || '0'),
+    users: parseInt(r.activeUsers || '0'),
+    transactions: parseInt(r.transactions || '0'),
+  }));
+
+  return res.status(200).json({ available: true, pages, events, devices, newVsReturning });
+}
+
 // ─── Router ───
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -653,9 +805,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const section = (req.query.section as string) || 'overview';
-  const token = await getShopifyAccessToken();
 
   try {
+    if (section === 'ga-behavior') return await handleGaBehavior(req, res);
+
+    const token = await getShopifyAccessToken();
     if (section === 'overview') return await handleOverview(token, res);
     if (section === 'dashboard') return await handleDashboard(token, req, res);
     if (section === 'orders') return await handleOrders(token, req, res);
