@@ -256,18 +256,17 @@ function TrafficTrendChart({ ga, dailyOrders }: { ga?: GaData | null; dailyOrder
             }} />
             <Legend content={() => (
               <div className="flex gap-4 justify-center mt-2">
-                {[
-                  { color: USERS_COLOR, label: '총 사용자' },
-                  { color: CVR_COLOR, label: '전환율 (CVR)' },
-                ].map(({ color, label: lbl }) => (
-                  <div key={lbl} className="flex items-center gap-1.5 text-xs text-gray-600">
-                    <span className="inline-block w-6 h-0.5 rounded" style={{ backgroundColor: color }} />
-                    {lbl}
-                  </div>
-                ))}
+                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: USERS_COLOR }} />
+                  총 사용자
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <span className="inline-block w-6 h-0.5 rounded" style={{ backgroundColor: CVR_COLOR }} />
+                  전환율 (CVR)
+                </div>
               </div>
             )} />
-            <Line yAxisId="users" type="monotone" dataKey="users" stroke={USERS_COLOR} strokeWidth={2} dot={false} />
+            <Bar yAxisId="users" dataKey="users" fill={USERS_COLOR} opacity={0.8} radius={[2, 2, 0, 0]} />
             <Line yAxisId="cvr" type="monotone" dataKey="cvr" stroke={CVR_COLOR} strokeWidth={2.5} dot={false} />
           </ComposedChart>
         </ResponsiveContainer>
