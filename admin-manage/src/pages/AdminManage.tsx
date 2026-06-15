@@ -747,7 +747,6 @@ function FunnelChart({ funnel }: { funnel: GaData['funnel'] }) {
     return { ...step, dropRate, convRate };
   });
 
-  // 결제 시작(index 2) 이후 구간에서 최대 이탈률 찾기
   const maxDropIdx = data.reduce((maxI, s, i) => {
     if (i < 2 || s.dropRate === null) return maxI;
     return (s.dropRate ?? 0) > (data[maxI]?.dropRate ?? 0) ? i : maxI;
@@ -759,39 +758,47 @@ function FunnelChart({ funnel }: { funnel: GaData['funnel'] }) {
         <h3 className="text-sm font-semibold text-gray-900">EC 퍼널</h3>
         <p className="text-xs text-gray-400">GA4 이커머스 이벤트</p>
       </div>
-      <div className="p-4 space-y-0">
+      <div className="px-4 pt-3 pb-4">
         {data.map((step, i) => {
           const pct = maxCount > 0 ? (step.count / maxCount) * 100 : 0;
           return (
             <div key={step.step}>
-              <div className="flex justify-between text-xs mb-0.5">
-                <span className="text-gray-600">{step.label}</span>
-                <span className="font-medium">{step.count.toLocaleString()}</span>
-              </div>
-              <div className="h-5 bg-gray-100 rounded overflow-hidden">
-                <div className="h-full rounded transition-all" style={{
-                  width: `${Math.max(pct, 1)}%`,
-                  backgroundColor: BRAND,
-                  opacity: 1 - i * 0.15,
-                }} />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 shrink-0 w-14 text-right">{step.label}</span>
+                <div className="flex-1 h-7 bg-gray-100 rounded overflow-hidden">
+                  <div className="h-full rounded transition-all flex items-center" style={{
+                    width: `${i === 0 ? 100 : Math.max(pct, 1)}%`,
+                    backgroundColor: BRAND,
+                  }}>
+                    {i === 0 && (
+                      <span className="px-2 text-white text-xs font-bold">{step.count.toLocaleString()}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="shrink-0 w-16 text-right">
+                  {i > 0 && <p className="text-xs font-bold text-gray-900">{step.count.toLocaleString()}</p>}
+                  {i === 0
+                    ? <p className="text-[10px] text-gray-400">기준값</p>
+                    : <p className="text-[10px] text-red-400">-{step.dropRate}%</p>}
+                </div>
               </div>
               {i < data.length - 1 && data[i + 1].dropRate !== null && (
-                <div className="flex items-center justify-between py-1.5 px-2">
-                  <div className={`text-xs font-medium ${i + 1 === maxDropIdx ? 'text-red-600' : 'text-amber-600'}`}>
-                    이탈률: {data[i + 1].dropRate}%{i + 1 === maxDropIdx ? ' ⚠️' : ''}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    전환율: <span className="font-semibold text-gray-700">{data[i + 1].convRate}%</span>
-                  </div>
+                <div className="flex items-center gap-1 ml-16 py-1">
+                  <span className="text-[10px] text-gray-400">▼</span>
+                  <span className={`text-[10px] font-medium ${i + 1 === maxDropIdx ? 'text-red-500' : 'text-amber-500'}`}>
+                    이탈 {data[i + 1].dropRate}%
+                  </span>
+                  <span className="text-[10px] text-gray-300 mx-0.5">·</span>
+                  <span className="text-[10px] text-gray-400">전환 {data[i + 1].convRate}%</span>
                 </div>
               )}
             </div>
           );
         })}
         {funnel[0]?.count > 0 && funnel[funnel.length - 1] && (
-          <div className="pt-2 border-t border-gray-100 text-xs text-center">
-            <span className="text-gray-500">전체 전환율: </span>
-            <span className="font-bold" style={{ color: BRAND }}>
+          <div className="flex items-center justify-between pt-3 mt-1 border-t border-gray-100">
+            <span className="text-xs text-gray-500">전체 전환율</span>
+            <span className="text-sm font-bold" style={{ color: BRAND }}>
               {((funnel[funnel.length - 1].count / funnel[0].count) * 100).toFixed(2)}%
             </span>
           </div>
@@ -1133,23 +1140,23 @@ function SourceConversionCard({ sources, fmtRevenue }: { sources: GaFunnelData['
       </div>
       <div className="border-t border-gray-100 px-5 py-4">
         <p className="text-[11px] font-semibold text-gray-400 mb-3">종합 지표</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="rounded-lg bg-gray-50 px-4 py-3">
             <p className="text-xs text-gray-400 mb-0.5">총 유입 사용자</p>
             <p className="text-base font-bold text-gray-900">{totalUsers.toLocaleString()}명</p>
             <p className="text-[10px] text-gray-400 mt-0.5">전체 소스 합산</p>
           </div>
-          <div>
+          <div className="rounded-lg bg-gray-50 px-4 py-3">
             <p className="text-xs text-gray-400 mb-0.5">전체 구매 전환율</p>
             <p className="text-base font-bold" style={{ color: totalCvr >= 1.5 ? '#10b981' : BRAND }}>{totalCvr.toFixed(2)}%</p>
             <p className="text-[10px] text-gray-400 mt-0.5">{totalPurchases}건 / {totalUsers.toLocaleString()}명</p>
           </div>
-          <div>
+          <div className="rounded-lg bg-gray-50 px-4 py-3">
             <p className="text-xs text-gray-400 mb-0.5">우수 소스/매체</p>
             <p className="text-sm font-bold text-gray-900 truncate">{bestSource ? bestSource.source : '—'}</p>
             {bestSource && <p className="text-[10px] text-gray-400 mt-0.5">매출 비중 {bestShare.toFixed(1)}%</p>}
           </div>
-          <div>
+          <div className="rounded-lg bg-gray-50 px-4 py-3">
             <p className="text-xs text-gray-400 mb-0.5">총 매출액</p>
             <p className="text-base font-bold text-gray-900">{fmtRevenue(totalRevenue)}</p>
           </div>
@@ -1388,8 +1395,7 @@ function FunnelBarTooltip({ active, payload, label }: { active?: boolean; payloa
   );
 }
 
-function DailyFunnelChart({ dailyFunnel, gaFunnel }: { dailyFunnel: GaFunnelData['dailyFunnel']; funnelSteps: GaFunnelData['funnelSteps']; gaFunnel?: GaData['funnel'] | null }) {
-  // 전체 기간 합산 (날짜 탭 없음 — 항상 전체 표시)
+function DailyFunnelChart({ dailyFunnel, gaFunnel, range }: { dailyFunnel: GaFunnelData['dailyFunnel']; funnelSteps: GaFunnelData['funnelSteps']; gaFunnel?: GaData['funnel'] | null; range?: string }) {
   const stageData = (() => {
     if (gaFunnel && gaFunnel.length > 0) {
       return gaFunnel.map((s, i) => {
@@ -1419,82 +1425,84 @@ function DailyFunnelChart({ dailyFunnel, gaFunnel }: { dailyFunnel: GaFunnelData
     });
   })();
 
+  const first = stageData[0];
+  const last = stageData[stageData.length - 1];
+  const totalConv = first && last && first.count > 0
+    ? ((last.count / first.count) * 100).toFixed(2) : null;
+  const maxDrop = stageData.reduce<{ from: string; to: string; dr: number } | null>((m, s, i) => {
+    if (i < 1 || s.dropRate === null) return m;
+    const dr = s.dropRate ?? 0;
+    return !m || dr > m.dr ? { from: stageData[i - 1].stage, to: s.stage, dr } : m;
+  }, null);
+
+  const convSteps = stageData.slice(0, -1)
+    .map(s => ({ label: s.stage, cvr: s.count > 0 && last ? parseFloat(((last.count / s.count) * 100).toFixed(2)) : 0 }))
+    .filter(s => s.cvr > 0);
+  const maxCvr = Math.max(...convSteps.map(s => s.cvr), 0.01);
+
+  const rangeLabel = (() => {
+    if (!range) return '';
+    if (range === 'today') return '오늘';
+    if (/^\d+d$/.test(range)) return `최근 ${range.replace('d', '')}일`;
+    if (range.startsWith('custom:')) {
+      const [, s, e] = range.split(':');
+      const fmt = (d: string) => d.slice(5).replace('-', '/');
+      return `${fmt(s)} ~ ${fmt(e)}`;
+    }
+    return range;
+  })();
+
   return (
-    <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+    <div className="rounded-xl border bg-white border-gray-200 overflow-hidden h-full">
       <div className="px-5 py-3 border-b border-gray-100">
-        <h3 className="text-sm font-semibold text-gray-900">퍼널 현황</h3>
-        <p className="text-xs text-gray-400">이벤트 건수 (막대) · 전환율 (선)</p>
+        <h3 className="text-sm font-semibold text-gray-900">KPI 요약</h3>
+        <p className="text-xs text-gray-400">핵심 전환 지표 한눈에 보기</p>
       </div>
-      <div className="p-4">
-        <ResponsiveContainer width="100%" height={260}>
-          <ComposedChart data={stageData} margin={{ top: 28, right: 48, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="stage" tick={{ fontSize: 10 }} />
-            <YAxis yAxisId="count" tick={{ fontSize: 10 }} width={50} />
-            <YAxis yAxisId="conv" orientation="right" tick={{ fontSize: 10 }} width={42}
-              tickFormatter={(v: number) => `${v}%`} domain={[0, 100]} />
-            <Tooltip content={<FunnelBarTooltip />} />
-            <Legend
-              content={() => (
-                <div className="flex items-center justify-center gap-6 mt-2">
-                  <div className="flex items-center gap-1.5">
-                    <svg width="18" height="10" viewBox="0 0 18 10">
-                      <line x1="0" y1="5" x2="18" y2="5" stroke="#3b82f6" strokeWidth="2" />
-                      <circle cx="9" cy="5" r="3.5" fill="#3b82f6" />
-                    </svg>
-                    <span className="text-xs text-gray-600">전환율</span>
+      <div className="p-4 space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg bg-gray-50 px-4 py-3">
+            <p className="text-xs text-gray-400 mb-0.5">전체 전환율</p>
+            <p className="text-xl font-bold" style={{ color: BRAND }}>{totalConv !== null ? `${totalConv}%` : '—'}</p>
+            {first && last && <p className="text-[10px] text-gray-400 mt-0.5">{last.count}건 / {first.count.toLocaleString()}명</p>}
+          </div>
+          <div className="rounded-lg bg-gray-50 px-4 py-3">
+            <p className="text-xs text-gray-400 mb-0.5">최대 이탈 구간</p>
+            <p className="text-sm font-bold leading-snug" style={{ color: BRAND }}>
+              {maxDrop ? `${maxDrop.from} → ${maxDrop.to}` : '—'}
+            </p>
+            {maxDrop && <p className="text-[10px] text-gray-400 mt-0.5">{maxDrop.dr}% 이탈</p>}
+          </div>
+          <div className="rounded-lg bg-gray-50 px-4 py-3">
+            <p className="text-xs text-gray-400 mb-0.5">상품 조회 수</p>
+            <p className="text-xl font-bold text-gray-900">{first ? first.count.toLocaleString() : '—'}</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">전체 유입 기준</p>
+          </div>
+          <div className="rounded-lg bg-gray-50 px-4 py-3">
+            <p className="text-xs text-gray-400 mb-0.5">구매 완료 수</p>
+            <p className="text-xl font-bold text-gray-900">{last ? last.count.toLocaleString() : '—'}</p>
+            {rangeLabel && <p className="text-[10px] text-gray-400 mt-0.5">{rangeLabel}</p>}
+          </div>
+        </div>
+        {convSteps.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-gray-500 mb-2">단계별 → 구매완료 전환율</p>
+            <div className="space-y-2">
+              {convSteps.map(s => (
+                <div key={s.label} className="flex items-center gap-2">
+                  <span className="text-[11px] text-gray-500 shrink-0 w-28 truncate">{s.label} → 구매</span>
+                  <div className="flex-1 h-4 bg-gray-100 rounded overflow-hidden">
+                    <div className="h-full rounded transition-all" style={{
+                      width: `${(s.cvr / maxCvr) * 100}%`,
+                      backgroundColor: BRAND,
+                      opacity: 0.6 + (s.cvr / maxCvr) * 0.4,
+                    }} />
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: BRAND, opacity: 0.85 }} />
-                    <span className="text-xs text-gray-600">이벤트 건수</span>
-                  </div>
+                  <span className="text-[11px] font-semibold text-gray-700 w-10 text-right tabular-nums">{s.cvr}%</span>
                 </div>
-              )}
-            />
-            <Bar yAxisId="count" dataKey="count" fill={BRAND} opacity={0.85} radius={[3, 3, 0, 0]}>
-              <LabelList dataKey="count" position="top"
-                style={{ fontSize: 11, fill: '#374151', fontWeight: 600 }}
-                formatter={(v: number) => v.toLocaleString()} />
-            </Bar>
-            <Line yAxisId="conv" type="monotone" dataKey="convRate" stroke="#3b82f6"
-              strokeWidth={2} dot={{ r: 4, fill: '#3b82f6' }} connectNulls={false} />
-          </ComposedChart>
-        </ResponsiveContainer>
-        {/* KPI 요약 */}
-        {(() => {
-          const first = stageData[0];
-          const last = stageData[stageData.length - 1];
-          const totalConv = first && last && first.count > 0
-            ? ((last.count / first.count) * 100).toFixed(2)
-            : null;
-          const maxDrop = stageData.reduce<{ from: string; to: string; dr: number } | null>((m, s, i) => {
-            if (i < 2 || s.dropRate === null) return m;
-            const dr = s.dropRate ?? 0;
-            return !m || dr > m.dr ? { from: stageData[i - 1].stage, to: s.stage, dr } : m;
-          }, null);
-          return (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 pt-3 border-t border-gray-100">
-              <div>
-                <p className="text-xs text-gray-400 mb-0.5">전체 전환율</p>
-                <p className="text-base font-bold text-gray-900">{totalConv !== null ? `${totalConv}%` : '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 mb-0.5">최대 이탈 구간</p>
-                <p className="text-sm font-bold leading-tight" style={{ color: BRAND }}>
-                  {maxDrop ? maxDrop.to : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 mb-0.5">상품 조회</p>
-                <p className="text-base font-bold text-gray-900">{first ? first.count.toLocaleString() : '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 mb-0.5">구매 완료</p>
-                <p className="text-base font-bold text-gray-900">{last ? last.count.toLocaleString() : '—'}</p>
-              </div>
+              ))}
             </div>
-          );
-        })()}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1544,16 +1552,20 @@ function FunnelTab({ secret, range, ga, dashboardCurrency }: { secret: string; r
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-2">
+      <div>
+        <h2 className="text-base font-bold text-gray-900">구매 전환 퍼널</h2>
+        <p className="text-xs text-gray-400 mt-0.5">GA4 이커머스 이벤트 · {range}</p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div>
           {ga?.funnel && ga.funnel.length > 0
             ? <FunnelChart funnel={ga.funnel} />
             : <GaPlaceholder title="EC 퍼널" />}
         </div>
-        <div className="lg:col-span-3">
+        <div>
           {funnelData?.dailyFunnel && funnelData.dailyFunnel.length > 0
-            ? <DailyFunnelChart dailyFunnel={funnelData.dailyFunnel} funnelSteps={funnelData.funnelSteps} gaFunnel={ga?.funnel ?? null} />
-            : <GaPlaceholder title="퍼널 현황" />}
+            ? <DailyFunnelChart dailyFunnel={funnelData.dailyFunnel} funnelSteps={funnelData.funnelSteps} gaFunnel={ga?.funnel ?? null} range={range} />
+            : <GaPlaceholder title="KPI 요약" />}
         </div>
       </div>
 
