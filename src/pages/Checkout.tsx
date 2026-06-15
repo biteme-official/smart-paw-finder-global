@@ -8,6 +8,7 @@ import { formatPrice } from '@/lib/shopify';
 import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
 import { fetchCustomerAccount } from '@/lib/customer-account';
 import { toast } from 'sonner';
+import { decorateWithGaLinker, appendUtmToUrl } from '@/lib/browser-utils';
 
 const B2B_MIN_ORDER = 300;
 const SHIPPING_THRESHOLD = 75;
@@ -66,7 +67,7 @@ export default function Checkout() {
       }));
       const checkoutUrl = await createCheckout(lineItems);
       if (checkoutUrl) {
-        window.location.href = checkoutUrl;
+        window.location.href = decorateWithGaLinker(appendUtmToUrl(checkoutUrl));
       }
     } catch (err) {
       console.error('Checkout error:', err);
