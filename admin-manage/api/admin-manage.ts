@@ -1,6 +1,86 @@
+import { createSign } from 'crypto';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
+
+// ─── Google Analytics Auth ───
+
+let gaAccessToken: string | null = null;
+let gaAccessTokenExpiresAt = 0;
+
+async function getGAAccessToken(): Promise<string | null> {
+  const saJson = process.env.GA_SERVICE_ACCOUNT_JSON;
+  if (!saJson) return null;
+  const now = Date.now();
+  if (gaAccessToken && now < gaAccessTokenExpiresAt - 300_000) return gaAccessToken;
+  try {
+    const sa = JSON.parse(saJson) as { client_email: string; private_key: string };
+    const iat = Math.floor(now / 1000);
+    const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({
+      iss: sa.client_email,
+      scope: 'https://www.googleapis.com/auth/analytics.readonly',
+      aud: 'https://oauth2.googleapis.com/token',
+      iat,
+      exp: iat + 3600,
+    })).toString('base64url');
+    const sign = createSign('RSA-SHA256');
+    sign.update(`${header}.${payload}`);
+    const sig = sign.sign(sa.private_key, 'base64url');
+    const jwt = `${header}.${payload}.${sig}`;
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt }),
+    });
+    if (!res.ok) throw new Error(`GA OAuth ${res.status}: ${await res.text()}`);
+    const data = await res.json() as { access_token: string; expires_in: number };
+    gaAccessToken = data.access_token;
+    gaAccessTokenExpiresAt = now + data.expires_in * 1000;
+    return gaAccessToken;
+  } catch (err) {
+    console.error('[GA Auth]', err);
+    return null;
+  }
+}
+
+async function gaReport(token: string, body: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  const pid = process.env.GA4_PROPERTY_ID;
+  if (!pid) return null;
+  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${pid}:runReport`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) { console.error('[GA Report]', res.status, await res.text()); return null; }
+  return res.json() as Promise<Record<string, unknown>>;
+}
+
+type GaRow = Record<string, string>;
+function gaRows(report: Record<string, unknown> | null): GaRow[] {
+  if (!report) return [];
+  const rows = (report.rows || []) as Array<{ dimensionValues?: Array<{ value: string }>; metricValues?: Array<{ value: string }> }>;
+  const dimHdrs = ((report.dimensionHeaders || []) as Array<{ name: string }>).map(h => h.name);
+  const metHdrs = ((report.metricHeaders || []) as Array<{ name: string }>).map(h => h.name);
+  return rows.map(row => {
+    const obj: GaRow = {};
+    (row.dimensionValues || []).forEach((v, i) => { obj[dimHdrs[i]] = v.value; });
+    (row.metricValues || []).forEach((v, i) => { obj[metHdrs[i]] = v.value; });
+    return obj;
+  });
+}
+
+function gaDateRange(range: string): { startDate: string; endDate: string } {
+  if (range === 'today') return { startDate: 'today', endDate: 'today' };
+  if (range === '7d') return { startDate: '7daysAgo', endDate: 'yesterday' };
+  if (range === '28d') return { startDate: '28daysAgo', endDate: 'yesterday' };
+  if (range === '90d') return { startDate: '90daysAgo', endDate: 'yesterday' };
+  if (range.startsWith('custom:')) {
+    const parts = range.split(':');
+    if (parts.length === 3) return { startDate: parts[1], endDate: parts[2] };
+  }
+  return { startDate: '7daysAgo', endDate: 'yesterday' };
+}
 
 const ALLOWED_ORIGINS = [
   'https://biteme.one',
@@ -641,6 +721,9 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
     day.revenue += amount;
     dailyMap.set(date, day);
 
+    const cc = n.shippingAddress?.countryCodeV2 || '';
+    if (cc) countryMap.set(cc, (countryMap.get(cc) || 0) + 1);
+
     for (const li of (n.lineItems?.edges || [])) {
       const item = li.node;
       totalItemsSold += item.quantity;
@@ -653,6 +736,7 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
 
   // 기간 이전 주문의 기간 내 환불도 차감 (Shopify Analytics returns 기준)
   totalRevenue -= prePeriodRefundTotal;
+
 
   const countryOrders = Array.from(countryMap.entries())
     .map(([country, orders]) => ({ country, orders }))
@@ -704,20 +788,252 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
     topProducts,
     countryOrders,
     lowStock,
+    countryOrders,
     currency,
   });
 }
 
-// ─── GA4: Behavior + Member ───
+// ─── GA4 Handler ───
 
-async function handleGaBehavior(req: VercelRequest, res: VercelResponse) {
+async function handleGaOverview(req: VercelRequest, res: VercelResponse) {
   const gaToken = await getGAAccessToken();
   if (!gaToken) return res.status(200).json({ available: false });
 
   const range = (req.query.range as string) || '7d';
   const dr = gaDateRange(range);
 
-  const [pageReport, eventReport, deviceReport, newVsReturningReport] = await Promise.all([
+  const [overviewReport, funnelReport, dailyReport] = await Promise.all([
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      metrics: [
+        { name: 'sessions' },
+        { name: 'totalUsers' },
+        { name: 'bounceRate' },
+        { name: 'averageSessionDuration' },
+        { name: 'ecommercePurchases' },
+        { name: 'purchaseRevenue' },
+      ],
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'eventName' }],
+      metrics: [{ name: 'eventCount' }],
+      dimensionFilter: {
+        filter: {
+          fieldName: 'eventName',
+          inListFilter: {
+            values: ['view_item', 'add_to_cart', 'begin_checkout', 'add_payment_info', 'purchase'],
+          },
+        },
+      },
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'date' }],
+      metrics: [
+        { name: 'sessions' },
+        { name: 'totalUsers' },
+      ],
+      orderBys: [{ dimension: { dimensionName: 'date' } }],
+    }),
+  ]);
+
+  const ovRows = gaRows(overviewReport);
+  const sessions = ovRows[0] ? parseInt(ovRows[0].sessions || '0') : 0;
+  const users = ovRows[0] ? parseInt(ovRows[0].totalUsers || '0') : 0;
+  const bounceRate = ovRows[0] ? parseFloat(ovRows[0].bounceRate || '0') : 0;
+  const avgDuration = ovRows[0] ? parseFloat(ovRows[0].averageSessionDuration || '0') : 0;
+  const purchases = ovRows[0] ? parseInt(ovRows[0].ecommercePurchases || '0') : 0;
+  const conversionRate = sessions > 0 ? (purchases / sessions) * 100 : 0;
+
+  const funnelRows = gaRows(funnelReport);
+  const funnelMap: Record<string, number> = {};
+  for (const row of funnelRows) {
+    funnelMap[row.eventName] = parseInt(row.eventCount || '0');
+  }
+  const funnel = [
+    { step: 'view_item', label: '상품 조회', count: funnelMap['view_item'] || 0 },
+    { step: 'add_to_cart', label: '장바구니', count: funnelMap['add_to_cart'] || 0 },
+    { step: 'begin_checkout', label: '결제 시작', count: funnelMap['begin_checkout'] || 0 },
+    { step: 'add_payment_info', label: '결제 정보', count: funnelMap['add_payment_info'] || 0 },
+    { step: 'purchase', label: '구매 완료', count: funnelMap['purchase'] || 0 },
+  ];
+
+  const dailyRows = gaRows(dailyReport);
+  const daily = dailyRows.map(r => ({
+    date: `${r.date.slice(0, 4)}-${r.date.slice(4, 6)}-${r.date.slice(6, 8)}`,
+    sessions: parseInt(r.sessions || '0'),
+    users: parseInt(r.totalUsers || '0'),
+  }));
+
+  return res.status(200).json({
+    available: true,
+    sessions,
+    users,
+    bounceRate: Math.round(bounceRate * 1000) / 1000,
+    avgSessionDuration: Math.round(avgDuration),
+    conversionRate: Math.round(conversionRate * 100) / 100,
+    purchases,
+    funnel,
+    daily,
+  });
+}
+
+async function handleGaTraffic(req: VercelRequest, res: VercelResponse) {
+  const gaToken = await getGAAccessToken();
+  if (!gaToken) return res.status(200).json({ available: false });
+
+  const range = (req.query.range as string) || '7d';
+  const dr = gaDateRange(range);
+
+  const [sourceReport, countryReport, pageReport] = await Promise.all([
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'sessionSourceMedium' }],
+      metrics: [{ name: 'sessions' }, { name: 'totalUsers' }, { name: 'bounceRate' }],
+      orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+      limit: 10,
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'countryId' }, { name: 'country' }],
+      metrics: [{ name: 'sessions' }, { name: 'totalUsers' }],
+      orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+      limit: 15,
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'pagePath' }],
+      metrics: [{ name: 'screenPageViews' }, { name: 'totalUsers' }],
+      orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+      limit: 10,
+    }),
+  ]);
+
+  const sources = gaRows(sourceReport).map(r => ({
+    source: r.sessionSourceMedium || '(unknown)',
+    sessions: parseInt(r.sessions || '0'),
+    users: parseInt(r.totalUsers || '0'),
+    bounceRate: Math.round(parseFloat(r.bounceRate || '0') * 10000) / 100,
+  }));
+
+  const countries = gaRows(countryReport).map(r => ({
+    countryId: r.countryId || '',
+    country: r.country || '',
+    sessions: parseInt(r.sessions || '0'),
+    users: parseInt(r.totalUsers || '0'),
+  }));
+
+  const pages = gaRows(pageReport).map(r => ({
+    path: r.pagePath || '/',
+    views: parseInt(r.screenPageViews || '0'),
+    users: parseInt(r.totalUsers || '0'),
+  }));
+
+  return res.status(200).json({ available: true, sources, countries, pages });
+}
+
+async function handleGaFunnel(req: VercelRequest, res: VercelResponse) {
+  const gaToken = await getGAAccessToken();
+  if (!gaToken) return res.status(200).json({ available: false });
+
+  const range = (req.query.range as string) || '7d';
+  const dr = gaDateRange(range);
+
+  const [funnelByDateReport, sourceReport, pageReport] = await Promise.all([
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'date' }, { name: 'eventName' }],
+      metrics: [{ name: 'eventCount' }],
+      dimensionFilter: {
+        filter: {
+          fieldName: 'eventName',
+          inListFilter: {
+            values: ['view_item', 'add_to_cart', 'begin_checkout', 'add_payment_info', 'purchase'],
+          },
+        },
+      },
+      orderBys: [{ dimension: { dimensionName: 'date' } }],
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'sessionSourceMedium' }],
+      metrics: [
+        { name: 'sessions' },
+        { name: 'ecommercePurchases' },
+        { name: 'purchaseRevenue' },
+      ],
+      orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+      limit: 15,
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'pagePath' }],
+      metrics: [
+        { name: 'screenPageViews' },
+        { name: 'bounceRate' },
+        { name: 'userEngagementDuration' },
+      ],
+      orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+      limit: 20,
+    }),
+  ]);
+
+  const funnelSteps = ['view_item', 'add_to_cart', 'begin_checkout', 'add_payment_info', 'purchase'];
+  const funnelLabels: Record<string, string> = {
+    view_item: '상품 조회', add_to_cart: '장바구니',
+    begin_checkout: '결제 시작', add_payment_info: '결제 정보', purchase: '구매 완료',
+  };
+
+  const dailyFunnelMap = new Map<string, Record<string, number>>();
+  for (const row of gaRows(funnelByDateReport)) {
+    const date = `${row.date.slice(0, 4)}-${row.date.slice(4, 6)}-${row.date.slice(6, 8)}`;
+    const entry = dailyFunnelMap.get(date) || {};
+    entry[row.eventName] = parseInt(row.eventCount || '0');
+    dailyFunnelMap.set(date, entry);
+  }
+  const dailyFunnel = Array.from(dailyFunnelMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, events]) => ({
+      date,
+      ...Object.fromEntries(funnelSteps.map(s => [s, events[s] || 0])),
+    }));
+
+  const sources = gaRows(sourceReport).map(row => {
+    const sessions = parseInt(row.sessions || '0');
+    const purchases = parseInt(row.ecommercePurchases || '0');
+    return {
+      source: row.sessionSourceMedium || '(unknown)',
+      sessions,
+      purchases,
+      revenue: Math.round(parseFloat(row.purchaseRevenue || '0') * 100) / 100,
+      conversionRate: sessions > 0 ? Math.round((purchases / sessions) * 10000) / 100 : 0,
+    };
+  });
+
+  const pages = gaRows(pageReport).map(row => ({
+    path: row.pagePath || '/',
+    views: parseInt(row.screenPageViews || '0'),
+    bounceRate: Math.round(parseFloat(row.bounceRate || '0') * 10000) / 100,
+    avgEngagement: Math.round(parseFloat(row.userEngagementDuration || '0')),
+  }));
+
+  return res.status(200).json({
+    available: true,
+    funnelSteps: funnelSteps.map(s => ({ step: s, label: funnelLabels[s] })),
+    dailyFunnel,
+    sources,
+    pages,
+  });
+}
+
+async function handleGaBehavior(req: VercelRequest, res: VercelResponse) {
+  const range = (req.query.range as string) || '7d';
+  const dr = gaDateRange(range);
+  const gaToken = await getGAAccessToken();
+  if (!gaToken) return res.status(200).json({ available: false });
+
+  const [pagesReport, eventsReport, devicesReport, newVsRetReport] = await Promise.all([
     gaReport(gaToken, {
       dateRanges: [dr],
       dimensions: [{ name: 'pagePath' }, { name: 'pageTitle' }],
@@ -746,7 +1062,6 @@ async function handleGaBehavior(req: VercelRequest, res: VercelResponse) {
         { name: 'transactions' },
         { name: 'purchaseRevenue' },
       ],
-      orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
     }),
     gaReport(gaToken, {
       dateRanges: [dr],
@@ -755,34 +1070,34 @@ async function handleGaBehavior(req: VercelRequest, res: VercelResponse) {
     }),
   ]);
 
-  const pages = gaRows(pageReport).map(r => ({
-    path: r.pagePath || '/',
-    title: r.pageTitle || r.pagePath || '/',
-    views: parseInt(r.screenPageViews || '0'),
-    users: parseInt(r.activeUsers || '0'),
-    avgDuration: Math.round(parseFloat(r.averageSessionDuration || '0')),
-    bounceRate: Math.round(parseFloat(r.bounceRate || '0') * 10000) / 100,
+  const pages = gaRows(pagesReport as Record<string, unknown> | null).map(row => ({
+    path: row.pagePath || '/',
+    title: row.pageTitle || row.pagePath || '/',
+    views: parseInt(row.screenPageViews || '0'),
+    users: parseInt(row.activeUsers || '0'),
+    avgDuration: Math.round(parseFloat(row.averageSessionDuration || '0')),
+    bounceRate: Math.round(parseFloat(row.bounceRate || '0') * 10000) / 100,
   }));
 
-  const events = gaRows(eventReport).map(r => ({
-    name: r.eventName || '',
-    count: parseInt(r.eventCount || '0'),
-    users: parseInt(r.totalUsers || '0'),
+  const events = gaRows(eventsReport as Record<string, unknown> | null).map(row => ({
+    name: row.eventName || '',
+    count: parseInt(row.eventCount || '0'),
+    users: parseInt(row.totalUsers || '0'),
   }));
 
-  const devices = gaRows(deviceReport).map(r => ({
-    device: r.deviceCategory || '',
-    sessions: parseInt(r.sessions || '0'),
-    users: parseInt(r.activeUsers || '0'),
-    transactions: parseInt(r.transactions || '0'),
-    revenue: Math.round(parseFloat(r.purchaseRevenue || '0') * 100) / 100,
+  const devices = gaRows(devicesReport as Record<string, unknown> | null).map(row => ({
+    device: row.deviceCategory || '',
+    sessions: parseInt(row.sessions || '0'),
+    users: parseInt(row.activeUsers || '0'),
+    transactions: parseInt(row.transactions || '0'),
+    revenue: Math.round(parseFloat(row.purchaseRevenue || '0') * 100) / 100,
   }));
 
-  const newVsReturning = gaRows(newVsReturningReport).map(r => ({
-    type: r.newVsReturning || '',
-    sessions: parseInt(r.sessions || '0'),
-    users: parseInt(r.activeUsers || '0'),
-    transactions: parseInt(r.transactions || '0'),
+  const newVsReturning = gaRows(newVsRetReport as Record<string, unknown> | null).map(row => ({
+    type: row.newVsReturning === 'new' ? 'new' : 'returning',
+    sessions: parseInt(row.sessions || '0'),
+    users: parseInt(row.activeUsers || '0'),
+    transactions: parseInt(row.transactions || '0'),
   }));
 
   return res.status(200).json({ available: true, pages, events, devices, newVsReturning });
@@ -807,6 +1122,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const section = (req.query.section as string) || 'overview';
 
   try {
+    if (section === 'ga-overview') return await handleGaOverview(req, res);
+    if (section === 'ga-funnel') return await handleGaFunnel(req, res);
+    if (section === 'ga-traffic') return await handleGaTraffic(req, res);
     if (section === 'ga-behavior') return await handleGaBehavior(req, res);
 
     const token = await getShopifyAccessToken();
