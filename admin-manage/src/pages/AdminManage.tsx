@@ -1067,7 +1067,13 @@ function DashboardTab({ data, currency, range, ga, traffic, funnel }: { data: Da
 // ─── 퍼널 분석 Tab ───
 
 function SourceConversionCard({ sources, fmtRevenue }: { sources: GaFunnelData['sources']; fmtRevenue: (v: number) => string }) {
-  const maxCvr = Math.max(...sources.map(s => s.conversionRate), 0.01);
+  const totalRevenue = sources.reduce((s, r) => s + r.revenue, 0);
+  const totalUsers = sources.reduce((s, r) => s + r.sessions, 0);
+  const totalPurchases = sources.reduce((s, r) => s + r.purchases, 0);
+  const totalCvr = totalUsers > 0 ? (totalPurchases / totalUsers) * 100 : 0;
+  const bestSource = sources.reduce<typeof sources[0] | null>((best, r) =>
+    !best || r.revenue > best.revenue ? r : best, null);
+  const bestShare = bestSource && totalRevenue > 0 ? (bestSource.revenue / totalRevenue) * 100 : 0;
   return (
     <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
       <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
@@ -1084,10 +1090,11 @@ function SourceConversionCard({ sources, fmtRevenue }: { sources: GaFunnelData['
           <thead className="sticky top-0 bg-white border-b border-gray-100 z-10">
             <tr>
               <th className="text-left px-4 py-2.5 font-medium text-gray-400">소스</th>
-              <th className="text-right px-4 py-2.5 font-medium text-gray-400">유입 세션</th>
-              <th className="px-4 py-2.5 font-medium text-gray-400 text-left">구매 전환율</th>
+              <th className="text-right px-4 py-2.5 font-medium text-gray-400">유입 사용자</th>
+              <th className="text-right px-4 py-2.5 font-medium text-gray-400">구매 전환율</th>
               <th className="text-right px-4 py-2.5 font-medium text-gray-400">구매 완료</th>
-              <th className="text-right px-4 py-2.5 font-medium text-gray-400">평균 주문금액</th>
+              <th className="text-right px-4 py-2.5 font-medium text-gray-400">매출액</th>
+              <th className="text-right px-4 py-2.5 font-medium text-gray-400">매출 비중</th>
               <th className="text-center px-4 py-2.5 font-medium text-gray-400">성과</th>
             </tr>
           </thead>
@@ -1099,25 +1106,22 @@ function SourceConversionCard({ sources, fmtRevenue }: { sources: GaFunnelData['
                 : cvr >= 0.5
                   ? { text: '개선필요', cls: 'bg-orange-100 text-orange-600' }
                   : { text: '주의', cls: 'bg-gray-100 text-gray-500' };
-              const aov = row.purchases > 0 ? row.revenue / row.purchases : 0;
-              const barW = Math.min((cvr / maxCvr) * 100, 100);
-              const barColor = cvr >= 1.5 ? '#10b981' : BRAND;
+              const cvrColor = cvr >= 1.5 ? '#10b981' : cvr > 0 ? BRAND : undefined;
+              const revenueShare = totalRevenue > 0 ? (row.revenue / totalRevenue) * 100 : 0;
               return (
                 <tr key={i} className="border-b last:border-0 hover:bg-gray-50/30 transition-colors">
                   <td className="px-4 py-3 font-medium text-gray-800">{row.source}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{row.sessions.toLocaleString()}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden shrink-0">
-                        <div className="h-full rounded-full" style={{ width: `${barW}%`, backgroundColor: barColor }} />
-                      </div>
-                      <span className="tabular-nums" style={{ color: cvr > 0 ? barColor : undefined }}>
-                        {cvr > 0 ? `${cvr.toFixed(2)}%` : <span className="text-gray-300">0%</span>}
-                      </span>
-                    </div>
+                  <td className="px-4 py-3 text-right tabular-nums" style={{ color: cvrColor }}>
+                    {cvr > 0 ? `${cvr.toFixed(2)}%` : <span className="text-gray-300">0%</span>}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">{row.purchases > 0 ? row.purchases : <span className="text-gray-300">—</span>}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">{aov > 0 ? fmtRevenue(aov) : <span className="text-gray-300">—</span>}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{row.revenue > 0 ? fmtRevenue(row.revenue) : <span className="text-gray-300">—</span>}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {revenueShare > 0
+                      ? <span className="font-semibold" style={{ color: BRAND }}>{revenueShare.toFixed(1)}%</span>
+                      : <span className="text-gray-300">—</span>}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full ${badge.cls}`}>{badge.text}</span>
                   </td>
@@ -1126,6 +1130,30 @@ function SourceConversionCard({ sources, fmtRevenue }: { sources: GaFunnelData['
             })}
           </tbody>
         </table>
+      </div>
+      <div className="border-t border-gray-100 px-5 py-4">
+        <p className="text-[11px] font-semibold text-gray-400 mb-3">종합 지표</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div>
+            <p className="text-xs text-gray-400 mb-0.5">총 유입 사용자</p>
+            <p className="text-base font-bold text-gray-900">{totalUsers.toLocaleString()}명</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">전체 소스 합산</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 mb-0.5">전체 구매 전환율</p>
+            <p className="text-base font-bold" style={{ color: totalCvr >= 1.5 ? '#10b981' : BRAND }}>{totalCvr.toFixed(2)}%</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">{totalPurchases}건 / {totalUsers.toLocaleString()}명</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 mb-0.5">우수 소스/매체</p>
+            <p className="text-sm font-bold text-gray-900 truncate">{bestSource ? bestSource.source : '—'}</p>
+            {bestSource && <p className="text-[10px] text-gray-400 mt-0.5">매출 비중 {bestShare.toFixed(1)}%</p>}
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 mb-0.5">총 매출액</p>
+            <p className="text-base font-bold text-gray-900">{fmtRevenue(totalRevenue)}</p>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1218,11 +1246,36 @@ function CohortCard({ cohort }: { cohort: NonNullable<GaFunnelData['cohort']> })
   );
 }
 
+function HourlyTooltip({ active, payload }: { active?: boolean; payload?: { payload: { hour: number; sessions: number; purchases: number; cvr: number } }[] }) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-md p-3 text-xs min-w-[150px]">
+      <p className="font-semibold text-gray-700 mb-2">{d.hour}시</p>
+      <div className="space-y-1">
+        <div className="flex justify-between gap-4">
+          <span className="text-gray-400">사용자 수</span>
+          <span className="font-medium text-gray-700">{d.sessions.toLocaleString()}명</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-gray-400">구매 수</span>
+          <span className="font-medium text-gray-700">{d.purchases}건</span>
+        </div>
+        <div className="flex justify-between gap-4 pt-1 border-t border-gray-100">
+          <span className="text-gray-400">전환율</span>
+          <span className="font-bold" style={{ color: d.cvr >= 1.5 ? '#10b981' : BRAND }}>{d.cvr.toFixed(2)}%</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HourlyConversionCard({ hourly }: { hourly: NonNullable<GaFunnelData['hourly']> }) {
   const THRESHOLD = 1.5;
   const withData = hourly.filter(h => h.sessions > 0);
   const peak = withData.length > 0 ? withData.reduce((m, h) => h.cvr > m.cvr ? h : m, withData[0]) : null;
   const trough = withData.length > 0 ? withData.reduce((m, h) => h.cvr < m.cvr ? h : m, withData[0]) : null;
+  const avgSessions = withData.length > 0 ? Math.round(withData.reduce((s, h) => s + h.sessions, 0) / withData.length) : 0;
   return (
     <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
       <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
@@ -1235,18 +1288,24 @@ function HourlyConversionCard({ hourly }: { hourly: NonNullable<GaFunnelData['ho
         </div>
       </div>
       <div className="p-4">
-        <div className="grid grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
           <div className="bg-gray-50 rounded-lg px-3 py-2.5">
             <p className="text-[10px] text-gray-400 mb-0.5">피크 시간대</p>
             <p className="text-base font-bold text-gray-900">{peak ? `${peak.hour}시-${peak.hour + 2}시` : '—'}</p>
+            {peak && <p className="text-[10px] text-gray-400 mt-0.5">{peak.sessions.toLocaleString()}명 방문</p>}
           </div>
           <div className="bg-gray-50 rounded-lg px-3 py-2.5">
             <p className="text-[10px] text-gray-400 mb-0.5">최고 전환율</p>
             <p className="text-base font-bold text-green-600">{peak ? `${peak.cvr.toFixed(1)}%` : '—'}</p>
           </div>
           <div className="bg-gray-50 rounded-lg px-3 py-2.5">
+            <p className="text-[10px] text-gray-400 mb-0.5">시간당 평균 방문자</p>
+            <p className="text-base font-bold text-gray-900">{avgSessions > 0 ? `${avgSessions.toLocaleString()}명` : '—'}</p>
+          </div>
+          <div className="bg-gray-50 rounded-lg px-3 py-2.5">
             <p className="text-[10px] text-gray-400 mb-0.5">최저 시간대</p>
             <p className="text-base font-bold text-gray-900">{trough ? `${trough.hour}시-${trough.hour + 2}시` : '—'}</p>
+            {trough && <p className="text-[10px] text-gray-400 mt-0.5">{trough.sessions.toLocaleString()}명 방문</p>}
           </div>
           <div className="bg-gray-50 rounded-lg px-3 py-2.5">
             <p className="text-[10px] text-gray-400 mb-0.5">최저 전환율</p>
@@ -1258,7 +1317,7 @@ function HourlyConversionCard({ hourly }: { hourly: NonNullable<GaFunnelData['ho
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
             <XAxis dataKey="hour" tick={{ fontSize: 10 }} tickFormatter={(v: number) => String(v)} interval={2} />
             <YAxis tick={{ fontSize: 10 }} tickFormatter={(v: number) => `${v}%`} width={36} />
-            <Tooltip formatter={(v: number) => [`${v.toFixed(2)}%`, '전환율']} labelFormatter={(l: number) => `${l}시`} />
+            <Tooltip content={<HourlyTooltip />} />
             <Bar dataKey="cvr" radius={[2, 2, 0, 0]}>
               {hourly.map((h, i) => <Cell key={i} fill={h.cvr >= THRESHOLD ? BRAND : '#fcd4c2'} />)}
             </Bar>
@@ -1317,19 +1376,13 @@ function FunnelBarTooltip({ active, payload, label }: { active?: boolean; payloa
     <div className="bg-white border border-gray-200 rounded-lg shadow-md p-3 text-xs min-w-[180px]">
       <p className="font-semibold text-gray-800 mb-2">{label}</p>
       {convVal != null && (
-        <div className="bg-yellow-100 rounded px-2 py-1 mb-1 font-medium text-gray-700">
-          전환율 : {convVal}%
-        </div>
+        <div className="py-0.5 text-gray-700">전환율: {convVal}%</div>
       )}
       {dropVal != null && (
-        <div className="px-2 py-1 mb-1 font-medium text-red-500">
-          이탈률 : {dropVal}%
-        </div>
+        <div className="py-0.5 text-gray-700">이탈률: {dropVal}%</div>
       )}
       {countEntry?.value != null && (
-        <div className="px-2 py-1 font-semibold" style={{ color: BRAND }}>
-          이벤트 건수 : {countEntry.value.toLocaleString()}건
-        </div>
+        <div className="py-0.5 text-gray-700">이벤트 건수: {countEntry.value.toLocaleString()}건</div>
       )}
     </div>
   );
