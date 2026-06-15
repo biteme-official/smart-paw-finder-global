@@ -199,29 +199,37 @@ function GaPlaceholder({ title, compact }: { title?: string; compact?: boolean }
 // ─── Dashboard: Combined Chart ───
 
 const USERS_COLOR = '#6366f1';
-const SESSIONS_COLOR = '#10b981';
 
-function TrafficTrendChart({ ga }: { ga?: GaData | null }) {
+const CVR_COLOR = '#f59e0b';
+
+function TrafficTrendChart({ ga, dailyOrders }: { ga?: GaData | null; dailyOrders?: DashboardData['dailyOrders'] }) {
   if (!ga?.available || !ga.daily || ga.daily.length === 0) {
-    return <GaPlaceholder title="유입 추이" />;
+    return <GaPlaceholder title="유입 및 전환 추이" />;
   }
+  const orderMap = new Map<string, number>((dailyOrders ?? []).map(d => [d.date, d.orders]));
   const chartData = [...ga.daily]
     .sort((a, b) => a.date.localeCompare(b.date))
-    .map(d => ({ date: isoToLabel(d.date), sessions: d.sessions, users: d.users }));
+    .map(d => {
+      const orders = orderMap.get(d.date) ?? 0;
+      const cvr = d.users > 0 ? parseFloat((orders / d.users * 100).toFixed(2)) : 0;
+      return { date: isoToLabel(d.date), users: d.users, cvr };
+    });
   const interval = Math.max(0, Math.ceil(chartData.length / 10) - 1);
 
   return (
     <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-100">
-        <h3 className="text-sm font-semibold text-gray-900">유입 추이</h3>
-        <p className="text-xs text-gray-400">총 사용자 · 세션 일별 추이</p>
+        <h3 className="text-sm font-semibold text-gray-900">유입 및 전환 추이</h3>
+        <p className="text-xs text-gray-400">총 사용자 · 전환율(CVR) 일별 추이</p>
       </div>
       <div className="p-4">
         <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+          <ComposedChart data={chartData} margin={{ top: 4, right: 40, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={interval} />
-            <YAxis tick={{ fontSize: 10 }} width={40} />
+            <YAxis yAxisId="users" tick={{ fontSize: 10 }} width={40} />
+            <YAxis yAxisId="cvr" orientation="right" tick={{ fontSize: 10 }} width={36}
+              tickFormatter={v => `${v}%`} />
             <Tooltip content={({ active, payload, label }) => {
               if (!active || !payload || !payload.length) return null;
               const map = new Map(payload.map(p => [p.dataKey as string, p]));
@@ -229,9 +237,9 @@ function TrafficTrendChart({ ga }: { ga?: GaData | null }) {
                 <div className="bg-white border border-gray-200 rounded-lg shadow-md p-3 text-xs min-w-[140px]">
                   <p className="font-semibold text-gray-700 mb-2">{label}</p>
                   {[
-                    { key: 'sessions', label: '세션', color: SESSIONS_COLOR },
-                    { key: 'users', label: '총 사용자', color: USERS_COLOR },
-                  ].map(({ key, label: lbl, color }) => {
+                    { key: 'users', label: '총 사용자', color: USERS_COLOR, fmt: (v: number) => v.toLocaleString() },
+                    { key: 'cvr', label: '전환율 (CVR)', color: CVR_COLOR, fmt: (v: number) => `${v}%` },
+                  ].map(({ key, label: lbl, color, fmt }) => {
                     const item = map.get(key);
                     return item ? (
                       <div key={key} className="flex justify-between gap-4 py-0.5">
@@ -239,7 +247,7 @@ function TrafficTrendChart({ ga }: { ga?: GaData | null }) {
                           <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
                           {lbl}
                         </span>
-                        <span className="font-medium">{Number(item.value).toLocaleString()}</span>
+                        <span className="font-medium">{fmt(Number(item.value))}</span>
                       </div>
                     ) : null;
                   })}
@@ -249,8 +257,8 @@ function TrafficTrendChart({ ga }: { ga?: GaData | null }) {
             <Legend content={() => (
               <div className="flex gap-4 justify-center mt-2">
                 {[
-                  { color: SESSIONS_COLOR, label: '세션' },
                   { color: USERS_COLOR, label: '총 사용자' },
+                  { color: CVR_COLOR, label: '전환율 (CVR)' },
                 ].map(({ color, label: lbl }) => (
                   <div key={lbl} className="flex items-center gap-1.5 text-xs text-gray-600">
                     <span className="inline-block w-6 h-0.5 rounded" style={{ backgroundColor: color }} />
@@ -259,9 +267,9 @@ function TrafficTrendChart({ ga }: { ga?: GaData | null }) {
                 ))}
               </div>
             )} />
-            <Line type="monotone" dataKey="sessions" stroke={SESSIONS_COLOR} strokeWidth={2.5} dot={false} />
-            <Line type="monotone" dataKey="users" stroke={USERS_COLOR} strokeWidth={2} dot={false} />
-          </LineChart>
+            <Line yAxisId="users" type="monotone" dataKey="users" stroke={USERS_COLOR} strokeWidth={2} dot={false} />
+            <Line yAxisId="cvr" type="monotone" dataKey="cvr" stroke={CVR_COLOR} strokeWidth={2.5} dot={false} />
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>
@@ -897,7 +905,7 @@ function DashboardTab({ data, currency, range, ga, traffic, funnel }: { data: Da
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <TrafficTrendChart ga={ga} />
+        <TrafficTrendChart ga={ga} dailyOrders={dailyOrders} />
         {dailyOrders.length > 0
           ? <CombinedChart dailyOrders={dailyOrders} currency={currency} />
           : <GaPlaceholder title="주문 · 매출 추이" />}
