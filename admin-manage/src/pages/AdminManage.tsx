@@ -418,7 +418,6 @@ function TimelineTable({ dailyOrders, currency, ga, funnel }: { dailyOrders: Das
             <tr>
               <th className="text-left px-4 py-2 font-medium text-gray-400 whitespace-nowrap">날짜</th>
               <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">총 사용자</th>
-              <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">세션</th>
               <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">장바구니</th>
               <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">결제 시작</th>
               <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">구매 수</th>
@@ -432,13 +431,12 @@ function TimelineTable({ dailyOrders, currency, ga, funnel }: { dailyOrders: Das
               const g = tab === 'daily' ? gaMap.get(row.sortKey) : undefined;
               const f = tab === 'daily' ? funnelMap.get(row.sortKey) : undefined;
               // CVR/AOV: 주문 수·매출 모두 DB(Net) 기준 사용
-              const cvr = g && g.sessions > 0 && row.orders > 0 ? (row.orders / g.sessions * 100).toFixed(2) + '%' : null;
+              const cvr = g && g.users > 0 && row.orders > 0 ? (row.orders / g.users * 100).toFixed(2) + '%' : null;
               const aov = row.orders > 0 ? fmtMoney(row.revenue / row.orders, currency) : null;
               return (
                 <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
                   <td className="px-4 py-2 font-mono whitespace-nowrap">{row.label}</td>
                   <td className="px-4 py-2 text-right">{g ? g.users.toLocaleString() : dash}</td>
-                  <td className="px-4 py-2 text-right">{g ? g.sessions.toLocaleString() : dash}</td>
                   <td className="px-4 py-2 text-right">{f ? f.addToCart.toLocaleString() : dash}</td>
                   <td className="px-4 py-2 text-right">{f ? f.beginCheckout.toLocaleString() : dash}</td>
                   <td className="px-4 py-2 text-right">{row.orders > 0 ? row.orders.toLocaleString() : '—'}</td>
@@ -453,18 +451,16 @@ function TimelineTable({ dailyOrders, currency, ga, funnel }: { dailyOrders: Das
             {(() => {
               const gaAvail = ga?.available && ga.daily;
               const periodUsers = gaAvail ? ga!.users : null;
-              const totalSessions = gaAvail ? ga!.daily.reduce((s, d) => s + d.sessions, 0) : null;
               const funnelAvail = funnel?.available && funnel.dailyFunnel;
               const ftAddToCart = funnelAvail ? funnel!.dailyFunnel.reduce((s, d) => s + ((d.add_to_cart as number) || 0), 0) : null;
               const ftBeginCheckout = funnelAvail ? funnel!.dailyFunnel.reduce((s, d) => s + ((d.begin_checkout as number) || 0), 0) : null;
-              // 구매 수·CVR·AOV: DB Net 기준
-              const ftCvr = totalSessions && totalOrders > 0 ? (totalOrders / totalSessions * 100).toFixed(2) + '%' : null;
+              // 구매 수·CVR·AOV: DB Net 기준, CVR = 주문 수 / 총 사용자
+              const ftCvr = periodUsers && periodUsers > 0 && totalOrders > 0 ? (totalOrders / periodUsers * 100).toFixed(2) + '%' : null;
               const ftAov = totalOrders > 0 ? fmtMoney(totalRevenue / totalOrders, currency) : null;
               return (
                 <tr className="font-semibold">
                   <td className="px-4 py-2 text-xs">합계</td>
                   <td className="px-4 py-2 text-right">{periodUsers !== null ? periodUsers.toLocaleString() : dash}</td>
-                  <td className="px-4 py-2 text-right">{totalSessions !== null ? totalSessions.toLocaleString() : dash}</td>
                   <td className="px-4 py-2 text-right">{ftAddToCart !== null ? ftAddToCart.toLocaleString() : dash}</td>
                   <td className="px-4 py-2 text-right">{ftBeginCheckout !== null ? ftBeginCheckout.toLocaleString() : dash}</td>
                   <td className="px-4 py-2 text-right">{totalOrders > 0 ? totalOrders.toLocaleString() : dash}</td>
