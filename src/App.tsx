@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { trackPageView } from "@/lib/ga4-pageview";
+import { saveUtmParams } from "@/lib/browser-utils";
 import Index from "./pages/Index";
 import ProductDetail from "./pages/ProductDetail";
 import CheckoutReturn from "./pages/CheckoutReturn";
@@ -51,11 +52,19 @@ function GA4PageViewTracker() {
   return null;
 }
 
+function UtmCapture() {
+  useEffect(() => {
+    saveUtmParams();
+  }, []);
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <BrowserRouter>
         <GA4PageViewTracker />
+        <UtmCapture />
         <Toaster />
         <Sonner closeButton />
         <Routes>
