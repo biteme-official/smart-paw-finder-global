@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Legend, PieChart, Pie, Cell,
+  ResponsiveContainer, Legend, PieChart, Pie, Cell, LabelList,
 } from 'recharts';
 import { toast } from 'sonner';
 
@@ -509,11 +509,175 @@ function DashboardTab({ data, currency, range }: { data: DashboardData; currency
 
 // ─── 퍼널 분석 Tab ───
 
+const FUNNEL_STAGE_NAMES = ['상품 조회', '장바구니', '결제 시작', '결제 정보', '구매 완료'];
+
+const FUNNEL_RAW: Record<string, number[]> = {
+  '전체': [2992, 534, 303, 58, 26],
+  '06/08': [620, 110, 62, 12, 5],
+  '06/09': [580, 100, 57, 11, 5],
+  '06/10': [500, 150, 85, 16, 7],
+  '06/11': [330, 45, 26, 5, 2],
+  '06/12': [350, 55, 31, 6, 3],
+  '06/13': [360, 42, 24, 5, 2],
+  '06/14': [252, 32, 18, 3, 2],
+};
+
+interface FunnelStage {
+  stage: string;
+  count: number;
+  convRate: number | null;
+  dropRate: number | null;
+}
+
+function calcFunnel(counts: number[]): FunnelStage[] {
+  return FUNNEL_STAGE_NAMES.map((stage, i) => ({
+    stage,
+    count: counts[i],
+    convRate: i === 0 ? null : Math.round((counts[i] / counts[i - 1]) * 1000) / 10,
+    dropRate: i === 0 ? null : Math.round((1 - counts[i] / counts[i - 1]) * 1000) / 10,
+  }));
+}
+
+function ECFunnelPanel({ data }: { data: FunnelStage[] }) {
+  const maxCount = data[0]?.count ?? 1;
+  const first = data[0];
+  const last = data[data.length - 1];
+  const totalConvRate = first && last ? ((last.count / first.count) * 100).toFixed(2) : '0.00';
+
+  return (
+    <div className="rounded-xl border bg-white border-gray-200 p-5 h-full">
+      <h3 className="text-sm font-semibold text-gray-900">EC 퍼널</h3>
+      <p className="text-xs text-gray-400 mb-5">GA4 이커머스 이벤트</p>
+      <div className="space-y-4">
+        {data.map((s) => (
+          <div key={s.stage}>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-sm text-gray-700">{s.stage}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-900">{s.count.toLocaleString()}</span>
+                {s.dropRate !== null && (
+                  <span className="text-xs text-red-500 font-medium w-14 text-right">-{s.dropRate}%</span>
+                )}
+              </div>
+            </div>
+            <div className="h-6 bg-gray-100 rounded overflow-hidden">
+              <div
+                className="h-full bg-orange-500 rounded"
+                style={{ width: `${(s.count / maxCount) * 100}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-5 text-sm text-center text-gray-600">
+        전체 전환율: <span className="font-bold text-orange-600">{totalConvRate}%</span>
+      </p>
+    </div>
+  );
+}
+
+function FunnelBarChart({ data }: { data: FunnelStage[] }) {
+  const chartData = data.map((d) => ({
+    stage: d.stage,
+    count: d.count,
+    convRate: d.convRate,
+  }));
+
+  return (
+    <div className="rounded-xl border bg-white border-gray-200 p-5">
+      <h3 className="text-sm font-semibold text-gray-900">퍼널 단계별 현황</h3>
+      <p className="text-xs text-gray-400 mb-4">이벤트 건수 (막대) / 전 단계 대비 전환율 (선)</p>
+      <ResponsiveContainer width="100%" height={280}>
+        <ComposedChart data={chartData} margin={{ top: 28, right: 45, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <XAxis dataKey="stage" tick={{ fontSize: 10 }} />
+          <YAxis yAxisId="count" tick={{ fontSize: 10 }} width={50} />
+          <YAxis
+            yAxisId="conv"
+            orientation="right"
+            tick={{ fontSize: 10 }}
+            width={42}
+            tickFormatter={(v: number) => `${v}%`}
+            domain={[0, 100]}
+          />
+          <Tooltip
+            formatter={(value: number, name: string) => {
+              if (name === 'count') return [`${value.toLocaleString()}건`, '이벤트 건수'];
+              return [`${value}%`, '단계 전환율'];
+            }}
+          />
+          <Legend
+            formatter={(n: string) => (n === 'count' ? '이벤트 건수' : '단계 전환율')}
+            wrapperStyle={{ fontSize: 11 }}
+          />
+          <Bar yAxisId="count" dataKey="count" fill={BRAND} opacity={0.85} radius={[3, 3, 0, 0]}>
+            <LabelList
+              dataKey="count"
+              position="top"
+              style={{ fontSize: 11, fill: '#374151', fontWeight: 600 }}
+              formatter={(v: number) => v.toLocaleString()}
+            />
+          </Bar>
+          <Line
+            yAxisId="conv"
+            type="monotone"
+            dataKey="convRate"
+            stroke="#3b82f6"
+            strokeWidth={2}
+            dot={{ r: 4, fill: '#3b82f6' }}
+            connectNulls={false}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+
+      <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
+        {data.slice(1).map((s) => (
+          <span
+            key={s.stage}
+            className="text-xs bg-red-50 text-red-500 font-medium px-2.5 py-1 rounded-full border border-red-100"
+          >
+            ▼ 이탈 {s.dropRate}%
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function FunnelTab() {
+  const dateKeys = Object.keys(FUNNEL_RAW);
+  const [selectedDate, setSelectedDate] = useState<string>('전체');
+  const funnelData = calcFunnel(FUNNEL_RAW[selectedDate]);
+
   return (
     <div className="space-y-5">
       <SectionLabel>구매 전환 퍼널</SectionLabel>
-      <GaPlaceholder title="구매 전환 퍼널" />
+
+      <div className="flex gap-2 flex-wrap">
+        {dateKeys.map((d) => (
+          <button
+            key={d}
+            onClick={() => setSelectedDate(d)}
+            className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+              selectedDate === d
+                ? 'bg-orange-500 text-white border-orange-500'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
+            }`}
+          >
+            {d}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div className="lg:col-span-2">
+          <ECFunnelPanel data={funnelData} />
+        </div>
+        <div className="lg:col-span-3">
+          <FunnelBarChart data={funnelData} />
+        </div>
+      </div>
+
       <SectionLabel>소스 / 매체별 전환</SectionLabel>
       <GaPlaceholder title="소스/매체별 전환율" />
       <SectionLabel>이탈 포인트 분석</SectionLabel>
