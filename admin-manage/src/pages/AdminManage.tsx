@@ -696,11 +696,30 @@ function countryFlag(code: string) {
   return code.toUpperCase().split('').map(c => String.fromCodePoint(0x1F1E0 + c.charCodeAt(0) - 65)).join('');
 }
 
+const COUNTRY_COLORS = ['#f85a24', '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#9ca3af'];
+const MEDALS = ['🥇', '🥈', '🥉'];
+
 function TrafficSection({ traffic, countryOrders }: { traffic: GaTrafficData; countryOrders: { country: string; orders: number }[] }) {
   const { sources, countries, pages } = traffic;
-  const totalSessions = countries.reduce((s, c) => s + c.sessions, 0);
+  const totalUsers = countries.reduce((s, c) => s + c.users, 0);
+  const totalOrderCount = countryOrders.reduce((s, c) => s + c.orders, 0);
   const orderMap = new Map(countryOrders.map(c => [c.country.toUpperCase(), c.orders]));
   const maxPageViews = pages[0]?.views || 1;
+
+  const sortedByUsers = [...countries].sort((a, b) => b.users - a.users);
+  const top5 = sortedByUsers.slice(0, 5);
+  const otherUsers = sortedByUsers.slice(5).reduce((s, c) => s + c.users, 0);
+  const top5OrdersTotal = top5.reduce((s, c) => s + (orderMap.get(c.countryId.toUpperCase()) ?? 0), 0);
+  const otherOrders = totalOrderCount - top5OrdersTotal;
+
+  const trafficPie = [
+    ...top5.map((c, i) => ({ name: c.country, countryId: c.countryId, value: c.users, color: COUNTRY_COLORS[i] })),
+    ...(otherUsers > 0 ? [{ name: '기타', countryId: '', value: otherUsers, color: COUNTRY_COLORS[5] }] : []),
+  ];
+  const conversionPie = [
+    ...top5.map((c, i) => ({ name: c.country, countryId: c.countryId, value: orderMap.get(c.countryId.toUpperCase()) ?? 0, color: COUNTRY_COLORS[i] })),
+    ...(otherOrders > 0 ? [{ name: '기타', countryId: '', value: otherOrders, color: COUNTRY_COLORS[5] }] : []),
+  ].filter(d => d.value > 0);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -736,61 +755,73 @@ function TrafficSection({ traffic, countryOrders }: { traffic: GaTrafficData; co
       <div className="rounded-xl border bg-white border-gray-200 overflow-hidden flex flex-col">
         <div className="px-5 py-3 border-b border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900">국가별 유입 및 전환</h3>
-          <p className="text-xs text-gray-400">GA4 세션 기준 유입 · Shopify Net 주문 기준 전환</p>
+          <p className="text-xs text-gray-400">GA4 사용자 기준 유입 · Shopify 주문 기준 전환</p>
         </div>
-        <div className="overflow-y-auto max-h-48">
-          <table className="w-full text-xs">
-            <thead className="sticky top-0 bg-white border-b">
-              <tr>
-                <th className="text-left px-4 py-2 font-medium text-gray-400">국가</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-400">유입 수</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-400">유입 비중</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-400">전환 수</th>
-              </tr>
-            </thead>
-            <tbody>
-              {countries.map((c, i) => {
-                const pct = totalSessions > 0 ? (c.sessions / totalSessions * 100).toFixed(1) : '0.0';
-                const orders = orderMap.get(c.countryId.toUpperCase()) ?? 0;
-                return (
-                  <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-2 flex items-center gap-1.5 whitespace-nowrap">
-                      <span>{countryFlag(c.countryId)}</span>
-                      <span className="font-medium">{c.countryId}</span>
-                      <span className="text-gray-400 truncate max-w-[70px]">{c.country}</span>
-                    </td>
-                    <td className="px-4 py-2 text-right font-medium">{c.sessions.toLocaleString()}</td>
-                    <td className="px-4 py-2 text-right text-gray-500">{pct}%</td>
-                    <td className="px-4 py-2 text-right">{orders > 0 ? <span className="font-medium text-orange-600">{orders}건</span> : <span className="text-gray-300">—</span>}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        {/* TOP 3 요약 */}
-        {countries.length > 0 && (
-          <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">TOP 3</p>
+
+        <div className="px-4 py-3 flex gap-3">
+          {/* 유입 비중 */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-semibold text-gray-400 mb-2">유입 비중</p>
+            <div className="flex justify-center mb-2">
+              <PieChart width={90} height={90}>
+                <Pie data={trafficPie.length ? trafficPie : [{ name: '-', value: 1, color: '#e5e7eb' }]}
+                  dataKey="value" cx={43} cy={43} innerRadius={26} outerRadius={43} paddingAngle={2}>
+                  {(trafficPie.length ? trafficPie : [{ color: '#e5e7eb' }]).map((d, i) => (
+                    <Cell key={i} fill={d.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </div>
             <div className="space-y-1">
-              {countries.slice(0, 3).map((c, i) => {
-                const pct = totalSessions > 0 ? (c.sessions / totalSessions * 100).toFixed(0) : '0';
-                const orders = orderMap.get(c.countryId.toUpperCase()) ?? 0;
+              {trafficPie.map(d => (
+                <div key={d.name} className="flex items-center gap-1 text-[10px] leading-4">
+                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                  <span className="text-gray-700 truncate flex-1 min-w-0">{d.name}</span>
+                  <span className="text-gray-500 shrink-0">{d.value.toLocaleString()}</span>
+                  <span className="text-gray-400 shrink-0 w-9 text-right">
+                    {totalUsers > 0 ? (d.value / totalUsers * 100).toFixed(1) : 0}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="w-px bg-gray-100 self-stretch" />
+
+          {/* 전환 비중 */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-semibold text-gray-400 mb-2">전환 비중</p>
+            <div className="flex justify-center mb-2">
+              <PieChart width={90} height={90}>
+                <Pie data={conversionPie.length ? conversionPie : [{ name: '-', value: 1, color: '#e5e7eb' }]}
+                  dataKey="value" cx={43} cy={43} innerRadius={26} outerRadius={43} paddingAngle={2}>
+                  {(conversionPie.length ? conversionPie : [{ color: '#e5e7eb' }]).map((d, i) => (
+                    <Cell key={i} fill={d.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </div>
+            <div className="space-y-1">
+              {trafficPie.map(d => {
+                const orders = d.countryId
+                  ? (orderMap.get(d.countryId.toUpperCase()) ?? 0)
+                  : otherOrders;
                 return (
-                  <div key={i} className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1">
-                      <span>{countryFlag(c.countryId)}</span>
-                      <span className="font-medium text-gray-700">{c.countryId}</span>
+                  <div key={d.name} className="flex items-center gap-1 text-[10px] leading-4">
+                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                    <span className="text-gray-700 truncate flex-1 min-w-0">{d.name}</span>
+                    <span className={`shrink-0 ${orders > 0 ? 'text-gray-500' : 'text-gray-300'}`}>
+                      {orders > 0 ? `${orders}건` : '—'}
                     </span>
-                    <span className="text-gray-500">
-                      유입 {pct}%{orders > 0 ? ` / 전환 ${orders}건` : ''}
+                    <span className="text-gray-400 shrink-0 w-9 text-right">
+                      {totalOrderCount > 0 && orders > 0 ? `${(orders / totalOrderCount * 100).toFixed(1)}%` : '—'}
                     </span>
                   </div>
                 );
               })}
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* 상위 페이지 */}
