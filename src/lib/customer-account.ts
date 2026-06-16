@@ -181,9 +181,39 @@ const STOREFRONT_TOKEN_MUTATION = `
   }
 `;
 
+const SF_TOKEN_KEY = 'sca_storefront_token';
+const SF_TOKEN_EXPIRES_KEY = 'sca_storefront_token_expires';
+
+export function getCachedStorefrontCustomerToken(): string | null {
+  const cached = localStorage.getItem(SF_TOKEN_KEY);
+  const expiresAt = localStorage.getItem(SF_TOKEN_EXPIRES_KEY);
+  if (cached && expiresAt && Date.now() < parseInt(expiresAt, 10)) {
+    return cached;
+  }
+  return null;
+}
+
 export async function createStorefrontCustomerToken(): Promise<string | null> {
-  const data = await customerAccountRequest<any>(STOREFRONT_TOKEN_MUTATION);
-  return data?.storefrontCustomerAccessTokenCreate?.accessToken || null;
+  try {
+    const cached = getCachedStorefrontCustomerToken();
+    if (cached) return cached;
+
+    const data = await customerAccountRequest<any>(STOREFRONT_TOKEN_MUTATION);
+    const token = data?.storefrontCustomerAccessTokenCreate?.accessToken || null;
+    const expires = data?.storefrontCustomerAccessTokenCreate?.expiresAt;
+    if (token && expires) {
+      localStorage.setItem(SF_TOKEN_KEY, token);
+      localStorage.setItem(SF_TOKEN_EXPIRES_KEY, new Date(expires).getTime().toString());
+    }
+    return token;
+  } catch {
+    return null;
+  }
+}
+
+export function clearStorefrontCustomerToken(): void {
+  localStorage.removeItem(SF_TOKEN_KEY);
+  localStorage.removeItem(SF_TOKEN_EXPIRES_KEY);
 }
 
 export async function cancelCustomerOrder(orderId: string): Promise<{ success: boolean; error?: string }> {

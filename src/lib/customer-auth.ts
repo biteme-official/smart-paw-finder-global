@@ -163,6 +163,8 @@ export function logout(): void {
   localStorage.removeItem(STORAGE_KEYS.refreshToken);
   localStorage.removeItem(STORAGE_KEYS.idToken);
   localStorage.removeItem(STORAGE_KEYS.expiresAt);
+  localStorage.removeItem('sca_storefront_token');
+  localStorage.removeItem('sca_storefront_token_expires');
 
   const params = new URLSearchParams({
     post_logout_redirect_uri: `${window.location.origin}/`,
