@@ -67,6 +67,26 @@ export default function Checkout() {
       }));
       const checkoutUrl = await createCheckout(lineItems);
       if (checkoutUrl) {
+        // GA4 purchase attribution: 결제 전 구매 데이터를 저장해
+        // CheckoutReturn에서 biteme.one 세션 기준으로 purchase 이벤트 발사
+        try {
+          const ga4Items = items.map(item => ({
+            item_id: item.product.node.id,
+            item_name: item.product.node.title,
+            item_brand: item.product.node.vendor,
+            item_category: item.product.node.productType,
+            item_variant: item.variantTitle !== 'Default Title' ? item.variantTitle : undefined,
+            price: parseFloat(item.price.amount),
+            quantity: item.quantity,
+          }));
+          sessionStorage.setItem('bm_pending_purchase', JSON.stringify({
+            txnId: `BM_${Date.now()}`,
+            items: ga4Items,
+            currency: currencyCode,
+            value: Math.round(total * 100) / 100,
+            shipping: Math.round(shipping * 100) / 100,
+          }));
+        } catch {}
         window.location.href = decorateWithGaLinker(appendUtmToUrl(checkoutUrl));
       }
     } catch (err) {
