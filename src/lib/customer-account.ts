@@ -26,7 +26,9 @@ async function customerAccountRequest<T = any>(query: string, variables: Record<
   }
 
   if (!response.ok) {
-    throw new Error(`Customer Account API error: ${response.status}`);
+    const errorBody = await response.text();
+    console.error(`[CustomerAccountAPI] ${response.status}:`, errorBody);
+    throw new Error(`Customer Account API error: ${response.status} — ${errorBody.slice(0, 300)}`);
   }
 
   const data = await response.json();
