@@ -323,7 +323,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', corsOrigin);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Customer-Account-Token');
     return res.status(200).end();
   }
 
@@ -336,14 +336,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN || 'lovable-project-lbgum.myshopify.com';
     const apiVersion = '2025-07';
 
+    const shopifyHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Shopify-Storefront-Private-Token': token,
+    };
+    const customerAccountToken = req.headers['x-customer-account-token'];
+    if (typeof customerAccountToken === 'string' && customerAccountToken) {
+      shopifyHeaders['Authorization'] = customerAccountToken;
+    }
+
     const shopifyResponse = await fetch(
       `https://${shop}/api/${apiVersion}/graphql.json`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Shopify-Storefront-Private-Token': token,
-        },
+        headers: shopifyHeaders,
         body: JSON.stringify(req.body),
       }
     );

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { handleCallback } from '@/lib/customer-auth';
-import { fetchCustomerAccount, createStorefrontCustomerToken } from '@/lib/customer-account';
+import { fetchCustomerAccount } from '@/lib/customer-account';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
 
@@ -40,10 +40,7 @@ export default function AuthCallback() {
       }
 
       try {
-        const [profile] = await Promise.all([
-          fetchCustomerAccount(),
-          createStorefrontCustomerToken().catch(() => null),
-        ]);
+        const profile = await fetchCustomerAccount();
         if (profile) {
           useAuthStore.getState().login({
             userId: profile.emailAddress || profile.id,
