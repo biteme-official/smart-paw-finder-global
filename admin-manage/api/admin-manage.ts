@@ -463,6 +463,7 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
     }>;
     purchasingEntity: { company?: { name: string } } | null;
     customer: { tags: string[] } | null;
+    shippingAddress: { countryCodeV2: string } | null;
     lineItems: { edges: { node: { title: string; quantity: number; originalTotalSet: { shopMoney: { amount: string } } } }[] };
   }
 
@@ -534,6 +535,7 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
 
   const dailyMap = new Map<string, { date: string; orders: number; revenue: number }>();
   const productMap = new Map<string, { title: string; quantity: number; revenue: number }>();
+  const countryMap = new Map<string, number>();
 
   for (const edge of edges) {
     const n = edge.node as OrderNode;
@@ -557,6 +559,9 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
       || (n.customer?.tags || []).some((t: string) => t.toLowerCase().includes('b2b'));
     if (isB2B) { b2bRevenue += amount; b2bOrders++; }
     else { b2cRevenue += amount; b2cOrders++; }
+
+    const country = n.shippingAddress?.countryCodeV2 || 'Unknown';
+    countryMap.set(country, (countryMap.get(country) || 0) + 1);
 
     const date = n.createdAt.slice(0, 10);
     const day = dailyMap.get(date) || { date, orders: 0, revenue: 0 };
@@ -625,6 +630,7 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
     },
     dailyOrders,
     topProducts,
+    countryOrders,
     lowStock,
     currency,
   });
