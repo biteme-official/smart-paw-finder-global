@@ -172,6 +172,20 @@ export async function fetchCustomerAccount(): Promise<CustomerAccountProfile | n
   };
 }
 
+const STOREFRONT_TOKEN_MUTATION = `
+  mutation {
+    storefrontCustomerAccessTokenCreate {
+      accessToken
+      expiresAt
+    }
+  }
+`;
+
+export async function createStorefrontCustomerToken(): Promise<string | null> {
+  const data = await customerAccountRequest<any>(STOREFRONT_TOKEN_MUTATION);
+  return data?.storefrontCustomerAccessTokenCreate?.accessToken || null;
+}
+
 export async function cancelCustomerOrder(orderId: string): Promise<{ success: boolean; error?: string }> {
   const token = getAccessToken();
   if (!token) return { success: false, error: 'Not logged in' };
