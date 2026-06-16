@@ -177,8 +177,7 @@ export async function fetchCustomerAccount(): Promise<CustomerAccountProfile | n
 const STOREFRONT_TOKEN_MUTATION = `
   mutation {
     storefrontCustomerAccessTokenCreate {
-      accessToken
-      expiresAt
+      customerAccessToken
     }
   }
 `;
@@ -202,12 +201,12 @@ export async function createStorefrontCustomerToken(): Promise<string | null> {
 
     const data = await customerAccountRequest<any>(STOREFRONT_TOKEN_MUTATION);
     console.log('[StorefrontToken] API response:', JSON.stringify(data));
-    const token = data?.storefrontCustomerAccessTokenCreate?.accessToken || null;
-    const expires = data?.storefrontCustomerAccessTokenCreate?.expiresAt;
-    if (token && expires) {
+    const token = data?.storefrontCustomerAccessTokenCreate?.customerAccessToken || null;
+    if (token) {
       localStorage.setItem(SF_TOKEN_KEY, token);
-      localStorage.setItem(SF_TOKEN_EXPIRES_KEY, new Date(expires).getTime().toString());
-      console.log('[StorefrontToken] Cached successfully, expires:', expires);
+      // 24시간 TTL (Customer Account API는 expiresAt을 반환하지 않음)
+      localStorage.setItem(SF_TOKEN_EXPIRES_KEY, (Date.now() + 24 * 60 * 60 * 1000).toString());
+      console.log('[StorefrontToken] Cached successfully');
     } else {
       console.warn('[StorefrontToken] No token returned from API');
     }
