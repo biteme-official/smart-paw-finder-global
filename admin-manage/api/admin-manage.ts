@@ -417,12 +417,26 @@ async function handleCustomers(token: string, req: VercelRequest, res: VercelRes
 async function handleDashboard(token: string, req: VercelRequest, res: VercelResponse) {
   const range = (req.query.range as string) || '7d';
   const now = new Date();
-  const days = range === 'today' ? 0 : range === '7d' ? 7 : range === '28d' ? 28 : 90;
-  const startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days));
+
+  let startDate: Date;
+  let endDate: Date | null = null;
+
+  if (range.startsWith('custom:')) {
+    const [, s, e] = range.split(':');
+    startDate = new Date(`${s}T00:00:00.000Z`);
+    endDate = new Date(`${e}T23:59:59.999Z`);
+  } else {
+    const days = range === 'today' ? 0 : range === '7d' ? 7 : range === '28d' ? 28 : 90;
+    startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days));
+  }
+
+  const dateFilter = endDate
+    ? `created_at:>='${startDate.toISOString()}' created_at:<='${endDate.toISOString()}'`
+    : `created_at:>='${startDate.toISOString()}'`;
 
   const [ordersData, lowStockData] = await Promise.all([
     adminGraphQL(token, DASHBOARD_ORDERS_QUERY, {
-      query: `created_at:>='${startDate.toISOString()}' financial_status:paid`,
+      query: `${dateFilter} financial_status:paid`,
     }),
     adminGraphQL(token, LOW_STOCK_PRODUCTS_QUERY),
   ]);
