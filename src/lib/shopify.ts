@@ -1,5 +1,7 @@
 import { toast } from "sonner";
 import { useAuthStore } from '@/stores/authStore';
+import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
+import { createStorefrontCustomerToken } from '@/lib/customer-account';
 
 // Shopify API - requests go through the server proxy which handles authentication
 const SHOPIFY_PROXY_URL = '/api/shopify';
@@ -850,12 +852,17 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
      const authState = useAuthStore.getState();
      const user = authState.user;
      userEmail = user?.shopifyEmail || user?.email;
-     if (user?.shopifyCustomerToken) {
-       input.buyerIdentity = {
-         customerAccessToken: user.shopifyCustomerToken,
-         email: userEmail,
-         countryCode: 'KR',
-       };
+     if (isCustomerLoggedIn()) {
+       const storefrontToken = await createStorefrontCustomerToken();
+       if (storefrontToken) {
+         input.buyerIdentity = {
+           customerAccessToken: storefrontToken,
+           email: userEmail,
+           countryCode: 'KR',
+         };
+       } else if (userEmail) {
+         input.buyerIdentity = { email: userEmail, countryCode: 'KR' };
+       }
      } else if (userEmail) {
        input.buyerIdentity = { email: userEmail, countryCode: 'KR' };
      }
