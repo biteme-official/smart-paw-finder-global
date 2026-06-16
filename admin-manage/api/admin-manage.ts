@@ -167,12 +167,13 @@ const RECENT_CUSTOMERS_QUERY = `
 `;
 
 const DASHBOARD_ORDERS_QUERY = `
-  query DashboardOrders($query: String!) {
-    orders(first: 250, query: $query, sortKey: CREATED_AT) {
+  query DashboardOrders($query: String!, $cursor: String) {
+    orders(first: 250, query: $query, sortKey: CREATED_AT, after: $cursor) {
+      pageInfo { hasNextPage endCursor }
       edges {
         node {
           createdAt
-          totalPriceSet { shopMoney { amount currencyCode } }
+          currentSubtotalPriceSet { shopMoney { amount currencyCode } }
           customer { tags }
           lineItems(first: 5) {
             edges {
@@ -434,21 +435,32 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
     ? `created_at:>='${startDate.toISOString()}' created_at:<='${endDate.toISOString()}'`
     : `created_at:>='${startDate.toISOString()}'`;
 
-  const [ordersData, lowStockData] = await Promise.all([
-    adminGraphQL(token, DASHBOARD_ORDERS_QUERY, {
-      query: `${dateFilter} financial_status:paid`,
-    }),
-    adminGraphQL(token, LOW_STOCK_PRODUCTS_QUERY),
-  ]);
-
   interface OrderNode {
     createdAt: string;
-    totalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
+    currentSubtotalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
     customer: { tags: string[] } | null;
     lineItems: { edges: { node: { title: string; quantity: number; originalTotalSet: { shopMoney: { amount: string } } } }[] };
   }
 
-  const edges = ordersData.data?.orders?.edges || [];
+  const [lowStockData, allEdges] = await Promise.all([
+    adminGraphQL(token, LOW_STOCK_PRODUCTS_QUERY),
+    (async () => {
+      const collected: { node: OrderNode }[] = [];
+      let cursor: string | null = null;
+      do {
+        const page = await adminGraphQL(token, DASHBOARD_ORDERS_QUERY, {
+          query: dateFilter,
+          cursor,
+        });
+        const orders = page.data?.orders;
+        collected.push(...(orders?.edges || []));
+        cursor = orders?.pageInfo?.hasNextPage ? orders.pageInfo.endCursor : null;
+      } while (cursor);
+      return collected;
+    })(),
+  ]);
+
+  const edges = allEdges;
   let totalRevenue = 0;
   let totalOrders = 0;
   let totalItemsSold = 0;
@@ -463,8 +475,9 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
 
   for (const edge of edges) {
     const n = edge.node as OrderNode;
-    const amount = parseFloat(n.totalPriceSet.shopMoney.amount);
-    currency = n.totalPriceSet.shopMoney.currencyCode || currency;
+    // net_sales 기준: 순판매액(할인·반품 반영), 배송비·세금 제외 = Shopify Analytics net_sales
+    const amount = parseFloat(n.currentSubtotalPriceSet.shopMoney.amount);
+    currency = n.currentSubtotalPriceSet.shopMoney.currencyCode || currency;
     totalRevenue += amount;
     totalOrders++;
 
