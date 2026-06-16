@@ -852,19 +852,20 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
      const authState = useAuthStore.getState();
      const user = authState.user;
      userEmail = user?.shopifyEmail || user?.email;
-     if (isCustomerLoggedIn()) {
-       const storefrontToken = await createStorefrontCustomerToken();
-       if (storefrontToken) {
-         input.buyerIdentity = {
-           customerAccessToken: storefrontToken,
-           email: userEmail,
-           countryCode: 'KR',
-         };
-       } else if (userEmail) {
-         input.buyerIdentity = { email: userEmail, countryCode: 'KR' };
-       }
-     } else if (userEmail) {
+     if (userEmail) {
        input.buyerIdentity = { email: userEmail, countryCode: 'KR' };
+     }
+     if (isCustomerLoggedIn()) {
+       try {
+         const storefrontToken = await createStorefrontCustomerToken();
+         if (storefrontToken) {
+           input.buyerIdentity = {
+             customerAccessToken: storefrontToken,
+             email: userEmail,
+             countryCode: 'KR',
+           };
+         }
+       } catch { /* token failed, email-only buyerIdentity already set */ }
      }
    } catch { /* continue without buyer identity */ }
 

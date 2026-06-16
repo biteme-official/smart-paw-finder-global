@@ -42,7 +42,7 @@ export default function AuthCallback() {
       try {
         const [profile] = await Promise.all([
           fetchCustomerAccount(),
-          createStorefrontCustomerToken(),
+          createStorefrontCustomerToken().catch(() => null),
         ]);
         if (profile) {
           useAuthStore.getState().login({
