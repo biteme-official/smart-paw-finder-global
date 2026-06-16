@@ -3,7 +3,7 @@ import { getAccessToken, refreshAccessToken } from './customer-auth';
 
 const ACCOUNT_PROXY = '/api/customer-account';
 
-async function customerAccountRequest<T = any>(query: string, variables: Record<string, unknown> = {}): Promise<T | null> {
+async function customerAccountRequest<T = any>(query: string, variables: Record<string, unknown> = {}, _retried = false): Promise<T | null> {
   let token = getAccessToken();
   if (!token) {
     token = await refreshAccessToken();
@@ -19,10 +19,10 @@ async function customerAccountRequest<T = any>(query: string, variables: Record<
     body: JSON.stringify({ query, variables }),
   });
 
-  if (response.status === 401) {
+  if (response.status === 401 && !_retried) {
     const newToken = await refreshAccessToken();
     if (!newToken) return null;
-    return customerAccountRequest(query, variables);
+    return customerAccountRequest(query, variables, true);
   }
 
   if (!response.ok) {
@@ -199,14 +199,19 @@ export async function createStorefrontCustomerToken(): Promise<string | null> {
     if (cached) return cached;
 
     const data = await customerAccountRequest<any>(STOREFRONT_TOKEN_MUTATION);
+    console.log('[StorefrontToken] API response:', JSON.stringify(data));
     const token = data?.storefrontCustomerAccessTokenCreate?.accessToken || null;
     const expires = data?.storefrontCustomerAccessTokenCreate?.expiresAt;
     if (token && expires) {
       localStorage.setItem(SF_TOKEN_KEY, token);
       localStorage.setItem(SF_TOKEN_EXPIRES_KEY, new Date(expires).getTime().toString());
+      console.log('[StorefrontToken] Cached successfully, expires:', expires);
+    } else {
+      console.warn('[StorefrontToken] No token returned from API');
     }
     return token;
-  } catch {
+  } catch (err) {
+    console.error('[StorefrontToken] Failed:', err);
     return null;
   }
 }
