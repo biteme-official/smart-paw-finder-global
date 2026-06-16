@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 import { useAuthStore } from '@/stores/authStore';
 import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
-import { createStorefrontCustomerToken } from '@/lib/customer-account';
+import { getCachedStorefrontCustomerToken } from '@/lib/customer-account';
 
 // Shopify API - requests go through the server proxy which handles authentication
 const SHOPIFY_PROXY_URL = '/api/shopify';
@@ -856,16 +856,14 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
        input.buyerIdentity = { email: userEmail, countryCode: 'KR' };
      }
      if (isCustomerLoggedIn()) {
-       try {
-         const storefrontToken = await createStorefrontCustomerToken();
-         if (storefrontToken) {
-           input.buyerIdentity = {
-             customerAccessToken: storefrontToken,
-             email: userEmail,
-             countryCode: 'KR',
-           };
-         }
-       } catch { /* token failed, email-only buyerIdentity already set */ }
+       const storefrontToken = getCachedStorefrontCustomerToken();
+       if (storefrontToken) {
+         input.buyerIdentity = {
+           customerAccessToken: storefrontToken,
+           email: userEmail,
+           countryCode: 'KR',
+         };
+       }
      }
    } catch { /* continue without buyer identity */ }
 

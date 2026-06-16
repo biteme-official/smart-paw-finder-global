@@ -184,13 +184,19 @@ const STOREFRONT_TOKEN_MUTATION = `
 const SF_TOKEN_KEY = 'sca_storefront_token';
 const SF_TOKEN_EXPIRES_KEY = 'sca_storefront_token_expires';
 
+export function getCachedStorefrontCustomerToken(): string | null {
+  const cached = localStorage.getItem(SF_TOKEN_KEY);
+  const expiresAt = localStorage.getItem(SF_TOKEN_EXPIRES_KEY);
+  if (cached && expiresAt && Date.now() < parseInt(expiresAt, 10)) {
+    return cached;
+  }
+  return null;
+}
+
 export async function createStorefrontCustomerToken(): Promise<string | null> {
   try {
-    const cached = localStorage.getItem(SF_TOKEN_KEY);
-    const expiresAt = localStorage.getItem(SF_TOKEN_EXPIRES_KEY);
-    if (cached && expiresAt && Date.now() < parseInt(expiresAt, 10)) {
-      return cached;
-    }
+    const cached = getCachedStorefrontCustomerToken();
+    if (cached) return cached;
 
     const data = await customerAccountRequest<any>(STOREFRONT_TOKEN_MUTATION);
     const token = data?.storefrontCustomerAccessTokenCreate?.accessToken || null;
