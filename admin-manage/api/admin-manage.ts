@@ -175,6 +175,7 @@ const DASHBOARD_ORDERS_QUERY = `
           createdAt
           currentSubtotalPriceSet { shopMoney { amount currencyCode } }
           customer { tags }
+          shippingAddress { countryCodeV2 }
           lineItems(first: 5) {
             edges {
               node {
