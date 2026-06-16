@@ -184,6 +184,11 @@ const DASHBOARD_ORDERS_QUERY = `
               }
             }
           }
+          purchasingEntity {
+            ... on PurchasingCompany {
+              company { name }
+            }
+          }
           customer { tags }
           shippingAddress { countryCodeV2 }
           lineItems(first: 5) {
@@ -456,6 +461,7 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
         edges: Array<{ node: { subtotalSet: { shopMoney: { amount: string } } } }>;
       };
     }>;
+    purchasingEntity: { company?: { name: string } } | null;
     customer: { tags: string[] } | null;
     lineItems: { edges: { node: { title: string; quantity: number; originalTotalSet: { shopMoney: { amount: string } } } }[] };
   }
@@ -546,7 +552,9 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
     totalRevenue += amount;
     totalOrders++;
 
-    const isB2B = (n.customer?.tags || []).some((t: string) => t.toLowerCase().includes('b2b'));
+    // B2B 판정: Shopify B2B Company 주문 OR 고객 태그에 'b2b' 포함
+    const isB2B = n.purchasingEntity?.company != null
+      || (n.customer?.tags || []).some((t: string) => t.toLowerCase().includes('b2b'));
     if (isB2B) { b2bRevenue += amount; b2bOrders++; }
     else { b2cRevenue += amount; b2cOrders++; }
 
