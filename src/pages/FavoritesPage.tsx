@@ -67,7 +67,6 @@ export default function FavoritesPage() {
             const isSoldOut =
               p.availableForSale === false ||
               p.variants.edges.every((v: any) => !v.node.availableForSale) ||
-              (p.totalInventory != null && p.totalInventory <= 0) ||
               (p.variants.edges.length > 0 &&
                 p.variants.edges.filter((v: any) => v.node.quantityAvailable !== null).length > 0 &&
                 p.variants.edges.filter((v: any) => v.node.quantityAvailable !== null).every((v: any) => v.node.quantityAvailable <= 0));

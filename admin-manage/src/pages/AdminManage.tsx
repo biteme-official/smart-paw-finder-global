@@ -495,7 +495,7 @@ function DashboardTab({ data, currency, range }: { data: DashboardData; currency
       </div>
 
       <SectionLabel>트래픽 분석</SectionLabel>
-      <GaPlaceholder title="유입 소스 · 디바이스 · 상위 페이지" />
+      <GaPlaceholder title="유입 소스 · 디바이스" />
 
       <SectionLabel>운영 현황</SectionLabel>
       <OperationsPanel lowStock={lowStock} topProducts={topProducts} currency={currency} />

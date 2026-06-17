@@ -167,13 +167,30 @@ const RECENT_CUSTOMERS_QUERY = `
 `;
 
 const DASHBOARD_ORDERS_QUERY = `
-  query DashboardOrders($query: String!) {
-    orders(first: 250, query: $query, sortKey: CREATED_AT) {
+  query DashboardOrders($query: String!, $cursor: String) {
+    orders(first: 250, query: $query, sortKey: CREATED_AT, after: $cursor) {
+      pageInfo { hasNextPage endCursor }
       edges {
         node {
           createdAt
-          totalPriceSet { shopMoney { amount currencyCode } }
+          subtotalPriceSet { shopMoney { amount currencyCode } }
+          refunds {
+            createdAt
+            refundLineItems(first: 50) {
+              edges {
+                node {
+                  subtotalSet { shopMoney { amount } }
+                }
+              }
+            }
+          }
+          purchasingEntity {
+            ... on PurchasingCompany {
+              company { name }
+            }
+          }
           customer { tags }
+          shippingAddress { countryCodeV2 }
           lineItems(first: 5) {
             edges {
               node {
@@ -417,24 +434,96 @@ async function handleCustomers(token: string, req: VercelRequest, res: VercelRes
 async function handleDashboard(token: string, req: VercelRequest, res: VercelResponse) {
   const range = (req.query.range as string) || '7d';
   const now = new Date();
-  const days = range === 'today' ? 0 : range === '7d' ? 7 : range === '28d' ? 28 : 90;
-  const startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days));
 
-  const [ordersData, lowStockData] = await Promise.all([
-    adminGraphQL(token, DASHBOARD_ORDERS_QUERY, {
-      query: `created_at:>='${startDate.toISOString()}' financial_status:paid`,
-    }),
-    adminGraphQL(token, LOW_STOCK_PRODUCTS_QUERY),
-  ]);
+  let startDate: Date;
+  let endDate: Date | null = null;
+
+  if (range.startsWith('custom:')) {
+    const [, s, e] = range.split(':');
+    startDate = new Date(`${s}T00:00:00+09:00`);
+    endDate = new Date(`${e}T23:59:59.999+09:00`);
+  } else {
+    const days = range === 'today' ? 0 : range === '7d' ? 7 : range === '28d' ? 28 : 90;
+    startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days));
+  }
+
+  // test:false: Shopify Analytics는 테스트 주문 제외
+  const dateFilter = endDate
+    ? `created_at:>='${startDate.toISOString()}' created_at:<='${endDate.toISOString()}' test:false`
+    : `created_at:>='${startDate.toISOString()}' test:false`;
 
   interface OrderNode {
     createdAt: string;
-    totalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
+    subtotalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
+    refunds: Array<{
+      createdAt: string;
+      refundLineItems: {
+        edges: Array<{ node: { subtotalSet: { shopMoney: { amount: string } } } }>;
+      };
+    }>;
+    purchasingEntity: { company?: { name: string } } | null;
     customer: { tags: string[] } | null;
+    shippingAddress: { countryCodeV2: string } | null;
     lineItems: { edges: { node: { title: string; quantity: number; originalTotalSet: { shopMoney: { amount: string } } } }[] };
   }
 
-  const edges = ordersData.data?.orders?.edges || [];
+  // 기간 이전 주문 중 기간 내 환불이 발생한 주문 쿼리 (Shopify Analytics 정확 일치를 위해)
+  const PRE_PERIOD_REFUNDS_QUERY = `
+    query PrePeriodRefunds($query: String!) {
+      orders(first: 250, query: $query) {
+        edges {
+          node {
+            createdAt
+            refunds {
+              createdAt
+              refundLineItems(first: 50) {
+                edges { node { subtotalSet { shopMoney { amount } } } }
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const [lowStockData, allEdges, prePeriodRefundTotal] = await Promise.all([
+    adminGraphQL(token, LOW_STOCK_PRODUCTS_QUERY),
+    (async () => {
+      const collected: { node: OrderNode }[] = [];
+      let cursor: string | null = null;
+      do {
+        const page = await adminGraphQL(token, DASHBOARD_ORDERS_QUERY, {
+          query: dateFilter,
+          cursor,
+        });
+        const orders = page.data?.orders;
+        collected.push(...(orders?.edges || []));
+        cursor = orders?.pageInfo?.hasNextPage ? orders.pageInfo.endCursor : null;
+      } while (cursor);
+      return collected;
+    })(),
+    // 기간 이전 주문에서 기간 내 발생한 환불 합계 계산
+    (async () => {
+      if (!endDate) return 0;
+      // 기간 내에 updated된 주문 중 기간 이전 생성 주문 조회
+      const prePeriodFilter = `updated_at:>='${startDate.toISOString()}' updated_at:<='${endDate.toISOString()}' created_at:<='${new Date(startDate.getTime() - 1).toISOString()}'`;
+      const data = await adminGraphQL(token, PRE_PERIOD_REFUNDS_QUERY, { query: prePeriodFilter });
+      let total = 0;
+      for (const edge of (data.data?.orders?.edges || [])) {
+        for (const refund of (edge.node.refunds || [])) {
+          const refundDate = new Date(refund.createdAt);
+          if (refundDate >= startDate && refundDate <= endDate) {
+            for (const li of (refund.refundLineItems?.edges || [])) {
+              total += parseFloat(li.node.subtotalSet.shopMoney.amount);
+            }
+          }
+        }
+      }
+      return total;
+    })(),
+  ]);
+
+  const edges = allEdges;
   let totalRevenue = 0;
   let totalOrders = 0;
   let totalItemsSold = 0;
@@ -446,17 +535,33 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
 
   const dailyMap = new Map<string, { date: string; orders: number; revenue: number }>();
   const productMap = new Map<string, { title: string; quantity: number; revenue: number }>();
+  const countryMap = new Map<string, number>();
 
   for (const edge of edges) {
     const n = edge.node as OrderNode;
-    const amount = parseFloat(n.totalPriceSet.shopMoney.amount);
-    currency = n.totalPriceSet.shopMoney.currencyCode || currency;
+    // net_sales = subtotalPriceSet(할인 후) - 기간 내 발행된 환불합계
+    // Shopify Analytics: returns는 환불 발행일 기준 (order 생성일 기준 아님)
+    const subtotal = parseFloat(n.subtotalPriceSet.shopMoney.amount);
+    const refundedItems = (n.refunds || []).reduce((sum, r) => {
+      const refundDate = new Date(r.createdAt);
+      if (endDate && (refundDate < startDate || refundDate > endDate)) return sum;
+      if (!endDate && refundDate < startDate) return sum;
+      return sum + (r.refundLineItems?.edges || []).reduce((s, li) =>
+        s + parseFloat(li.node.subtotalSet.shopMoney.amount), 0);
+    }, 0);
+    const amount = subtotal - refundedItems;
+    currency = n.subtotalPriceSet.shopMoney.currencyCode || currency;
     totalRevenue += amount;
     totalOrders++;
 
-    const isB2B = (n.customer?.tags || []).some((t: string) => t.toLowerCase().includes('b2b'));
+    // B2B 판정: Shopify B2B Company 주문 OR 고객 태그에 'b2b' 포함
+    const isB2B = n.purchasingEntity?.company != null
+      || (n.customer?.tags || []).some((t: string) => t.toLowerCase().includes('b2b'));
     if (isB2B) { b2bRevenue += amount; b2bOrders++; }
     else { b2cRevenue += amount; b2cOrders++; }
+
+    const country = n.shippingAddress?.countryCodeV2 || 'Unknown';
+    countryMap.set(country, (countryMap.get(country) || 0) + 1);
 
     const date = n.createdAt.slice(0, 10);
     const day = dailyMap.get(date) || { date, orders: 0, revenue: 0 };
@@ -473,6 +578,14 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
       productMap.set(item.title, existing);
     }
   }
+
+  // 기간 이전 주문의 기간 내 환불도 차감 (Shopify Analytics returns 기준)
+  totalRevenue -= prePeriodRefundTotal;
+
+  const countryOrders = Array.from(countryMap.entries())
+    .map(([country, orders]) => ({ country, orders }))
+    .sort((a, b) => b.orders - a.orders)
+    .slice(0, 15);
 
   const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
   const dailyOrders = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
@@ -517,6 +630,7 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
     },
     dailyOrders,
     topProducts,
+    countryOrders,
     lowStock,
     currency,
   });

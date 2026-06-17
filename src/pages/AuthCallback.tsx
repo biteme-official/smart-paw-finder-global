@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { handleCallback } from '@/lib/customer-auth';
 import { fetchCustomerAccount, createStorefrontCustomerToken } from '@/lib/customer-account';
-import { useAuthStore } from '@/stores/authStore';
+import { useAuthStore, fetchB2BDiscountRate } from '@/stores/authStore';
 import { toast } from 'sonner';
 
 export default function AuthCallback() {
@@ -60,7 +60,9 @@ export default function AuthCallback() {
               });
               const tagData = await tagRes.json();
               const tags: string[] = tagData.tags || [];
-              useAuthStore.getState().setB2B(tags.some((t) => t.toUpperCase() === 'B2B'));
+              const isB2B = tags.some((t) => t.toUpperCase() === 'B2B');
+              useAuthStore.getState().setB2B(isB2B);
+              if (isB2B) fetchB2BDiscountRate();
             } catch {
               // Non-fatal: tag check failed
             }

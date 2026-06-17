@@ -204,7 +204,6 @@ export async function createStorefrontCustomerToken(): Promise<string | null> {
     const token = data?.storefrontCustomerAccessTokenCreate?.customerAccessToken || null;
     if (token) {
       localStorage.setItem(SF_TOKEN_KEY, token);
-      // 24시간 TTL (Customer Account API는 expiresAt을 반환하지 않음)
       localStorage.setItem(SF_TOKEN_EXPIRES_KEY, (Date.now() + 24 * 60 * 60 * 1000).toString());
       console.log('[StorefrontToken] Cached successfully');
     } else {

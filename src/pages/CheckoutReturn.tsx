@@ -6,6 +6,7 @@ import { CheckCircle, Home } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Confetti } from "@/components/checkout/Confetti";
+import { trackPurchase } from "@/lib/ga4-ecommerce";
 
 export default function CheckoutReturn() {
   const navigate = useNavigate();
@@ -13,6 +14,15 @@ export default function CheckoutReturn() {
   const clearCart = useCartStore(state => state.clearCart);
 
   useEffect(() => {
+    // sessionStorage에서 먼저 제거(새로고침 시 중복 발사 방지), 그 다음 이벤트 발사
+    const raw = sessionStorage.getItem('bm_pending_purchase');
+    sessionStorage.removeItem('bm_pending_purchase');
+    if (raw) {
+      try {
+        const { txnId, items, currency, value, shipping } = JSON.parse(raw);
+        trackPurchase(txnId, items, currency, value, shipping);
+      } catch {}
+    }
     clearCart();
     localStorage.removeItem('affiliate_discount');
   }, [clearCart]);
