@@ -64,20 +64,21 @@ async function readBody(req: Connect.IncomingMessage): Promise<string> {
 async function handleStorefrontProxy(req: Connect.IncomingMessage, res: any, useAdmin = false) {
   try {
     const body = await readBody(req);
-    const token = await getAccessToken();
     const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN || 'lovable-project-lbgum.myshopify.com';
     const endpoint = useAdmin
       ? `https://${shop}/admin/api/2025-07/graphql.json`
       : `https://${shop}/api/2025-07/graphql.json`;
 
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (useAdmin) {
+      headers['X-Shopify-Access-Token'] = await getAccessToken();
+    }
+
     const shopifyResponse = await fetch(
       endpoint,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Shopify-Access-Token': token,
-        },
+        headers,
         body,
       }
     );
