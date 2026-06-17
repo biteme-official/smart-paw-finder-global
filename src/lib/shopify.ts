@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 import { useAuthStore } from '@/stores/authStore';
 import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
-import { getCachedStorefrontCustomerToken } from '@/lib/customer-account';
+import { getCachedStorefrontCustomerToken, fetchCustomerAccount } from '@/lib/customer-account';
 
 // Shopify API - requests go through the server proxy which handles authentication
 const SHOPIFY_PROXY_URL = '/api/shopify';
@@ -919,6 +919,27 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
    if (userEmail) {
      url.searchParams.set('checkout[email]', userEmail);
    }
+
+   // Pre-fill shipping address from Customer Account API
+   try {
+     if (isCustomerLoggedIn()) {
+       const profile = await fetchCustomerAccount();
+       if (profile) {
+         const addr = profile.defaultAddress;
+         if (profile.firstName) url.searchParams.set('checkout[shipping_address][first_name]', profile.firstName);
+         if (profile.lastName) url.searchParams.set('checkout[shipping_address][last_name]', profile.lastName);
+         if (profile.phoneNumber) url.searchParams.set('checkout[shipping_address][phone]', profile.phoneNumber);
+         if (addr) {
+           if (addr.address1) url.searchParams.set('checkout[shipping_address][address1]', addr.address1);
+           if (addr.address2) url.searchParams.set('checkout[shipping_address][address2]', addr.address2);
+           if (addr.city) url.searchParams.set('checkout[shipping_address][city]', addr.city);
+           if (addr.province) url.searchParams.set('checkout[shipping_address][province]', addr.province);
+           if (addr.zip) url.searchParams.set('checkout[shipping_address][zip]', addr.zip);
+           if (addr.country) url.searchParams.set('checkout[shipping_address][country]', addr.country);
+         }
+       }
+     }
+   } catch { /* continue without address pre-fill */ }
 
   // Add return URL for post-checkout redirect
   const returnUrl = `${window.location.origin}/checkout-return`;

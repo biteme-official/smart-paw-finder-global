@@ -197,7 +197,7 @@ async function handleOG(req: VercelRequest, res: VercelResponse): Promise<void> 
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Shopify-Storefront-Private-Token': token,
+              'X-Shopify-Access-Token': token,
             },
             body: JSON.stringify({
               query: `query OG($h:String!){product(handle:$h){title description(truncateAt:200) featuredImage{url} images(first:1){edges{node{url}}}}}`,
@@ -346,7 +346,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          [isAdmin ? 'X-Shopify-Access-Token' : 'Shopify-Storefront-Private-Token']: token,
+          'X-Shopify-Access-Token': token,
         },
         body: JSON.stringify(req.body),
       }

@@ -76,7 +76,7 @@ async function handleStorefrontProxy(req: Connect.IncomingMessage, res: any, use
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          [useAdmin ? 'X-Shopify-Access-Token' : 'Shopify-Storefront-Private-Token']: token,
+          'X-Shopify-Access-Token': token,
         },
         body,
       }
