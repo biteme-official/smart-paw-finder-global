@@ -118,7 +118,7 @@ export default function Checkout() {
                 Minimum order of {formatPrice(B2B_MIN_ORDER.toString(), currencyCode)} required for B2B pricing
               </p>
               <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-                Add {formatPrice((B2B_MIN_ORDER - subtotal).toFixed(2), currencyCode)} more to unlock your 50% B2B discount at checkout.
+                Add {formatPrice((B2B_MIN_ORDER - subtotal).toFixed(2), currencyCode)} more to unlock your {Math.round(useAuthStore.getState().b2bDiscountRate * 100)}% B2B discount at checkout.
               </p>
             </div>
           </div>
@@ -204,7 +204,7 @@ export default function Checkout() {
             })()}
             {isB2B && b2bEligible && (
               <div className="flex justify-between text-sm text-green-600">
-                <span>B2B Discount (35%)</span>
+                <span>B2B Discount ({Math.round(useAuthStore.getState().b2bDiscountRate * 100)}%)</span>
                 <span translate="no">Applied at checkout</span>
               </div>
             )}

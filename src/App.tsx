@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { trackPageView } from "@/lib/ga4-pageview";
 import { saveUtmParams } from "@/lib/browser-utils";
+import { useAuthStore, fetchB2BDiscountRate } from "@/stores/authStore";
 import Index from "./pages/Index";
 import ProductDetail from "./pages/ProductDetail";
 import CheckoutReturn from "./pages/CheckoutReturn";
@@ -59,12 +60,21 @@ function UtmCapture() {
   return null;
 }
 
+function B2BDiscountSync() {
+  const isB2B = useAuthStore((s) => s.isB2B);
+  useEffect(() => {
+    if (isB2B) fetchB2BDiscountRate();
+  }, [isB2B]);
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <BrowserRouter>
         <GA4PageViewTracker />
         <UtmCapture />
+        <B2BDiscountSync />
         <Toaster />
         <Sonner closeButton />
         <Routes>

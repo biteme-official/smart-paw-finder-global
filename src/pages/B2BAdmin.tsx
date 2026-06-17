@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import {
   Lock, Loader2, Building2, Users, CheckCircle, XCircle, Clock,
-  FileText, Mail, Phone, MapPin, User, Eye, RefreshCw, ShoppingBag, Globe,
+  FileText, Mail, Phone, MapPin, User, Eye, RefreshCw, ShoppingBag, Globe, Percent,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -374,6 +374,43 @@ export default function B2BAdmin() {
   const [selectedApp, setSelectedApp] = useState<ApplicationSummary | null>(null);
   const [editingCountry, setEditingCountry] = useState<string | null>(null);
   const [savingCountry, setSavingCountry] = useState(false);
+  const [discountRate, setDiscountRate] = useState<number | null>(null);
+  const [discountInput, setDiscountInput] = useState('');
+  const [savingDiscount, setSavingDiscount] = useState(false);
+
+  const fetchDiscountRate = useCallback(async () => {
+    try {
+      const res = await fetch('/api/b2b?action=get-discount-rate');
+      const data = await res.json();
+      const rate = data.rate ?? 0.60;
+      setDiscountRate(rate);
+      setDiscountInput(String(Math.round(rate * 100)));
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleDiscountSave = async () => {
+    const pct = parseInt(discountInput, 10);
+    if (isNaN(pct) || pct < 0 || pct > 100) {
+      toast.error('Enter a valid percentage (0-100).', { position: 'top-center' });
+      return;
+    }
+    setSavingDiscount(true);
+    try {
+      const res = await fetch('/api/b2b?action=set-discount-rate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
+        body: JSON.stringify({ rate: pct / 100 }),
+      });
+      if (res.ok) {
+        setDiscountRate(pct / 100);
+        toast.success(`Discount rate updated to ${pct}%`, { position: 'top-center' });
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Failed to update discount rate', { position: 'top-center' });
+      }
+    } catch { toast.error('Network error.'); }
+    finally { setSavingDiscount(false); }
+  };
 
   const handleCountrySave = async (email: string, country: string) => {
     setSavingCountry(true);
@@ -413,7 +450,7 @@ export default function B2BAdmin() {
     finally { setLoading(false); }
   }, [adminKey]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { fetchAll(); fetchDiscountRate(); }, [fetchAll, fetchDiscountRate]);
 
   if (!adminKey) return <LoginGate onLogin={setAdminKey} />;
 
@@ -471,6 +508,44 @@ export default function B2BAdmin() {
       </header>
 
       <main className="max-w-6xl mx-auto p-6 space-y-6">
+        {/* Discount Rate Setting */}
+        {discountRate !== null && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Percent className="h-4 w-4" /> B2B Discount Rate
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl font-bold text-primary">{Math.round(discountRate * 100)}%</span>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={discountInput}
+                    onChange={(e) => setDiscountInput(e.target.value)}
+                    className="w-20 text-center"
+                    placeholder="%"
+                  />
+                  <span className="text-sm text-muted-foreground">%</span>
+                  <Button
+                    size="sm"
+                    onClick={handleDiscountSave}
+                    disabled={savingDiscount || discountInput === String(Math.round(discountRate * 100))}
+                  >
+                    {savingDiscount ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                  </Button>
+                </div>
+                <span className="text-xs text-muted-foreground ml-2">
+                  B2B customers see prices at {100 - Math.round(discountRate * 100)}% of retail
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Country breakdown */}
         {!loading && countrySorted.length > 0 && (
           <Card>
