@@ -5,6 +5,7 @@ import { getCachedStorefrontCustomerToken } from '@/lib/customer-account';
 
 // Shopify API - requests go through the server proxy which handles authentication
 const SHOPIFY_PROXY_URL = '/api/shopify';
+const SHOPIFY_ADMIN_PROXY_URL = '/api/shopify?api=admin';
 
 export interface ShopifyProduct {
   node: {
@@ -94,6 +95,24 @@ export async function storefrontApiRequest(query: string, variables: Record<stri
   return data;
 }
 
+async function adminApiRequest(query: string, variables: Record<string, unknown> = {}) {
+  const response = await fetch(SHOPIFY_ADMIN_PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, variables }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Admin API HTTP error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (data.errors) {
+    throw new Error(`Admin API error: ${data.errors.map((e: { message: string }) => e.message).join(', ')}`);
+  }
+  return data;
+}
+
 // GraphQL Queries
 const GET_PRODUCTS_QUERY = `
   query GetProducts($first: Int!, $query: String, $after: String) {
@@ -109,7 +128,6 @@ const GET_PRODUCTS_QUERY = `
           description
           handle
           availableForSale
-          totalInventory
           productType
           tags
           vendor
@@ -137,7 +155,6 @@ const GET_PRODUCTS_QUERY = `
                   currencyCode
                 }
                 availableForSale
-                quantityAvailable
                 image {
                   url
                   altText
@@ -195,7 +212,6 @@ const GET_PRODUCT_BY_HANDLE_QUERY = `
       descriptionHtml
       handle
       availableForSale
-      totalInventory
       productType
       tags
       vendor
@@ -223,7 +239,6 @@ const GET_PRODUCT_BY_HANDLE_QUERY = `
               currencyCode
             }
             availableForSale
-            quantityAvailable
             image {
               url
               altText
@@ -391,7 +406,6 @@ const GET_COLLECTION_PRODUCTS_QUERY = `
             description
             handle
             availableForSale
-            totalInventory
             productType
             tags
             vendor
@@ -419,7 +433,6 @@ const GET_COLLECTION_PRODUCTS_QUERY = `
                     currencyCode
                   }
                   availableForSale
-                  quantityAvailable
                   image {
                     url
                     altText
@@ -552,7 +565,7 @@ const GET_BANNERS_QUERY = `
 
 
 export async function fetchBanners(first: number = 10): Promise<ShopifyBanner[]> {
-  const data = await storefrontApiRequest(GET_BANNERS_QUERY, { first });
+  const data = await adminApiRequest(GET_BANNERS_QUERY, { first });
   if (!data) return [];
 
   const banners = (data.data?.metaobjects?.edges || []).map((edge: any) => {
@@ -609,7 +622,6 @@ const GET_BEST_SELLING_PRODUCTS_QUERY = `
           title
           handle
           availableForSale
-          totalInventory
           productType
           tags
           vendor
@@ -626,7 +638,6 @@ const GET_BEST_SELLING_PRODUCTS_QUERY = `
                 title
                 price { amount currencyCode }
                 availableForSale
-                quantityAvailable
                 image { url altText }
                 selectedOptions { name value }
               }
@@ -654,7 +665,6 @@ const GET_NEW_PRODUCTS_QUERY = `
           title
           handle
           availableForSale
-          totalInventory
           productType
           tags
           vendor
@@ -672,7 +682,6 @@ const GET_NEW_PRODUCTS_QUERY = `
                 price { amount currencyCode }
                 compareAtPrice { amount currencyCode }
                 availableForSale
-                quantityAvailable
                 image { url altText }
                 selectedOptions { name value }
               }
