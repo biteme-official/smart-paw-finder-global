@@ -72,6 +72,11 @@ async function handleStorefrontProxy(req: Connect.IncomingMessage, res: any, use
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (useAdmin) {
       headers['X-Shopify-Access-Token'] = await getAccessToken();
+    } else {
+      const isMutation = /^\s*mutation\b/i.test(body.replace(/.*"query"\s*:\s*"/, ''));
+      if (isMutation) {
+        headers['Shopify-Storefront-Private-Token'] = await getAccessToken();
+      }
     }
 
     const shopifyResponse = await fetch(

@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 import { useAuthStore } from '@/stores/authStore';
 import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
-import { fetchCustomerAccount } from '@/lib/customer-account';
+import { getCachedStorefrontCustomerToken, fetchCustomerAccount } from '@/lib/customer-account';
 
 // Shopify API - requests go through the server proxy which handles authentication
 const SHOPIFY_PROXY_URL = '/api/shopify';
@@ -855,7 +855,6 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
      input.discountCodes = [discountCode];
    }
 
-   // Attach buyer identity (email + country only — customerAccessToken causes private_access_tokens 401)
    let userEmail: string | undefined;
    try {
      const authState = useAuthStore.getState();
@@ -864,9 +863,33 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
      if (userEmail) {
        input.buyerIdentity = { email: userEmail, countryCode: 'KR' };
      }
+     if (isCustomerLoggedIn()) {
+       const storefrontToken = getCachedStorefrontCustomerToken();
+       if (storefrontToken) {
+         input.buyerIdentity = {
+           customerAccessToken: storefrontToken,
+           email: userEmail,
+           countryCode: 'KR',
+         };
+       }
+     }
    } catch { /* continue without buyer identity */ }
 
-   const data = await storefrontApiRequest(CART_CREATE_MUTATION, { input });
+   let data = await storefrontApiRequest(CART_CREATE_MUTATION, { input });
+
+   // If customer token is expired/invalid, retry without it
+   const tokenError = data?.data?.cartCreate?.userErrors?.some(
+     (e: { field: string[]; message: string }) =>
+       e.field?.includes('customerAccessToken') || e.message?.includes('invalid')
+   );
+   if (tokenError || !data?.data?.cartCreate?.cart) {
+     if (userEmail) {
+       input.buyerIdentity = { email: userEmail, countryCode: 'KR' };
+     } else {
+       delete input.buyerIdentity;
+     }
+     data = await storefrontApiRequest(CART_CREATE_MUTATION, { input });
+   }
 
   if (!data) {
     throw new Error('Failed to create checkout');
