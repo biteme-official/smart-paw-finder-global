@@ -46,6 +46,12 @@ export const useAuthStore = create<AuthStore>()(
         user: state.user,
         isLoggedIn: state.isLoggedIn,
       }),
+      merge: (persisted, current) => ({
+        ...current,
+        ...(persisted as Partial<AuthStore>),
+        isB2B: false,
+        b2bDiscountRate: DEFAULT_B2B_DISCOUNT_RATE,
+      }),
     }
   )
 );
