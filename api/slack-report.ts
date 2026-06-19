@@ -452,18 +452,51 @@ async function sendDailyHealthSummary(history: HistoryEntry[]) {
     latencyText += `• *${name}*: avg ${avg}ms / max ${Math.max(...values)}ms\n`;
   }
 
-  const failureSummary = failures.length > 0
-    ? failures.slice(-5).map(f => {
-        const time = new Date(f.timestamp).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' });
-        return `• ${time} — ${f.results.filter(r => !r.ok).map(r => r.name).join(', ')}`;
-      }).join('\n')
-    : '없음';
+  interface Incident { startTime: number; endTime?: number; checks: string[]; resolved: boolean; }
+  const incidents: Incident[] = [];
+  let currentIncident: Incident | null = null;
+  const sorted = [...history].sort((a, b) => a.timestamp - b.timestamp);
+  for (const entry of sorted) {
+    if (!entry.allOk) {
+      const failedChecks = entry.results.filter(r => !r.ok).map(r => r.name);
+      if (!currentIncident) {
+        currentIncident = { startTime: entry.timestamp, checks: [...failedChecks], resolved: false };
+      } else {
+        for (const c of failedChecks) { if (!currentIncident.checks.includes(c)) currentIncident.checks.push(c); }
+      }
+    } else if (currentIncident) {
+      currentIncident.endTime = entry.timestamp;
+      currentIncident.resolved = true;
+      incidents.push(currentIncident);
+      currentIncident = null;
+    }
+  }
+  if (currentIncident) incidents.push(currentIncident);
+
+  let incidentSummary: string;
+  if (incidents.length === 0) {
+    incidentSummary = '✅ 장애 없음';
+  } else {
+    const ongoing = incidents.filter(i => !i.resolved);
+    const resolved = incidents.filter(i => i.resolved);
+    const parts: string[] = [];
+    if (ongoing.length > 0) {
+      parts.push(`🔴 장애 ${ongoing.length}건 진행 중 (${ongoing.map(i => i.checks.join(', ')).join(' / ')})`);
+    }
+    if (resolved.length > 0) {
+      const checkCount: Record<string, number> = {};
+      for (const inc of resolved) for (const c of inc.checks) { checkCount[c] = (checkCount[c] || 0) + 1; }
+      const detail = Object.entries(checkCount).map(([name, cnt]) => cnt > 1 ? `${name} x${cnt}` : name).join(', ');
+      parts.push(`⚠️ 장애 ${resolved.length}건 발생 / 모두 해결완료 (${detail})`);
+    }
+    incidentSummary = parts.join('\n');
+  }
 
   const blocks: any[] = [
     { type: 'header', text: { type: 'plain_text', text: `📊 Daily Health Report — ${kstDate}`, emoji: true } },
     { type: 'section', text: { type: 'mrkdwn', text: `*Uptime:* ${uptimePercent}% (${allOk}/${total} checks)\n*총 체크:* ${total}회 (15분 간격)` } },
     { type: 'section', text: { type: 'mrkdwn', text: `*평균 응답속도:*\n${latencyText}` } },
-    { type: 'section', text: { type: 'mrkdwn', text: `*장애 이력 (최근 5건):*\n${failureSummary}` } },
+    { type: 'section', text: { type: 'mrkdwn', text: `*장애 현황:*\n${incidentSummary}` } },
   ];
   await fetch(SLACK_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blocks }) });
 }
