@@ -857,20 +857,13 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
      input.discountCodes = [discountCode];
    }
 
-   let userEmail: string | undefined;
    try {
-     const authState = useAuthStore.getState();
-     const user = authState.user;
-     userEmail = user?.shopifyEmail || user?.email;
-     if (userEmail) {
-       input.buyerIdentity = { email: userEmail, countryCode: 'KR' };
-     }
+     input.buyerIdentity = { countryCode: 'KR' };
      if (isCustomerLoggedIn()) {
        const storefrontToken = getCachedStorefrontCustomerToken();
        if (storefrontToken) {
          input.buyerIdentity = {
            customerAccessToken: storefrontToken,
-           email: userEmail,
            countryCode: 'KR',
          };
        }
@@ -885,11 +878,7 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
        e.field?.includes('customerAccessToken') || e.message?.includes('invalid')
    );
    if (tokenError || !data?.data?.cartCreate?.cart) {
-     if (userEmail) {
-       input.buyerIdentity = { email: userEmail, countryCode: 'KR' };
-     } else {
-       delete input.buyerIdentity;
-     }
+     input.buyerIdentity = { countryCode: 'KR' };
      data = await storefrontApiRequest(CART_CREATE_MUTATION, { input });
    }
 
@@ -915,35 +904,16 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
      url.searchParams.set('discount', discountCode);
    }
 
-   // Pre-fill email in Shopify checkout contact field
-   if (userEmail) {
-     url.searchParams.set('checkout[email]', userEmail);
-   }
-
-   // Pre-fill shipping address from Customer Account API
-   try {
-     if (isCustomerLoggedIn()) {
-       const profile = await fetchCustomerAccount();
-       if (profile) {
-         const addr = profile.defaultAddress;
-         if (profile.firstName) url.searchParams.set('checkout[shipping_address][first_name]', profile.firstName);
-         if (profile.lastName) url.searchParams.set('checkout[shipping_address][last_name]', profile.lastName);
-         if (profile.phoneNumber) url.searchParams.set('checkout[shipping_address][phone]', profile.phoneNumber);
-         if (addr) {
-           if (addr.address1) url.searchParams.set('checkout[shipping_address][address1]', addr.address1);
-           if (addr.address2) url.searchParams.set('checkout[shipping_address][address2]', addr.address2);
-           if (addr.city) url.searchParams.set('checkout[shipping_address][city]', addr.city);
-           if (addr.province) url.searchParams.set('checkout[shipping_address][province]', addr.province);
-           if (addr.zip) url.searchParams.set('checkout[shipping_address][zip]', addr.zip);
-           if (addr.country) url.searchParams.set('checkout[shipping_address][country]', addr.country);
-         }
-       }
-     }
-   } catch { /* continue without address pre-fill */ }
-
   // Add return URL for post-checkout redirect
   const returnUrl = `${window.location.origin}/checkout-return`;
   url.searchParams.set('return_to', returnUrl);
+
+  // Route through Shopify login to auto sign-in on checkout
+  const shopId = import.meta.env.VITE_SHOPIFY_SHOP_ID;
+  if (shopId) {
+    const checkoutUrl = url.toString();
+    return `https://shopify.com/${shopId}/account/login?return_to=${encodeURIComponent(checkoutUrl)}`;
+  }
 
   return url.toString();
 }
