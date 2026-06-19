@@ -384,10 +384,25 @@ async function checkStorefrontMutation(): Promise<CheckResult> {
   } catch (e) { return { name: 'Storefront Mutation', ok: false, latencyMs: Date.now() - start, error: (e as Error).message }; }
 }
 
+async function getMainAccessToken(): Promise<string> {
+  const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN || '';
+  const clientId = process.env.VITE_SHOPIFY_CLIENT_ID || '';
+  const clientSecret = process.env.SHOPIFY_CLIENT_SECRET || '';
+  if (!clientId || !clientSecret) throw new Error('Missing VITE_SHOPIFY_CLIENT_ID or SHOPIFY_CLIENT_SECRET');
+  const r = await fetch(`https://${shop}/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret }),
+  });
+  if (!r.ok) throw new Error(`Token failed: ${r.status}`);
+  const d = await r.json();
+  return d.access_token;
+}
+
 async function checkAdminApi(): Promise<CheckResult> {
   const start = Date.now();
   try {
-    const token = await getAccessToken();
+    const token = await getMainAccessToken();
     const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN || '';
     const r = await fetch(`https://${shop}/admin/api/2025-07/graphql.json`, {
       method: 'POST',
