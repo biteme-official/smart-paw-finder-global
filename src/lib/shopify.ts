@@ -906,7 +906,6 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
   }
 
   const url = new URL(cart.checkoutUrl);
-  url.searchParams.set('channel', 'online_store');
 
    // Add discount code to URL as backup (in case cart discount doesn't persist)
    if (discountCode) {
