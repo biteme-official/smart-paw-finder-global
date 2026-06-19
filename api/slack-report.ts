@@ -492,6 +492,7 @@ async function handleHealthCheck(res: VercelResponse, forceDailySummary = false)
     status: allOk ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
     dailySummarySent: forceDailySummary || (parseInt(kstHour) === 9 && lastSent !== today),
+    slackConfigured: !!SLACK_WEBHOOK_URL,
     results: results.map(r => ({ name: r.name, ok: r.ok, status: r.status, latencyMs: r.latencyMs, ...(r.error ? { error: r.error } : {}) })),
   });
 }
