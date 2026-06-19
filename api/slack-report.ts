@@ -467,7 +467,7 @@ async function sendDailyHealthSummary(history: HistoryEntry[]) {
   await fetch(SLACK_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blocks }) });
 }
 
-async function handleHealthCheck(res: VercelResponse) {
+async function handleHealthCheck(res: VercelResponse, forceDailySummary = false) {
   const results = await Promise.all([checkSiteAccess(), checkStorefrontQuery(), checkStorefrontMutation(), checkAdminApi()]);
   const allOk = results.every(r => r.ok);
   const entry: HistoryEntry = { timestamp: Date.now(), allOk, results };
@@ -483,14 +483,15 @@ async function handleHealthCheck(res: VercelResponse) {
   const kstHour = new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hour12: false });
   const lastSent = await kvGet(KV_DAILY_SENT_KEY);
   const today = new Date().toISOString().slice(0, 10);
-  if (parseInt(kstHour) === 9 && lastSent !== today) {
+  if (forceDailySummary || (parseInt(kstHour) === 9 && lastSent !== today)) {
     await sendDailyHealthSummary(trimmed);
-    await kvSet(KV_DAILY_SENT_KEY, today, 86400);
+    if (!forceDailySummary) await kvSet(KV_DAILY_SENT_KEY, today, 86400);
   }
 
   return res.status(200).json({
     status: allOk ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
+    dailySummarySent: forceDailySummary || (parseInt(kstHour) === 9 && lastSent !== today),
     results: results.map(r => ({ name: r.name, ok: r.ok, status: r.status, latencyMs: r.latencyMs, ...(r.error ? { error: r.error } : {}) })),
   });
 }
@@ -511,7 +512,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // action=health → health check, default → daily sales report
   if (req.query.action === 'health') {
-    return handleHealthCheck(res);
+    const forceDailySummary = req.query.daily === 'true';
+    return handleHealthCheck(res, forceDailySummary);
   }
 
   try {
