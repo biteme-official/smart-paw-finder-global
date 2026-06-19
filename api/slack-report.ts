@@ -303,20 +303,200 @@ async function sendToSlack(message: { blocks: unknown[] }) {
   }
 }
 
+// ─── Health Check ────────────────────────────────────────────────────────────
+const SITE_URL = 'https://www.biteme.one';
+const KV_KEY = 'health-check:history';
+const KV_DAILY_SENT_KEY = 'health-check:daily-sent';
+
+async function kvGet(key: string): Promise<any> {
+  const url = process.env.KV_REST_API_URL;
+  const token = process.env.KV_REST_API_TOKEN;
+  if (!url || !token) return null;
+  try {
+    const r = await fetch(`${url}/get/${key}`, { headers: { Authorization: `Bearer ${token}` } });
+    const d = await r.json();
+    return d.result ? JSON.parse(d.result) : null;
+  } catch { return null; }
+}
+
+async function kvSet(key: string, value: any, exSeconds?: number): Promise<void> {
+  const url = process.env.KV_REST_API_URL;
+  const token = process.env.KV_REST_API_TOKEN;
+  if (!url || !token) return;
+  const args = exSeconds ? `/${key}/EX/${exSeconds}` : `/${key}`;
+  await fetch(`${url}/set${args}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(JSON.stringify(value)),
+  });
+}
+
+interface CheckResult { name: string; ok: boolean; status?: number; latencyMs: number; error?: string; }
+interface HistoryEntry { timestamp: number; allOk: boolean; results: CheckResult[]; }
+
+async function checkSiteAccess(): Promise<CheckResult> {
+  const start = Date.now();
+  try {
+    const r = await fetch(SITE_URL, { method: 'GET', redirect: 'follow' });
+    return { name: 'Site Access', ok: r.ok, status: r.status, latencyMs: Date.now() - start, error: r.ok ? undefined : `HTTP ${r.status}` };
+  } catch (e) { return { name: 'Site Access', ok: false, latencyMs: Date.now() - start, error: (e as Error).message }; }
+}
+
+async function checkStorefrontQuery(): Promise<CheckResult> {
+  const start = Date.now();
+  try {
+    const r = await fetch(`${SITE_URL}/api/shopify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: SITE_URL },
+      body: JSON.stringify({ query: 'query { products(first: 1) { edges { node { id } } } }' }),
+    });
+    const d = await r.json();
+    const ok = r.ok && d?.data?.products?.edges?.length > 0;
+    return { name: 'Storefront Query', ok, status: r.status, latencyMs: Date.now() - start, error: ok ? undefined : (!r.ok ? `HTTP ${r.status}` : 'No products') };
+  } catch (e) { return { name: 'Storefront Query', ok: false, latencyMs: Date.now() - start, error: (e as Error).message }; }
+}
+
+async function checkStorefrontMutation(): Promise<CheckResult> {
+  const start = Date.now();
+  try {
+    const listR = await fetch(`${SITE_URL}/api/shopify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: SITE_URL },
+      body: JSON.stringify({ query: 'query { products(first: 1) { edges { node { variants(first: 1) { edges { node { id } } } } } } }' }),
+    });
+    const listD = await listR.json();
+    const variantId = listD?.data?.products?.edges?.[0]?.node?.variants?.edges?.[0]?.node?.id;
+    if (!variantId) return { name: 'Storefront Mutation', ok: false, latencyMs: Date.now() - start, error: 'No variant ID' };
+
+    const r = await fetch(`${SITE_URL}/api/shopify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: SITE_URL },
+      body: JSON.stringify({
+        query: 'mutation cartCreate($input: CartInput!) { cartCreate(input: $input) { cart { id checkoutUrl } userErrors { message } } }',
+        variables: { input: { lines: [{ quantity: 1, merchandiseId: variantId }] } },
+      }),
+    });
+    const d = await r.json();
+    const cart = d?.data?.cartCreate?.cart;
+    const errs = d?.data?.cartCreate?.userErrors || [];
+    const ok = r.ok && !!cart?.checkoutUrl && errs.length === 0;
+    return { name: 'Storefront Mutation', ok, status: r.status, latencyMs: Date.now() - start, error: ok ? undefined : (errs[0]?.message || `HTTP ${r.status}`) };
+  } catch (e) { return { name: 'Storefront Mutation', ok: false, latencyMs: Date.now() - start, error: (e as Error).message }; }
+}
+
+async function checkAdminApi(): Promise<CheckResult> {
+  const start = Date.now();
+  try {
+    const token = await getAccessToken();
+    const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN || '';
+    const r = await fetch(`https://${shop}/admin/api/2025-07/graphql.json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
+      body: JSON.stringify({ query: '{ shop { name } }' }),
+    });
+    const d = await r.json();
+    const ok = r.ok && !!d?.data?.shop?.name;
+    return { name: 'Admin API', ok, status: r.status, latencyMs: Date.now() - start, error: ok ? undefined : `HTTP ${r.status}` };
+  } catch (e) { return { name: 'Admin API', ok: false, latencyMs: Date.now() - start, error: (e as Error).message }; }
+}
+
+async function sendHealthAlert(results: CheckResult[]) {
+  if (!SLACK_WEBHOOK_URL) return;
+  const failed = results.filter(r => !r.ok);
+  const kstTime = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+  const blocks: any[] = [
+    { type: 'header', text: { type: 'plain_text', text: '🚨 API Health Check 장애 감지', emoji: true } },
+    { type: 'section', text: { type: 'mrkdwn', text: `*시각:* ${kstTime}\n*장애 항목:* ${failed.length}/${results.length}` } },
+  ];
+  for (const r of failed) {
+    blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `❌ *${r.name}*\n> Status: ${r.status || 'N/A'} | Error: ${r.error || 'Unknown'} | Latency: ${r.latencyMs}ms` } });
+  }
+  for (const r of results.filter(r => r.ok)) {
+    blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `✅ *${r.name}* — ${r.latencyMs}ms` } });
+  }
+  await fetch(SLACK_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blocks }) });
+}
+
+async function sendDailyHealthSummary(history: HistoryEntry[]) {
+  if (!SLACK_WEBHOOK_URL) return;
+  const kstDate = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
+  const total = history.length;
+  const allOk = history.filter(h => h.allOk).length;
+  const failures = history.filter(h => !h.allOk);
+  const uptimePercent = total > 0 ? ((allOk / total) * 100).toFixed(1) : '0';
+
+  const avgLatency: Record<string, number[]> = {};
+  for (const h of history) for (const r of h.results) {
+    if (!avgLatency[r.name]) avgLatency[r.name] = [];
+    avgLatency[r.name].push(r.latencyMs);
+  }
+  let latencyText = '';
+  for (const [name, values] of Object.entries(avgLatency)) {
+    const avg = Math.round(values.reduce((a, b) => a + b, 0) / values.length);
+    latencyText += `• *${name}*: avg ${avg}ms / max ${Math.max(...values)}ms\n`;
+  }
+
+  const failureSummary = failures.length > 0
+    ? failures.slice(-5).map(f => {
+        const time = new Date(f.timestamp).toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' });
+        return `• ${time} — ${f.results.filter(r => !r.ok).map(r => r.name).join(', ')}`;
+      }).join('\n')
+    : '없음';
+
+  const blocks: any[] = [
+    { type: 'header', text: { type: 'plain_text', text: `📊 Daily Health Report — ${kstDate}`, emoji: true } },
+    { type: 'section', text: { type: 'mrkdwn', text: `*Uptime:* ${uptimePercent}% (${allOk}/${total} checks)\n*총 체크:* ${total}회 (15분 간격)` } },
+    { type: 'section', text: { type: 'mrkdwn', text: `*평균 응답속도:*\n${latencyText}` } },
+    { type: 'section', text: { type: 'mrkdwn', text: `*장애 이력 (최근 5건):*\n${failureSummary}` } },
+  ];
+  await fetch(SLACK_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blocks }) });
+}
+
+async function handleHealthCheck(res: VercelResponse) {
+  const results = await Promise.all([checkSiteAccess(), checkStorefrontQuery(), checkStorefrontMutation(), checkAdminApi()]);
+  const allOk = results.every(r => r.ok);
+  const entry: HistoryEntry = { timestamp: Date.now(), allOk, results };
+
+  const history: HistoryEntry[] = (await kvGet(KV_KEY)) || [];
+  history.push(entry);
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const trimmed = history.filter(h => h.timestamp > cutoff);
+  await kvSet(KV_KEY, trimmed, 86400);
+
+  if (!allOk) await sendHealthAlert(results);
+
+  const kstHour = new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hour12: false });
+  const lastSent = await kvGet(KV_DAILY_SENT_KEY);
+  const today = new Date().toISOString().slice(0, 10);
+  if (parseInt(kstHour) === 9 && lastSent !== today) {
+    await sendDailyHealthSummary(trimmed);
+    await kvSet(KV_DAILY_SENT_KEY, today, 86400);
+  }
+
+  return res.status(200).json({
+    status: allOk ? 'healthy' : 'degraded',
+    timestamp: new Date().toISOString(),
+    results: results.map(r => ({ name: r.name, ok: r.ok, status: r.status, latencyMs: r.latencyMs, ...(r.error ? { error: r.error } : {}) })),
+  });
+}
+
+// ─── Main Handler ────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Allow GET (cron) and POST (manual trigger)
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Simple auth check for manual triggers
   const authHeader = req.headers.authorization;
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    // Allow Vercel cron (no auth header but has x-vercel-cron header)
     if (!req.headers['x-vercel-cron']) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
+  }
+
+  // action=health → health check, default → daily sales report
+  if (req.query.action === 'health') {
+    return handleHealthCheck(res);
   }
 
   try {

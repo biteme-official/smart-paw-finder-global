@@ -9,7 +9,7 @@
       "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/health-check",
+      "path": "/api/slack-report?action=health",
       "schedule": "0 0 * * *"
     }
   ],
@@ -67,7 +67,7 @@
     { "source": "/api/wishlist", "destination": "/api/wishlist" },
     { "source": "/api/slack-report", "destination": "/api/slack-report" },
     { "source": "/api/cancel-order", "destination": "/api/cancel-order" },
-    { "source": "/api/health-check", "destination": "/api/health-check" },
+    { "source": "/api/health-check", "destination": "/api/slack-report?action=health" },
     { "source": "/api/b2b-apply", "destination": "/api/b2b?action=apply" },
     { "source": "/api/b2b-list", "destination": "/api/b2b?action=list" },
     { "source": "/api/b2b-detail", "destination": "/api/b2b?action=detail" },

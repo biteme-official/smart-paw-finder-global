@@ -13,7 +13,7 @@ jobs:
       - name: Run Health Check
         run: |
           RESPONSE=$(curl -s -w "\n%{http_code}" \
-            -X POST "https://www.biteme.one/api/health-check" \
+            -X POST "https://www.biteme.one/api/slack-report?action=health" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
 
