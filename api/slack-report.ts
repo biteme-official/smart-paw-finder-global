@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL || '';
+const SLACK_ALERT_WEBHOOK_URL = process.env.SLACK_ALERT_WEBHOOK_URL || SLACK_WEBHOOK_URL;
 
 let cachedToken: string | null = null;
 let tokenExpiresAt: number = 0;
@@ -416,7 +417,7 @@ async function checkAdminApi(): Promise<CheckResult> {
 }
 
 async function sendHealthAlert(results: CheckResult[]) {
-  if (!SLACK_WEBHOOK_URL) return;
+  if (!SLACK_ALERT_WEBHOOK_URL) return;
   const failed = results.filter(r => !r.ok);
   const kstTime = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
   const blocks: any[] = [
@@ -429,7 +430,7 @@ async function sendHealthAlert(results: CheckResult[]) {
   for (const r of results.filter(r => r.ok)) {
     blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `✅ *${r.name}* — ${r.latencyMs}ms` } });
   }
-  await fetch(SLACK_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blocks }) });
+  await fetch(SLACK_ALERT_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blocks }) });
 }
 
 async function sendDailyHealthSummary(history: HistoryEntry[]) {
