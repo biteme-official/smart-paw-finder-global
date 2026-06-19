@@ -75,7 +75,8 @@ async function handleStorefrontProxy(req: Connect.IncomingMessage, res: any, use
     } else {
       const isMutation = /^\s*mutation\b/i.test(body.replace(/.*"query"\s*:\s*"/, ''));
       if (isMutation) {
-        headers['Shopify-Storefront-Private-Token'] = await getAccessToken();
+        const headlessToken = process.env.SHOPIFY_HEADLESS_STOREFRONT_TOKEN;
+        headers['Shopify-Storefront-Private-Token'] = headlessToken || await getAccessToken();
       }
     }
 

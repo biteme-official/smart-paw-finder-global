@@ -344,7 +344,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const bodyStr = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
       const isMutation = /^\s*mutation\b/i.test(bodyStr.replace(/.*"query"\s*:\s*"/, ''));
       if (isMutation) {
-        headers['Shopify-Storefront-Private-Token'] = await getAccessToken();
+        const headlessToken = process.env.SHOPIFY_HEADLESS_STOREFRONT_TOKEN;
+        headers['Shopify-Storefront-Private-Token'] = headlessToken || await getAccessToken();
       }
     }
 
