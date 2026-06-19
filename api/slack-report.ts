@@ -480,19 +480,22 @@ async function handleHealthCheck(res: VercelResponse, forceDailySummary = false)
 
   if (!allOk) await sendHealthAlert(results);
 
-  const kstHour = new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hour12: false });
-  const lastSent = await kvGet(KV_DAILY_SENT_KEY);
-  const today = new Date().toISOString().slice(0, 10);
-  if (forceDailySummary || (parseInt(kstHour) === 9 && lastSent !== today)) {
+  const kstHour = parseInt(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hour12: false }));
+  const lastSent: string[] = (await kvGet(KV_DAILY_SENT_KEY)) || [];
+  const todaySlot = `${new Date().toISOString().slice(0, 10)}-${kstHour}`;
+  const isScheduledHour = kstHour === 9 || kstHour === 18;
+  const shouldSend = forceDailySummary || (isScheduledHour && !lastSent.includes(todaySlot));
+  if (shouldSend) {
     await sendDailyHealthSummary(trimmed);
-    if (!forceDailySummary) await kvSet(KV_DAILY_SENT_KEY, today, 86400);
+    if (!forceDailySummary) {
+      lastSent.push(todaySlot);
+      await kvSet(KV_DAILY_SENT_KEY, lastSent, 86400);
+    }
   }
 
   return res.status(200).json({
     status: allOk ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
-    dailySummarySent: forceDailySummary || (parseInt(kstHour) === 9 && lastSent !== today),
-    slackConfigured: !!SLACK_WEBHOOK_URL,
     results: results.map(r => ({ name: r.name, ok: r.ok, status: r.status, latencyMs: r.latencyMs, ...(r.error ? { error: r.error } : {}) })),
   });
 }
