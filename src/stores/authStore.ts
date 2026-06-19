@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { useFavoritesStore } from './favoritesStore';
+import { isLoggedIn as isSessionValid } from '@/lib/customer-auth';
 
 export interface UserProfile {
   userId: string;
@@ -46,12 +47,16 @@ export const useAuthStore = create<AuthStore>()(
         user: state.user,
         isLoggedIn: state.isLoggedIn,
       }),
-      merge: (persisted, current) => ({
-        ...current,
-        ...(persisted as Partial<AuthStore>),
-        isB2B: false,
-        b2bDiscountRate: DEFAULT_B2B_DISCOUNT_RATE,
-      }),
+      merge: (persisted, current) => {
+        const sessionActive = isSessionValid();
+        return {
+          ...current,
+          ...(persisted as Partial<AuthStore>),
+          isB2B: false,
+          b2bDiscountRate: DEFAULT_B2B_DISCOUNT_RATE,
+          ...(sessionActive ? {} : { isLoggedIn: false, user: null }),
+        };
+      },
     }
   )
 );
