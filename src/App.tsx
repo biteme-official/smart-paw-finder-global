@@ -61,7 +61,27 @@ function UtmCapture() {
 }
 
 function B2BDiscountSync() {
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
   const isB2B = useAuthStore((s) => s.isB2B);
+  const user = useAuthStore((s) => s.user);
+  useEffect(() => {
+    if (!isLoggedIn || !user) return;
+    const email = user.shopifyEmail || user.email;
+    if (!email) return;
+    fetch('/api/customer-tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        const tags: string[] = data.tags || [];
+        const b2b = tags.some(t => t.toUpperCase() === 'B2B');
+        useAuthStore.getState().setB2B(b2b);
+        if (b2b) fetchB2BDiscountRate();
+      })
+      .catch(() => {});
+  }, [isLoggedIn, user]);
   useEffect(() => {
     if (isB2B) fetchB2BDiscountRate();
   }, [isB2B]);
