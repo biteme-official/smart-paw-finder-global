@@ -908,13 +908,6 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
   const returnUrl = `${window.location.origin}/checkout-return`;
   url.searchParams.set('return_to', returnUrl);
 
-  // Route through Shopify login to auto sign-in on checkout
-  const shopId = import.meta.env.VITE_SHOPIFY_SHOP_ID;
-  if (shopId) {
-    const checkoutUrl = url.toString();
-    return `https://shopify.com/${shopId}/account/login?return_to=${encodeURIComponent(checkoutUrl)}`;
-  }
-
   return url.toString();
 }
 
