@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "
 import { trackPageView } from "@/lib/ga4-pageview";
 import { saveUtmParams } from "@/lib/browser-utils";
 import { useAuthStore, fetchB2BDiscountRate } from "@/stores/authStore";
+import { isLoggedIn as isCustomerSessionValid } from "@/lib/customer-auth";
 import Index from "./pages/Index";
 import ProductDetail from "./pages/ProductDetail";
 import CheckoutReturn from "./pages/CheckoutReturn";
@@ -66,6 +67,10 @@ function B2BDiscountSync() {
   const user = useAuthStore((s) => s.user);
   useEffect(() => {
     if (!isLoggedIn || !user) return;
+    if (!isCustomerSessionValid()) {
+      useAuthStore.getState().logout();
+      return;
+    }
     const email = user.shopifyEmail || user.email;
     if (!email) return;
     fetch('/api/customer-tags', {
