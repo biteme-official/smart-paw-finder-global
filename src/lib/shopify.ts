@@ -836,7 +836,10 @@ export async function fetchCollectionProducts(handle: string, first: number = 20
 
 export async function createStorefrontCheckout(items: { variantId: string; quantity: number }[]): Promise<string> {
    const affiliateDiscount = localStorage.getItem('affiliate_discount');
-   return createStorefrontCheckoutWithDiscount(items, affiliateDiscount);
+   const { isB2B, isLoggedIn } = useAuthStore.getState();
+   const isBizCode = affiliateDiscount && ['BUSINESS'].includes(affiliateDiscount.toUpperCase());
+   const discountCode = isBizCode && (!isLoggedIn || !isB2B) ? null : affiliateDiscount;
+   return createStorefrontCheckoutWithDiscount(items, discountCode);
  }
 
  // Create checkout with optional discount code for B2B members
