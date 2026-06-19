@@ -192,11 +192,14 @@ async function handleOG(req: VercelRequest, res: VercelResponse): Promise<void> 
         if (!shop) {
           console.error('[OG] VITE_SHOPIFY_STORE_DOMAIN 환경변수 없음');
         } else {
+          const ogHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+          const sfToken = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN;
+          if (sfToken) {
+            ogHeaders['X-Shopify-Storefront-Access-Token'] = sfToken;
+          }
           const gqlRes = await fetch(`https://${shop}/api/2025-07/graphql.json`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: ogHeaders,
             body: JSON.stringify({
               query: `query OG($h:String!){product(handle:$h){title description(truncateAt:200) featuredImage{url} images(first:1){edges{node{url}}}}}`,
               variables: { h: handle },
@@ -341,11 +344,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (isAdmin) {
       headers['X-Shopify-Access-Token'] = await getAccessToken();
     } else {
-      const bodyStr = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-      const isMutation = /^\s*mutation\b/i.test(bodyStr.replace(/.*"query"\s*:\s*"/, ''));
-      if (isMutation) {
-        const headlessToken = process.env.SHOPIFY_HEADLESS_STOREFRONT_TOKEN;
-        headers['Shopify-Storefront-Private-Token'] = headlessToken || await getAccessToken();
+      const storefrontToken = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN;
+      if (storefrontToken) {
+        headers['X-Shopify-Storefront-Access-Token'] = storefrontToken;
+      } else {
+        headers['Shopify-Storefront-Private-Token'] = await getAccessToken();
       }
     }
 

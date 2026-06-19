@@ -73,10 +73,11 @@ async function handleStorefrontProxy(req: Connect.IncomingMessage, res: any, use
     if (useAdmin) {
       headers['X-Shopify-Access-Token'] = await getAccessToken();
     } else {
-      const isMutation = /^\s*mutation\b/i.test(body.replace(/.*"query"\s*:\s*"/, ''));
-      if (isMutation) {
-        const headlessToken = process.env.SHOPIFY_HEADLESS_STOREFRONT_TOKEN;
-        headers['Shopify-Storefront-Private-Token'] = headlessToken || await getAccessToken();
+      const storefrontToken = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN;
+      if (storefrontToken) {
+        headers['X-Shopify-Storefront-Access-Token'] = storefrontToken;
+      } else {
+        headers['Shopify-Storefront-Private-Token'] = await getAccessToken();
       }
     }
 
