@@ -74,7 +74,12 @@ function gaDateRange(range: string): { startDate: string; endDate: string } {
   if (range === 'today') return { startDate: 'today', endDate: 'today' };
   if (range === '7d') return { startDate: '7daysAgo', endDate: 'yesterday' };
   if (range === '28d') return { startDate: '28daysAgo', endDate: 'yesterday' };
-  return { startDate: '90daysAgo', endDate: 'yesterday' };
+  if (range === '90d') return { startDate: '90daysAgo', endDate: 'yesterday' };
+  if (range.startsWith('custom:')) {
+    const parts = range.split(':');
+    if (parts.length === 3) return { startDate: parts[1], endDate: parts[2] };
+  }
+  return { startDate: '7daysAgo', endDate: 'yesterday' };
 }
 
 const ALLOWED_ORIGINS = [
@@ -491,13 +496,22 @@ async function handleCustomers(token: string, req: VercelRequest, res: VercelRes
 
 async function handleDashboard(token: string, req: VercelRequest, res: VercelResponse) {
   const range = (req.query.range as string) || '7d';
-  const now = new Date();
-  const days = range === 'today' ? 0 : range === '7d' ? 7 : range === '28d' ? 28 : 90;
-  const startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days));
+  let dateQuery: string;
+  if (range.startsWith('custom:')) {
+    const [, start, end] = range.split(':');
+    dateQuery = start && end
+      ? `created_at:>='${start}' created_at:<='${end}'`
+      : `created_at:>='${new Date(Date.now() - 7 * 86400000).toISOString()}'`;
+  } else {
+    const now = new Date();
+    const days = range === 'today' ? 0 : range === '7d' ? 7 : range === '28d' ? 28 : 90;
+    const startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days));
+    dateQuery = `created_at:>='${startDate.toISOString()}'`;
+  }
 
   const [ordersData, lowStockData] = await Promise.all([
     adminGraphQL(token, DASHBOARD_ORDERS_QUERY, {
-      query: `created_at:>='${startDate.toISOString()}' financial_status:paid`,
+      query: `${dateQuery} financial_status:paid`,
     }),
     adminGraphQL(token, LOW_STOCK_PRODUCTS_QUERY),
   ]);
