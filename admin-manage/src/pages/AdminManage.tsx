@@ -75,8 +75,6 @@ function fmtPagePath(path: string) {
   return path === '/' ? 'Home (/)' : path;
 }
 
-const FUNNEL_STEP_ORDER = ['view_item', 'add_to_cart', 'begin_checkout', 'add_payment_info', 'purchase'];
-
 function fmtMoney(v: number, currency = 'USD') {
   if (currency === 'JPY') return `¥${Math.round(v).toLocaleString('ja-JP')}`;
   return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -202,7 +200,6 @@ function GaPlaceholder({ title, compact }: { title?: string; compact?: boolean }
 
 const USERS_COLOR = '#6366f1';
 const SESSIONS_COLOR = '#10b981';
-const AOV_COLOR = '#8b5cf6';
 
 function TrafficTrendChart({ ga }: { ga?: GaData | null }) {
   if (!ga?.available || !ga.daily || ga.daily.length === 0) {
@@ -691,13 +688,7 @@ function FunnelChart({ funnel }: { funnel: GaData['funnel'] }) {
 
 
 
-function countryFlag(code: string) {
-  if (!code || code.length !== 2) return '';
-  return code.toUpperCase().split('').map(c => String.fromCodePoint(0x1F1E0 + c.charCodeAt(0) - 65)).join('');
-}
-
 const COUNTRY_COLORS = ['#f85a24', '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#9ca3af'];
-const MEDALS = ['🥇', '🥈', '🥉'];
 
 function TrafficSection({ traffic, countryOrders }: { traffic: GaTrafficData; countryOrders: { country: string; orders: number }[] }) {
   const { sources, countries, pages } = traffic;
