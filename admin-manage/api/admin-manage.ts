@@ -254,6 +254,7 @@ const DASHBOARD_ORDERS_QUERY = `
           createdAt
           totalPriceSet { shopMoney { amount currencyCode } }
           customer { tags }
+          shippingAddress { countryCodeV2 }
           lineItems(first: 5) {
             edges {
               node {
@@ -520,6 +521,7 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
     createdAt: string;
     totalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
     customer: { tags: string[] } | null;
+    shippingAddress: { countryCodeV2: string } | null;
     lineItems: { edges: { node: { title: string; quantity: number; originalTotalSet: { shopMoney: { amount: string } } } }[] };
   }
 
@@ -535,6 +537,7 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
 
   const dailyMap = new Map<string, { date: string; orders: number; revenue: number }>();
   const productMap = new Map<string, { title: string; quantity: number; revenue: number }>();
+  const countryMap = new Map<string, number>();
 
   for (const edge of edges) {
     const n = edge.node as OrderNode;
@@ -553,6 +556,9 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
     day.revenue += amount;
     dailyMap.set(date, day);
 
+    const cc = n.shippingAddress?.countryCodeV2 || '';
+    if (cc) countryMap.set(cc, (countryMap.get(cc) || 0) + 1);
+
     for (const li of (n.lineItems?.edges || [])) {
       const item = li.node;
       totalItemsSold += item.quantity;
@@ -562,6 +568,11 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
       productMap.set(item.title, existing);
     }
   }
+
+  const countryOrders = Array.from(countryMap.entries())
+    .map(([country, orders]) => ({ country, orders }))
+    .sort((a, b) => b.orders - a.orders)
+    .slice(0, 15);
 
   const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
   const dailyOrders = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
@@ -607,6 +618,7 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
     dailyOrders,
     topProducts,
     lowStock,
+    countryOrders,
     currency,
   });
 }
@@ -704,7 +716,7 @@ async function handleGaTraffic(req: VercelRequest, res: VercelResponse) {
   const range = (req.query.range as string) || '7d';
   const dr = gaDateRange(range);
 
-  const [sourceReport, deviceReport, pageReport] = await Promise.all([
+  const [sourceReport, countryReport, pageReport] = await Promise.all([
     gaReport(gaToken, {
       dateRanges: [dr],
       dimensions: [{ name: 'sessionSourceMedium' }],
@@ -714,9 +726,10 @@ async function handleGaTraffic(req: VercelRequest, res: VercelResponse) {
     }),
     gaReport(gaToken, {
       dateRanges: [dr],
-      dimensions: [{ name: 'deviceCategory' }],
-      metrics: [{ name: 'sessions' }, { name: 'totalUsers' }, { name: 'bounceRate' }, { name: 'averageSessionDuration' }],
+      dimensions: [{ name: 'countryId' }, { name: 'country' }],
+      metrics: [{ name: 'sessions' }, { name: 'totalUsers' }],
       orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+      limit: 15,
     }),
     gaReport(gaToken, {
       dateRanges: [dr],
@@ -734,12 +747,11 @@ async function handleGaTraffic(req: VercelRequest, res: VercelResponse) {
     bounceRate: Math.round(parseFloat(r.bounceRate || '0') * 10000) / 100,
   }));
 
-  const devices = gaRows(deviceReport).map(r => ({
-    device: r.deviceCategory || 'unknown',
+  const countries = gaRows(countryReport).map(r => ({
+    countryId: r.countryId || '',
+    country: r.country || '',
     sessions: parseInt(r.sessions || '0'),
     users: parseInt(r.totalUsers || '0'),
-    bounceRate: Math.round(parseFloat(r.bounceRate || '0') * 10000) / 100,
-    avgDuration: Math.round(parseFloat(r.averageSessionDuration || '0')),
   }));
 
   const pages = gaRows(pageReport).map(r => ({
@@ -748,7 +760,7 @@ async function handleGaTraffic(req: VercelRequest, res: VercelResponse) {
     users: parseInt(r.totalUsers || '0'),
   }));
 
-  return res.status(200).json({ available: true, sources, devices, pages });
+  return res.status(200).json({ available: true, sources, countries, pages });
 }
 
 async function handleGaFunnel(req: VercelRequest, res: VercelResponse) {

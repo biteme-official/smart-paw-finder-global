@@ -23,6 +23,7 @@ interface DashboardData {
   dailyOrders: { date: string; orders: number; revenue: number }[];
   topProducts: { title: string; quantity: number; revenue: number }[];
   lowStock: { title: string; variant: string; quantity: number }[];
+  countryOrders: { country: string; orders: number }[];
   currency: string;
 }
 
@@ -49,7 +50,7 @@ interface GaFunnelData {
 interface GaTrafficData {
   available: boolean;
   sources: { source: string; sessions: number; users: number; bounceRate: number }[];
-  devices: { device: string; sessions: number; users: number; bounceRate: number; avgDuration: number }[];
+  countries: { countryId: string; country: string; sessions: number; users: number }[];
   pages: { path: string; views: number; users: number }[];
 }
 
@@ -685,13 +686,31 @@ function FunnelChart({ funnel }: { funnel: GaData['funnel'] }) {
   );
 }
 
-const DEVICE_LABELS: Record<string, string> = { desktop: '데스크톱', mobile: '모바일', tablet: '태블릿' };
-const DEVICE_COLORS: Record<string, string> = { desktop: '#f85a24', mobile: '#fb8c5a', tablet: '#fdb997' };
 
-function TrafficSection({ traffic }: { traffic: GaTrafficData }) {
-  const { sources, devices, pages } = traffic;
-  const totalDeviceSessions = devices.reduce((s, d) => s + d.sessions, 0);
+
+const COUNTRY_COLORS = ['#f85a24', '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#9ca3af'];
+
+function TrafficSection({ traffic, countryOrders }: { traffic: GaTrafficData; countryOrders: { country: string; orders: number }[] }) {
+  const { sources, countries, pages } = traffic;
+  const totalUsers = countries.reduce((s, c) => s + c.users, 0);
+  const totalOrderCount = countryOrders.reduce((s, c) => s + c.orders, 0);
+  const orderMap = new Map(countryOrders.map(c => [c.country.toUpperCase(), c.orders]));
   const maxPageViews = pages[0]?.views || 1;
+
+  const sortedByUsers = [...countries].sort((a, b) => b.users - a.users);
+  const top5 = sortedByUsers.slice(0, 5);
+  const otherUsers = sortedByUsers.slice(5).reduce((s, c) => s + c.users, 0);
+  const top5OrdersTotal = top5.reduce((s, c) => s + (orderMap.get(c.countryId.toUpperCase()) ?? 0), 0);
+  const otherOrders = totalOrderCount - top5OrdersTotal;
+
+  const trafficPie = [
+    ...top5.map((c, i) => ({ name: c.country, countryId: c.countryId, value: c.users, color: COUNTRY_COLORS[i] })),
+    ...(otherUsers > 0 ? [{ name: '기타', countryId: '', value: otherUsers, color: COUNTRY_COLORS[5] }] : []),
+  ];
+  const conversionPie = [
+    ...top5.map((c, i) => ({ name: c.country, countryId: c.countryId, value: orderMap.get(c.countryId.toUpperCase()) ?? 0, color: COUNTRY_COLORS[i] })),
+    ...(otherOrders > 0 ? [{ name: '기타', countryId: '', value: otherOrders, color: COUNTRY_COLORS[5] }] : []),
+  ].filter(d => d.value > 0);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -723,46 +742,76 @@ function TrafficSection({ traffic }: { traffic: GaTrafficData }) {
         </div>
       </div>
 
-      {/* 디바이스 */}
-      <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+      {/* 국가별 유입 및 전환 */}
+      <div className="rounded-xl border bg-white border-gray-200 overflow-hidden flex flex-col">
         <div className="px-5 py-3 border-b border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900">디바이스</h3>
-          <p className="text-xs text-gray-400">디바이스별 세션 분포</p>
+          <h3 className="text-sm font-semibold text-gray-900">국가별 유입 및 전환</h3>
+          <p className="text-xs text-gray-400">GA4 사용자 기준 유입 · Shopify 주문 기준 전환</p>
         </div>
-        <div className="p-4 flex items-center gap-4">
-          <PieChart width={120} height={120}>
-            <Pie data={devices.map(d => ({ name: d.device, value: d.sessions }))} dataKey="value"
-              cx={55} cy={55} innerRadius={32} outerRadius={50} paddingAngle={2}>
-              {devices.map((d, i) => <Cell key={i} fill={DEVICE_COLORS[d.device] || '#d4d4d4'} />)}
-            </Pie>
-          </PieChart>
-          <div className="flex-1 space-y-2">
-            {devices.map((d, i) => (
-              <div key={i} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: DEVICE_COLORS[d.device] || '#d4d4d4' }} />
-                  <span>{DEVICE_LABELS[d.device] || d.device}</span>
+
+        <div className="px-4 py-3 flex gap-3">
+          {/* 유입 비중 */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-semibold text-gray-400 mb-2">유입 비중</p>
+            <div className="flex justify-center mb-2">
+              <PieChart width={90} height={90}>
+                <Pie data={trafficPie.length ? trafficPie : [{ name: '-', value: 1, color: '#e5e7eb' }]}
+                  dataKey="value" cx={43} cy={43} innerRadius={26} outerRadius={43} paddingAngle={2}>
+                  {(trafficPie.length ? trafficPie : [{ color: '#e5e7eb' }]).map((d, i) => (
+                    <Cell key={i} fill={d.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </div>
+            <div className="space-y-1">
+              {trafficPie.map(d => (
+                <div key={d.name} className="flex items-center gap-1 text-[10px] leading-4">
+                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                  <span className="text-gray-700 truncate flex-1 min-w-0">{d.name}</span>
+                  <span className="text-gray-500 shrink-0">{d.value.toLocaleString()}</span>
+                  <span className="text-gray-400 shrink-0 w-9 text-right">
+                    {totalUsers > 0 ? (d.value / totalUsers * 100).toFixed(1) : 0}%
+                  </span>
                 </div>
-                <div className="text-right">
-                  <span className="font-medium">{d.sessions.toLocaleString()}</span>
-                  <span className="text-gray-400 ml-1.5">{totalDeviceSessions > 0 ? ((d.sessions / totalDeviceSessions) * 100).toFixed(1) : 0}%</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="px-4 pb-3">
-          <table className="w-full text-xs">
-            <tbody>
-              {devices.map((d, i) => (
-                <tr key={i} className="border-t border-gray-100">
-                  <td className="py-1.5 text-gray-400">{DEVICE_LABELS[d.device] || d.device}</td>
-                  <td className="py-1.5 text-right text-gray-500">이탈 {d.bounceRate.toFixed(1)}%</td>
-                  <td className="py-1.5 text-right text-gray-500">{d.avgDuration > 60 ? `${Math.floor(d.avgDuration / 60)}분 ${d.avgDuration % 60}초` : `${d.avgDuration}초`}</td>
-                </tr>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </div>
+
+          <div className="w-px bg-gray-100 self-stretch" />
+
+          {/* 전환 비중 */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-semibold text-gray-400 mb-2">전환 비중</p>
+            <div className="flex justify-center mb-2">
+              <PieChart width={90} height={90}>
+                <Pie data={conversionPie.length ? conversionPie : [{ name: '-', value: 1, color: '#e5e7eb' }]}
+                  dataKey="value" cx={43} cy={43} innerRadius={26} outerRadius={43} paddingAngle={2}>
+                  {(conversionPie.length ? conversionPie : [{ color: '#e5e7eb' }]).map((d, i) => (
+                    <Cell key={i} fill={d.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </div>
+            <div className="space-y-1">
+              {trafficPie.map(d => {
+                const orders = d.countryId
+                  ? (orderMap.get(d.countryId.toUpperCase()) ?? 0)
+                  : otherOrders;
+                return (
+                  <div key={d.name} className="flex items-center gap-1 text-[10px] leading-4">
+                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                    <span className="text-gray-700 truncate flex-1 min-w-0">{d.name}</span>
+                    <span className={`shrink-0 ${orders > 0 ? 'text-gray-500' : 'text-gray-300'}`}>
+                      {orders > 0 ? `${orders}건` : '—'}
+                    </span>
+                    <span className="text-gray-400 shrink-0 w-9 text-right">
+                      {totalOrderCount > 0 && orders > 0 ? `${(orders / totalOrderCount * 100).toFixed(1)}%` : '—'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -872,8 +921,8 @@ function DashboardTab({ data, currency, range, ga, traffic, funnel }: { data: Da
 
       <SectionLabel>트래픽 분석</SectionLabel>
       {traffic?.available
-        ? <TrafficSection traffic={traffic} />
-        : <GaPlaceholder title="유입 소스 · 디바이스 · 상위 페이지" />}
+        ? <TrafficSection traffic={traffic} countryOrders={data.countryOrders ?? []} />
+        : <GaPlaceholder title="유입 소스 · 국가별 유입·전환 · 상위 페이지" />}
 
       <SectionLabel>운영 현황</SectionLabel>
       <OperationsPanel lowStock={lowStock} topProducts={topProducts} currency={currency} />
