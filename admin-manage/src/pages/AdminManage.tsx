@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ComposedChart, LineChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, PieChart, Pie, Cell,
 } from 'recharts';
 import { toast } from 'sonner';
@@ -199,29 +199,37 @@ function GaPlaceholder({ title, compact }: { title?: string; compact?: boolean }
 // ─── Dashboard: Combined Chart ───
 
 const USERS_COLOR = '#6366f1';
-const SESSIONS_COLOR = '#10b981';
 
-function TrafficTrendChart({ ga }: { ga?: GaData | null }) {
+const CVR_COLOR = '#f59e0b';
+
+function TrafficTrendChart({ ga, dailyOrders }: { ga?: GaData | null; dailyOrders?: DashboardData['dailyOrders'] }) {
   if (!ga?.available || !ga.daily || ga.daily.length === 0) {
-    return <GaPlaceholder title="유입 추이" />;
+    return <GaPlaceholder title="유입 및 전환 추이" />;
   }
+  const orderMap = new Map<string, number>((dailyOrders ?? []).map(d => [d.date, d.orders]));
   const chartData = [...ga.daily]
     .sort((a, b) => a.date.localeCompare(b.date))
-    .map(d => ({ date: isoToLabel(d.date), sessions: d.sessions, users: d.users }));
+    .map(d => {
+      const orders = orderMap.get(d.date) ?? 0;
+      const cvr = d.users > 0 ? parseFloat((orders / d.users * 100).toFixed(2)) : 0;
+      return { date: isoToLabel(d.date), users: d.users, cvr };
+    });
   const interval = Math.max(0, Math.ceil(chartData.length / 10) - 1);
 
   return (
     <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-100">
-        <h3 className="text-sm font-semibold text-gray-900">유입 추이</h3>
-        <p className="text-xs text-gray-400">총 사용자 · 세션 일별 추이</p>
+        <h3 className="text-sm font-semibold text-gray-900">유입 및 전환 추이</h3>
+        <p className="text-xs text-gray-400">총 사용자 · 전환율(CVR) 일별 추이</p>
       </div>
       <div className="p-4">
         <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+          <ComposedChart data={chartData} margin={{ top: 4, right: 40, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
             <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={interval} />
-            <YAxis tick={{ fontSize: 10 }} width={40} />
+            <YAxis yAxisId="users" tick={{ fontSize: 10 }} width={40} />
+            <YAxis yAxisId="cvr" orientation="right" tick={{ fontSize: 10 }} width={36}
+              tickFormatter={v => `${v}%`} />
             <Tooltip content={({ active, payload, label }) => {
               if (!active || !payload || !payload.length) return null;
               const map = new Map(payload.map(p => [p.dataKey as string, p]));
@@ -229,9 +237,9 @@ function TrafficTrendChart({ ga }: { ga?: GaData | null }) {
                 <div className="bg-white border border-gray-200 rounded-lg shadow-md p-3 text-xs min-w-[140px]">
                   <p className="font-semibold text-gray-700 mb-2">{label}</p>
                   {[
-                    { key: 'sessions', label: '세션', color: SESSIONS_COLOR },
-                    { key: 'users', label: '총 사용자', color: USERS_COLOR },
-                  ].map(({ key, label: lbl, color }) => {
+                    { key: 'users', label: '총 사용자', color: USERS_COLOR, fmt: (v: number) => v.toLocaleString() },
+                    { key: 'cvr', label: '전환율 (CVR)', color: CVR_COLOR, fmt: (v: number) => `${v}%` },
+                  ].map(({ key, label: lbl, color, fmt }) => {
                     const item = map.get(key);
                     return item ? (
                       <div key={key} className="flex justify-between gap-4 py-0.5">
@@ -239,7 +247,7 @@ function TrafficTrendChart({ ga }: { ga?: GaData | null }) {
                           <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
                           {lbl}
                         </span>
-                        <span className="font-medium">{Number(item.value).toLocaleString()}</span>
+                        <span className="font-medium">{fmt(Number(item.value))}</span>
                       </div>
                     ) : null;
                   })}
@@ -248,20 +256,19 @@ function TrafficTrendChart({ ga }: { ga?: GaData | null }) {
             }} />
             <Legend content={() => (
               <div className="flex gap-4 justify-center mt-2">
-                {[
-                  { color: SESSIONS_COLOR, label: '세션' },
-                  { color: USERS_COLOR, label: '총 사용자' },
-                ].map(({ color, label: lbl }) => (
-                  <div key={lbl} className="flex items-center gap-1.5 text-xs text-gray-600">
-                    <span className="inline-block w-6 h-0.5 rounded" style={{ backgroundColor: color }} />
-                    {lbl}
-                  </div>
-                ))}
+                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: USERS_COLOR }} />
+                  총 사용자
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <span className="inline-block w-6 h-0.5 rounded" style={{ backgroundColor: CVR_COLOR }} />
+                  전환율 (CVR)
+                </div>
               </div>
             )} />
-            <Line type="monotone" dataKey="sessions" stroke={SESSIONS_COLOR} strokeWidth={2.5} dot={false} />
-            <Line type="monotone" dataKey="users" stroke={USERS_COLOR} strokeWidth={2} dot={false} />
-          </LineChart>
+            <Bar yAxisId="users" dataKey="users" fill={USERS_COLOR} opacity={0.8} radius={[2, 2, 0, 0]} />
+            <Line yAxisId="cvr" type="monotone" dataKey="cvr" stroke={CVR_COLOR} strokeWidth={2.5} dot={false} />
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>
@@ -411,7 +418,6 @@ function TimelineTable({ dailyOrders, currency, ga, funnel }: { dailyOrders: Das
             <tr>
               <th className="text-left px-4 py-2 font-medium text-gray-400 whitespace-nowrap">날짜</th>
               <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">총 사용자</th>
-              <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">세션</th>
               <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">장바구니</th>
               <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">결제 시작</th>
               <th className="text-right px-4 py-2 font-medium text-gray-400 whitespace-nowrap">구매 수</th>
@@ -425,13 +431,12 @@ function TimelineTable({ dailyOrders, currency, ga, funnel }: { dailyOrders: Das
               const g = tab === 'daily' ? gaMap.get(row.sortKey) : undefined;
               const f = tab === 'daily' ? funnelMap.get(row.sortKey) : undefined;
               // CVR/AOV: 주문 수·매출 모두 DB(Net) 기준 사용
-              const cvr = g && g.sessions > 0 && row.orders > 0 ? (row.orders / g.sessions * 100).toFixed(2) + '%' : null;
+              const cvr = g && g.users > 0 && row.orders > 0 ? (row.orders / g.users * 100).toFixed(2) + '%' : null;
               const aov = row.orders > 0 ? fmtMoney(row.revenue / row.orders, currency) : null;
               return (
                 <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
                   <td className="px-4 py-2 font-mono whitespace-nowrap">{row.label}</td>
                   <td className="px-4 py-2 text-right">{g ? g.users.toLocaleString() : dash}</td>
-                  <td className="px-4 py-2 text-right">{g ? g.sessions.toLocaleString() : dash}</td>
                   <td className="px-4 py-2 text-right">{f ? f.addToCart.toLocaleString() : dash}</td>
                   <td className="px-4 py-2 text-right">{f ? f.beginCheckout.toLocaleString() : dash}</td>
                   <td className="px-4 py-2 text-right">{row.orders > 0 ? row.orders.toLocaleString() : '—'}</td>
@@ -446,18 +451,16 @@ function TimelineTable({ dailyOrders, currency, ga, funnel }: { dailyOrders: Das
             {(() => {
               const gaAvail = ga?.available && ga.daily;
               const periodUsers = gaAvail ? ga!.users : null;
-              const totalSessions = gaAvail ? ga!.daily.reduce((s, d) => s + d.sessions, 0) : null;
               const funnelAvail = funnel?.available && funnel.dailyFunnel;
               const ftAddToCart = funnelAvail ? funnel!.dailyFunnel.reduce((s, d) => s + ((d.add_to_cart as number) || 0), 0) : null;
               const ftBeginCheckout = funnelAvail ? funnel!.dailyFunnel.reduce((s, d) => s + ((d.begin_checkout as number) || 0), 0) : null;
-              // 구매 수·CVR·AOV: DB Net 기준
-              const ftCvr = totalSessions && totalOrders > 0 ? (totalOrders / totalSessions * 100).toFixed(2) + '%' : null;
+              // 구매 수·CVR·AOV: DB Net 기준, CVR = 주문 수 / 총 사용자
+              const ftCvr = periodUsers && periodUsers > 0 && totalOrders > 0 ? (totalOrders / periodUsers * 100).toFixed(2) + '%' : null;
               const ftAov = totalOrders > 0 ? fmtMoney(totalRevenue / totalOrders, currency) : null;
               return (
                 <tr className="font-semibold">
                   <td className="px-4 py-2 text-xs">합계</td>
                   <td className="px-4 py-2 text-right">{periodUsers !== null ? periodUsers.toLocaleString() : dash}</td>
-                  <td className="px-4 py-2 text-right">{totalSessions !== null ? totalSessions.toLocaleString() : dash}</td>
                   <td className="px-4 py-2 text-right">{ftAddToCart !== null ? ftAddToCart.toLocaleString() : dash}</td>
                   <td className="px-4 py-2 text-right">{ftBeginCheckout !== null ? ftBeginCheckout.toLocaleString() : dash}</td>
                   <td className="px-4 py-2 text-right">{totalOrders > 0 ? totalOrders.toLocaleString() : dash}</td>
@@ -690,9 +693,11 @@ function FunnelChart({ funnel }: { funnel: GaData['funnel'] }) {
 
 const COUNTRY_COLORS = ['#f85a24', '#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#9ca3af'];
 
-function TrafficSection({ traffic, countryOrders }: { traffic: GaTrafficData; countryOrders: { country: string; orders: number }[] }) {
+function TrafficSection({ traffic, countryOrders, funnel }: { traffic: GaTrafficData; countryOrders: { country: string; orders: number }[]; funnel?: GaFunnelData | null }) {
   const { sources, countries, pages } = traffic;
   const totalUsers = countries.reduce((s, c) => s + c.users, 0);
+  const totalSourceUsers = sources.reduce((s, r) => s + r.users, 0);
+  const funnelSourceMap = new Map((funnel?.sources ?? []).map(s => [s.source, s]));
   const totalOrderCount = countryOrders.reduce((s, c) => s + c.orders, 0);
   const orderMap = new Map(countryOrders.map(c => [c.country.toUpperCase(), c.orders]));
   const maxPageViews = pages[0]?.views || 1;
@@ -718,25 +723,32 @@ function TrafficSection({ traffic, countryOrders }: { traffic: GaTrafficData; co
       <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
         <div className="px-5 py-3 border-b border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900">유입 소스</h3>
-          <p className="text-xs text-gray-400">세션 기준 상위 소스</p>
+          <p className="text-xs text-gray-400">사용자 기준 상위 소스</p>
         </div>
         <div className="overflow-y-auto max-h-64">
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-white border-b">
               <tr>
                 <th className="text-left px-4 py-2 font-medium text-gray-400">소스</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-400">세션</th>
-                <th className="text-right px-4 py-2 font-medium text-gray-400">이탈률</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-400">사용자 수</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-400">비중</th>
+                <th className="text-right px-4 py-2 font-medium text-gray-400">CVR</th>
               </tr>
             </thead>
             <tbody>
-              {sources.map((row, i) => (
-                <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
-                  <td className="px-4 py-2 truncate max-w-[140px]">{row.source}</td>
-                  <td className="px-4 py-2 text-right font-medium">{row.sessions.toLocaleString()}</td>
-                  <td className="px-4 py-2 text-right">{row.bounceRate.toFixed(1)}%</td>
-                </tr>
-              ))}
+              {[...sources].sort((a, b) => b.users - a.users).map((row, i) => {
+                const share = totalSourceUsers > 0 ? (row.users / totalSourceUsers * 100).toFixed(1) : '0.0';
+                const fs = funnelSourceMap.get(row.source);
+                const cvr = fs && row.users > 0 ? (fs.purchases / row.users * 100).toFixed(2) : null;
+                return (
+                  <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+                    <td className="px-4 py-2 truncate max-w-[120px]">{row.source}</td>
+                    <td className="px-4 py-2 text-right font-medium">{row.users.toLocaleString()}</td>
+                    <td className="px-4 py-2 text-right text-gray-500">{share}%</td>
+                    <td className="px-4 py-2 text-right">{cvr !== null ? `${cvr}%` : <span className="text-gray-300">—</span>}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -897,7 +909,7 @@ function DashboardTab({ data, currency, range, ga, traffic, funnel }: { data: Da
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <TrafficTrendChart ga={ga} />
+        <TrafficTrendChart ga={ga} dailyOrders={dailyOrders} />
         {dailyOrders.length > 0
           ? <CombinedChart dailyOrders={dailyOrders} currency={currency} />
           : <GaPlaceholder title="주문 · 매출 추이" />}
@@ -921,7 +933,7 @@ function DashboardTab({ data, currency, range, ga, traffic, funnel }: { data: Da
 
       <SectionLabel>트래픽 분석</SectionLabel>
       {traffic?.available
-        ? <TrafficSection traffic={traffic} countryOrders={data.countryOrders ?? []} />
+        ? <TrafficSection traffic={traffic} countryOrders={data.countryOrders ?? []} funnel={funnel} />
         : <GaPlaceholder title="유입 소스 · 국가별 유입·전환 · 상위 페이지" />}
 
       <SectionLabel>운영 현황</SectionLabel>
