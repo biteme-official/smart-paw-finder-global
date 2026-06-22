@@ -74,8 +74,6 @@ function fmtPagePath(path: string) {
   return path === '/' ? 'Home (/)' : path;
 }
 
-const FUNNEL_STEP_ORDER = ['view_item', 'add_to_cart', 'begin_checkout', 'add_payment_info', 'purchase'];
-
 function fmtMoney(v: number, currency = 'USD') {
   if (currency === 'JPY') return `¥${Math.round(v).toLocaleString('ja-JP')}`;
   return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -201,7 +199,6 @@ function GaPlaceholder({ title, compact }: { title?: string; compact?: boolean }
 
 const USERS_COLOR = '#6366f1';
 const SESSIONS_COLOR = '#10b981';
-const AOV_COLOR = '#8b5cf6';
 
 function TrafficTrendChart({ ga }: { ga?: GaData | null }) {
   if (!ga?.available || !ga.daily || ga.daily.length === 0) {
