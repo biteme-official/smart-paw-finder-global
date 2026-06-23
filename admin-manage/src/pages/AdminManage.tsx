@@ -608,13 +608,14 @@ function FunnelBarChart({ data }: { data: FunnelStage[] }) {
             domain={[0, 100]}
           />
           <Tooltip
-            formatter={(value: number, name: string) => {
-              if (name === 'count') return [`${value.toLocaleString()}건`, '이벤트 건수'];
-              return [`${value}%`, '단계 전환율'];
+            formatter={(value, name) => {
+              const v = Number(value);
+              if (name === 'count') return [`${v.toLocaleString()}건`, '이벤트 건수'];
+              return [`${v}%`, '단계 전환율'];
             }}
           />
           <Legend
-            formatter={(n: string) => (n === 'count' ? '이벤트 건수' : '단계 전환율')}
+            formatter={(n) => (n === 'count' ? '이벤트 건수' : '단계 전환율')}
             wrapperStyle={{ fontSize: 11 }}
           />
           <Bar yAxisId="count" dataKey="count" fill={BRAND} opacity={0.85} radius={[3, 3, 0, 0]}>
@@ -622,7 +623,7 @@ function FunnelBarChart({ data }: { data: FunnelStage[] }) {
               dataKey="count"
               position="top"
               style={{ fontSize: 11, fill: '#374151', fontWeight: 600 }}
-              formatter={(v: number) => v.toLocaleString()}
+              formatter={(v) => Number(v).toLocaleString()}
             />
           </Bar>
           <Line
