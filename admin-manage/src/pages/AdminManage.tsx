@@ -38,6 +38,26 @@ interface CustomerSummary {
   recentCustomers: Customer[];
 }
 
+interface GaData {
+  available: boolean;
+  sessions: number;
+  users: number;
+  bounceRate: number;
+  avgSessionDuration: number;
+  conversionRate: number;
+  purchases: number;
+  funnel: { step: string; label: string; count: number }[];
+  daily: { date: string; sessions: number; users: number }[];
+}
+
+interface GaFunnelData {
+  available: boolean;
+  funnelSteps: { step: string; label: string }[];
+  dailyFunnel: Record<string, unknown>[];
+  sources: { source: string; sessions: number; purchases: number; revenue: number; conversionRate: number }[];
+  pages: { path: string; views: number; bounceRate: number; avgEngagement: number }[];
+}
+
 // ─── Helpers ───
 
 const BRAND = '#f85a24';
@@ -509,19 +529,6 @@ function DashboardTab({ data, currency, range }: { data: DashboardData; currency
 
 // ─── 퍼널 분석 Tab ───
 
-const FUNNEL_STAGE_NAMES = ['상품 조회', '장바구니', '결제 시작', '결제 정보', '구매 완료'];
-
-const FUNNEL_RAW: Record<string, number[]> = {
-  '전체': [2992, 534, 303, 58, 26],
-  '06/08': [620, 110, 62, 12, 5],
-  '06/09': [580, 100, 57, 11, 5],
-  '06/10': [500, 150, 85, 16, 7],
-  '06/11': [330, 45, 26, 5, 2],
-  '06/12': [350, 55, 31, 6, 3],
-  '06/13': [360, 42, 24, 5, 2],
-  '06/14': [252, 32, 18, 3, 2],
-};
-
 interface FunnelStage {
   stage: string;
   count: number;
@@ -529,12 +536,12 @@ interface FunnelStage {
   dropRate: number | null;
 }
 
-function calcFunnel(counts: number[]): FunnelStage[] {
-  return FUNNEL_STAGE_NAMES.map((stage, i) => ({
-    stage,
-    count: counts[i],
-    convRate: i === 0 ? null : Math.round((counts[i] / counts[i - 1]) * 1000) / 10,
-    dropRate: i === 0 ? null : Math.round((1 - counts[i] / counts[i - 1]) * 1000) / 10,
+function calcFunnel(funnel: GaData['funnel']): FunnelStage[] {
+  return funnel.map((s, i) => ({
+    stage: s.label,
+    count: s.count,
+    convRate: i === 0 ? null : Math.round((s.count / funnel[i - 1].count) * 1000) / 10,
+    dropRate: i === 0 ? null : Math.round((1 - s.count / funnel[i - 1].count) * 1000) / 10,
   }));
 }
 
@@ -644,44 +651,148 @@ function FunnelBarChart({ data }: { data: FunnelStage[] }) {
   );
 }
 
-function FunnelTab() {
-  const dateKeys = Object.keys(FUNNEL_RAW);
-  const [selectedDate, setSelectedDate] = useState<string>('전체');
-  const funnelData = calcFunnel(FUNNEL_RAW[selectedDate]);
+function SourceConversionTable({ sources, currency }: { sources: GaFunnelData['sources']; currency: string }) {
+  return (
+    <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100">
+        <h3 className="text-sm font-semibold text-gray-900">소스 / 매체별 전환</h3>
+        <p className="text-xs text-gray-400">세션 수 기준 상위 소스</p>
+      </div>
+      <div className="overflow-x-auto max-h-80 overflow-y-auto">
+        <table className="w-full text-xs">
+          <thead className="sticky top-0 bg-white border-b z-10">
+            <tr>
+              <th className="text-left px-4 py-2 font-medium text-gray-400">소스 / 매체</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">세션</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">구매</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">전환율</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">매출</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sources.map((row, i) => (
+              <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+                <td className="px-4 py-2.5 font-medium">{row.source}</td>
+                <td className="px-4 py-2.5 text-right">{row.sessions.toLocaleString()}</td>
+                <td className="px-4 py-2.5 text-right">{row.purchases > 0 ? row.purchases : '—'}</td>
+                <td className="px-4 py-2.5 text-right">
+                  {row.conversionRate > 0
+                    ? <span style={{ color: BRAND }} className="font-semibold">{row.conversionRate.toFixed(2)}%</span>
+                    : <span className="text-gray-300">0%</span>}
+                </td>
+                <td className="px-4 py-2.5 text-right font-medium">{row.revenue > 0 ? fmtMoney(row.revenue, currency) : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function PageDropoffTable({ pages }: { pages: GaFunnelData['pages'] }) {
+  const maxViews = pages[0]?.views || 1;
+  return (
+    <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100">
+        <h3 className="text-sm font-semibold text-gray-900">페이지별 이탈 분석</h3>
+        <p className="text-xs text-gray-400">페이지뷰 상위 페이지 · 이탈률</p>
+      </div>
+      <div className="overflow-x-auto max-h-80 overflow-y-auto">
+        <table className="w-full text-xs">
+          <thead className="sticky top-0 bg-white border-b z-10">
+            <tr>
+              <th className="text-left px-4 py-2 font-medium text-gray-400">페이지</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">페이지뷰</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">이탈률</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-400">참여 시간</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pages.map((row, i) => (
+              <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+                <td className="px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-12 shrink-0 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${(row.views / maxViews) * 100}%`, backgroundColor: BRAND }} />
+                    </div>
+                    <span className="font-mono truncate max-w-[240px]" title={row.path}>
+                      {row.path === '/' ? 'Home (/)' : row.path}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-4 py-2.5 text-right">{row.views.toLocaleString()}</td>
+                <td className="px-4 py-2.5 text-right">
+                  <span className={row.bounceRate > 50 ? 'text-red-500 font-semibold' : ''}>{row.bounceRate.toFixed(1)}%</span>
+                </td>
+                <td className="px-4 py-2.5 text-right">
+                  {row.avgEngagement > 60
+                    ? `${Math.floor(row.avgEngagement / 60)}분 ${row.avgEngagement % 60}초`
+                    : `${row.avgEngagement}초`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function FunnelTab({ secret, range, ga }: { secret: string; range: string; ga: GaData | null }) {
+  const { data: funnelData, isLoading } = useQuery<GaFunnelData>({
+    queryKey: ['admin-ga-funnel', range],
+    queryFn: () => fetchSection<GaFunnelData>('ga-funnel', secret, { range }),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const currency = 'KRW';
+
+  if (!ga?.available && !funnelData?.available) {
+    return (
+      <div className="space-y-5">
+        <SectionLabel>구매 전환 퍼널</SectionLabel>
+        <GaPlaceholder title="구매 전환 퍼널" />
+        <SectionLabel>소스 / 매체별 전환</SectionLabel>
+        <GaPlaceholder title="소스/매체별 전환율" />
+        <SectionLabel>이탈 포인트 분석</SectionLabel>
+        <GaPlaceholder title="페이지별 이탈 포인트" />
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return <div className="flex justify-center py-16 text-sm text-gray-400">퍼널 데이터를 불러오는 중...</div>;
+  }
+
+  const funnelStages = ga?.funnel && ga.funnel.length > 0 ? calcFunnel(ga.funnel) : null;
 
   return (
     <div className="space-y-5">
       <SectionLabel>구매 전환 퍼널</SectionLabel>
-
-      <div className="flex gap-2 flex-wrap">
-        {dateKeys.map((d) => (
-          <button
-            key={d}
-            onClick={() => setSelectedDate(d)}
-            className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-              selectedDate === d
-                ? 'bg-orange-500 text-white border-orange-500'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300'
-            }`}
-          >
-            {d}
-          </button>
-        ))}
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="lg:col-span-2">
-          <ECFunnelPanel data={funnelData} />
+          {funnelStages
+            ? <ECFunnelPanel data={funnelStages} />
+            : <GaPlaceholder title="EC 퍼널" />}
         </div>
         <div className="lg:col-span-3">
-          <FunnelBarChart data={funnelData} />
+          {funnelStages
+            ? <FunnelBarChart data={funnelStages} />
+            : <GaPlaceholder title="퍼널 단계별 현황" />}
         </div>
       </div>
 
       <SectionLabel>소스 / 매체별 전환</SectionLabel>
-      <GaPlaceholder title="소스/매체별 전환율" />
+      {funnelData?.sources && funnelData.sources.length > 0
+        ? <SourceConversionTable sources={funnelData.sources} currency={currency} />
+        : <GaPlaceholder title="소스/매체별 전환율" />}
+
       <SectionLabel>이탈 포인트 분석</SectionLabel>
-      <GaPlaceholder title="페이지별 이탈 포인트" />
+      {funnelData?.pages && funnelData.pages.length > 0
+        ? <PageDropoffTable pages={funnelData.pages} />
+        : <GaPlaceholder title="페이지별 이탈 포인트" />}
     </div>
   );
 }
@@ -873,6 +984,13 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
     },
   });
 
+  const { data: gaData } = useQuery<GaData>({
+    queryKey: ['admin-ga', range],
+    queryFn: () => fetchSection<GaData>('ga-overview', secret, { range }),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
   useEffect(() => {
     if (isError && error instanceof Error && error.message === 'UNAUTHORIZED') onLogout();
   }, [isError, error, onLogout]);
@@ -927,7 +1045,7 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
             ? <div className="flex items-center justify-center h-64 text-sm text-gray-400">데이터를 불러오는 중...</div>
             : <DashboardTab data={dashboard} currency={dashboard.currency} range={range} />
         )}
-        {activeTab === 'funnel' && <FunnelTab />}
+        {activeTab === 'funnel' && <FunnelTab secret={secret} range={range} ga={gaData || null} />}
         {activeTab === 'behavior' && <BehaviorTab />}
         {activeTab === 'members' && <CustomerTab secret={secret} />}
         {activeTab === 'review' && <WeeklyReviewTab />}
