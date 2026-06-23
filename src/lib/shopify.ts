@@ -858,13 +858,11 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
    }
 
    try {
-     input.buyerIdentity = { countryCode: 'KR' };
      if (isCustomerLoggedIn()) {
        const storefrontToken = getCachedStorefrontCustomerToken();
        if (storefrontToken) {
          input.buyerIdentity = {
            customerAccessToken: storefrontToken,
-           countryCode: 'KR',
          };
        }
      }
@@ -878,7 +876,8 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
        e.field?.includes('customerAccessToken') || e.message?.includes('invalid')
    );
    if (tokenError || !data?.data?.cartCreate?.cart) {
-     input.buyerIdentity = { countryCode: 'KR' };
+     console.warn('[Checkout] Customer token invalid, retrying without token');
+     delete input.buyerIdentity;
      data = await storefrontApiRequest(CART_CREATE_MUTATION, { input });
    }
 
@@ -897,7 +896,6 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
   }
 
   const url = new URL(cart.checkoutUrl);
-  url.searchParams.set('channel', 'online_store');
 
    // Add discount code to URL as backup (in case cart discount doesn't persist)
    if (discountCode) {
