@@ -341,12 +341,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (isAdmin) {
       headers['X-Shopify-Access-Token'] = await getAccessToken();
     } else {
-      const headlessToken = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN;
-      if (headlessToken) {
-        headers['Shopify-Storefront-Private-Token'] = headlessToken;
-      } else {
-        headers['Shopify-Storefront-Private-Token'] = await getAccessToken();
-      }
+      headers['Shopify-Storefront-Private-Token'] = await getAccessToken();
     }
 
     const shopifyResponse = await fetch(
