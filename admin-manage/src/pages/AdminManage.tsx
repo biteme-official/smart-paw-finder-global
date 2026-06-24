@@ -65,6 +65,7 @@ const RANGE_LABELS: Record<Range, string> = { today: '오늘', '7d': '7일', '28
 
 function fmtMoney(v: number, currency = 'USD') {
   if (currency === 'JPY') return `¥${Math.round(v).toLocaleString('ja-JP')}`;
+  if (currency === 'KRW') return `₩${Math.round(v).toLocaleString('ko-KR')}`;
   return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
@@ -540,8 +541,8 @@ function calcFunnel(funnel: GaData['funnel']): FunnelStage[] {
   return funnel.map((s, i) => ({
     stage: s.label,
     count: s.count,
-    convRate: i === 0 ? null : Math.round((s.count / funnel[i - 1].count) * 1000) / 10,
-    dropRate: i === 0 ? null : Math.round((1 - s.count / funnel[i - 1].count) * 1000) / 10,
+    convRate: i === 0 || funnel[i - 1].count === 0 ? null : Math.round((s.count / funnel[i - 1].count) * 1000) / 10,
+    dropRate: i === 0 || funnel[i - 1].count === 0 ? null : Math.round((1 - s.count / funnel[i - 1].count) * 1000) / 10,
   }));
 }
 
@@ -549,7 +550,7 @@ function ECFunnelPanel({ data }: { data: FunnelStage[] }) {
   const maxCount = data[0]?.count ?? 1;
   const first = data[0];
   const last = data[data.length - 1];
-  const totalConvRate = first && last ? ((last.count / first.count) * 100).toFixed(2) : '0.00';
+  const totalConvRate = first && last && first.count > 0 ? ((last.count / first.count) * 100).toFixed(2) : '0.00';
 
   return (
     <div className="rounded-xl border bg-white border-gray-200 p-5 h-full">
@@ -652,7 +653,7 @@ function FunnelBarChart({ data }: { data: FunnelStage[] }) {
   );
 }
 
-function SourceConversionTable({ sources, currency }: { sources: GaFunnelData['sources']; currency: string }) {
+function SourceConversionTable({ sources, fmtRevenue }: { sources: GaFunnelData['sources']; fmtRevenue: (v: number) => string }) {
   return (
     <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-100">
@@ -681,7 +682,7 @@ function SourceConversionTable({ sources, currency }: { sources: GaFunnelData['s
                     ? <span style={{ color: BRAND }} className="font-semibold">{row.conversionRate.toFixed(2)}%</span>
                     : <span className="text-gray-300">0%</span>}
                 </td>
-                <td className="px-4 py-2.5 text-right font-medium">{row.revenue > 0 ? fmtMoney(row.revenue, currency) : '—'}</td>
+                <td className="px-4 py-2.5 text-right font-medium">{row.revenue > 0 ? fmtRevenue(row.revenue) : '—'}</td>
               </tr>
             ))}
           </tbody>
@@ -740,7 +741,7 @@ function PageDropoffTable({ pages }: { pages: GaFunnelData['pages'] }) {
   );
 }
 
-function FunnelTab({ secret, range, ga }: { secret: string; range: string; ga: GaData | null }) {
+function FunnelTab({ secret, range, ga, dashboardCurrency }: { secret: string; range: string; ga: GaData | null; dashboardCurrency: string }) {
   const { data: funnelData, isLoading } = useQuery<GaFunnelData>({
     queryKey: ['admin-ga-funnel', range],
     queryFn: () => fetchSection<GaFunnelData>('ga-funnel', secret, { range }),
@@ -748,7 +749,23 @@ function FunnelTab({ secret, range, ga }: { secret: string; range: string; ga: G
     retry: 1,
   });
 
-  const currency = 'KRW';
+  const needsConversion = dashboardCurrency !== 'KRW';
+
+  const { data: fxData } = useQuery<{ rates: Record<string, number> }>({
+    queryKey: ['fx-rate', dashboardCurrency],
+    queryFn: () => fetch(`https://open.er-api.com/v6/latest/${dashboardCurrency}`).then(r => r.json()),
+    enabled: needsConversion,
+    staleTime: 60 * 60 * 1000,
+    retry: 1,
+  });
+
+  const krwRate = needsConversion ? (fxData?.rates?.KRW ?? null) : null;
+
+  function fmtGaRevenue(v: number): string {
+    if (!needsConversion) return `₩${Math.round(v).toLocaleString('ko-KR')}`;
+    if (krwRate === null) return '—';
+    return `₩${Math.round(v * krwRate).toLocaleString('ko-KR')}`;
+  }
 
   if (!ga?.available && !funnelData?.available) {
     return (
@@ -787,7 +804,7 @@ function FunnelTab({ secret, range, ga }: { secret: string; range: string; ga: G
 
       <SectionLabel>소스 / 매체별 전환</SectionLabel>
       {funnelData?.sources && funnelData.sources.length > 0
-        ? <SourceConversionTable sources={funnelData.sources} currency={currency} />
+        ? <SourceConversionTable sources={funnelData.sources} fmtRevenue={fmtGaRevenue} />
         : <GaPlaceholder title="소스/매체별 전환율" />}
 
       <SectionLabel>이탈 포인트 분석</SectionLabel>
@@ -1046,7 +1063,7 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
             ? <div className="flex items-center justify-center h-64 text-sm text-gray-400">데이터를 불러오는 중...</div>
             : <DashboardTab data={dashboard} currency={dashboard.currency} range={range} />
         )}
-        {activeTab === 'funnel' && <FunnelTab secret={secret} range={range} ga={gaData || null} />}
+        {activeTab === 'funnel' && <FunnelTab secret={secret} range={range} ga={gaData || null} dashboardCurrency={dashboard?.currency ?? 'KRW'} />}
         {activeTab === 'behavior' && <BehaviorTab />}
         {activeTab === 'members' && <CustomerTab secret={secret} />}
         {activeTab === 'review' && <WeeklyReviewTab />}
