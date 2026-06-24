@@ -219,7 +219,7 @@
 }
 
 .marquee-track {
-  animation: marquee-scroll 30s linear infinite;
+  animation: marquee-scroll 40s linear infinite;
 }
 
 .marquee-track:hover {
