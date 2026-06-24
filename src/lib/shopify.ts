@@ -605,6 +605,69 @@ export async function fetchBanners(first: number = 10): Promise<ShopifyBanner[]>
   return banners;
 }
 
+// Announcement Bar (Metaobjects)
+export interface AnnouncementItem {
+  id: string;
+  message: string;
+  linkUrl: string | null;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+const GET_ANNOUNCEMENTS_QUERY = `
+  query GetAnnouncements($first: Int!) {
+    metaobjects(type: "announcement_bar", first: $first) {
+      edges {
+        node {
+          id
+          handle
+          fields {
+            key
+            value
+            type
+          }
+        }
+      }
+    }
+  }
+`;
+
+export async function fetchAnnouncements(first: number = 10): Promise<AnnouncementItem[]> {
+  const data = await adminApiRequest(GET_ANNOUNCEMENTS_QUERY, { first });
+  if (!data) return [];
+
+  const items = (data.data?.metaobjects?.edges || []).map((edge: any) => {
+    const node = edge.node;
+    const fields: Record<string, string> = {};
+    let linkUrl: string | null = null;
+
+    for (const field of node.fields) {
+      if (field.type === 'link' && field.value) {
+        try {
+          const parsed = JSON.parse(field.value);
+          linkUrl = parsed.url || null;
+        } catch {
+          linkUrl = null;
+        }
+      } else if (field.value) {
+        fields[field.key] = field.value;
+      }
+    }
+
+    return {
+      id: node.id,
+      message: fields.message || '',
+      linkUrl,
+      sortOrder: Number(fields.sort_order) || 0,
+      isActive: fields.is_active === 'true',
+    };
+  });
+
+  return items
+    .filter((item: AnnouncementItem) => item.isActive && item.message)
+    .sort((a: AnnouncementItem, b: AnnouncementItem) => a.sortOrder - b.sortOrder);
+}
+
 export interface ProductsResponse {
   products: ShopifyProduct[];
   pageInfo: {

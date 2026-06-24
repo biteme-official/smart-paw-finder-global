@@ -33,6 +33,7 @@ import NewProductsPage from "./pages/NewProducts";
 import RefundPolicy from "./pages/RefundPolicy";
 import About from "./pages/About";
 import { WhatsAppButton } from "./components/layout/WhatsAppButton";
+import { AnnouncementBar } from "./components/layout/AnnouncementBar";
 
 const queryClient = new QueryClient();
 
@@ -102,6 +103,7 @@ const App = () => (
         <B2BDiscountSync />
         <Toaster />
         <Sonner closeButton />
+        <AnnouncementBar />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/product/:id" element={<ProductDetail />} />
