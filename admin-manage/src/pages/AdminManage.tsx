@@ -547,7 +547,7 @@ function calcFunnel(funnel: GaData['funnel']): FunnelStage[] {
 }
 
 function ECFunnelPanel({ data }: { data: FunnelStage[] }) {
-  const maxCount = data[0]?.count ?? 1;
+  const maxCount = data[0]?.count || 1;
   const first = data[0];
   const last = data[data.length - 1];
   const totalConvRate = first && last && first.count > 0 ? ((last.count / first.count) * 100).toFixed(2) : '0.00';
