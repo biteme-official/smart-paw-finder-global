@@ -681,9 +681,6 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
     if (isB2B) { b2bRevenue += amount; b2bOrders++; }
     else { b2cRevenue += amount; b2cOrders++; }
 
-    const country = n.shippingAddress?.countryCodeV2 || 'Unknown';
-    countryMap.set(country, (countryMap.get(country) || 0) + 1);
-
     const date = n.createdAt.slice(0, 10);
     const day = dailyMap.get(date) || { date, orders: 0, revenue: 0 };
     day.orders++;

@@ -1291,7 +1291,8 @@ function SalesAnalysisTab({ data, currency, traffic }: { data: DashboardData; cu
   const [productSort, setProductSort] = useState<'quantity' | 'revenue'>('revenue');
   const [brandSort, setBrandSort] = useState<'quantity' | 'revenue'>('revenue');
 
-  const { b2b, b2c, topProducts, brandSales = [], countryRevenue = [] } = data;
+  const { b2b, b2c, topProducts, brandSales = [], countryRevenue = [], countryOrders = [] } = data;
+  const countryOrderMap = new Map(countryOrders.map(c => [c.country, c.orders]));
   const countries = [...(traffic?.countries ?? [])].sort((a, b) => b.users - a.users);
   const totalUsers = countries.reduce((s, c) => s + c.users, 0);
   const totalRevenue = countryRevenue.reduce((s, c) => s + c.revenue, 0);
@@ -1437,13 +1438,14 @@ function SalesAnalysisTab({ data, currency, traffic }: { data: DashboardData; cu
         <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100">
             <h3 className="text-sm font-semibold text-gray-900">국가별 매출 비중</h3>
-            <p className="text-xs text-gray-400">주문 기준 매출액</p>
+            <p className="text-xs text-gray-400">Shopify 배송지 기준 · 매출액 순</p>
           </div>
           <div className="overflow-y-auto max-h-64">
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-white border-b border-gray-100">
                 <tr>
                   <th className="text-left px-4 py-2.5 font-medium text-gray-400">국가</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-gray-400">주문수</th>
                   <th className="text-right px-4 py-2.5 font-medium text-gray-400">매출액</th>
                   <th className="text-right px-4 py-2.5 font-medium text-gray-400">비중</th>
                 </tr>
@@ -1454,6 +1456,9 @@ function SalesAnalysisTab({ data, currency, traffic }: { data: DashboardData; cu
                     <td className="px-4 py-2.5">
                       <span className="mr-1">{countryFlag(c.country)}</span>
                       {c.country}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">
+                      {countryOrderMap.has(c.country) ? `${countryOrderMap.get(c.country)}건` : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-medium">{fmtMoney(c.revenue, currency)}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">
