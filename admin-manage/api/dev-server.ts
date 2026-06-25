@@ -79,8 +79,26 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── dashboard: Shopify 자격증명 있으면 실제 데이터, 없으면 range 비례 mock ──
+  // ── dashboard: 우선순위: 프로덕션 프록시 → Shopify 직접 → mock ──
   if (section === 'dashboard') {
+    // 1순위: 프로덕션 ADMIN_SECRET이 있으면 프로덕션 API로 프록시 (Shopify 자격증명 불필요)
+    const prodSecret = process.env.PROD_ADMIN_SECRET;
+    if (prodSecret) {
+      try {
+        const prodUrl = `${PROD_API}${req.url}`;
+        const proxyRes = await fetch(prodUrl, { headers: { authorization: `Bearer ${prodSecret}` } });
+        const body = await proxyRes.text();
+        console.log(`[dev-server] dashboard → 프로덕션 프록시 (${proxyRes.status})`);
+        res.writeHead(proxyRes.status, { 'Content-Type': 'application/json' });
+        res.end(body);
+      } catch (err) {
+        console.error('[dev-server] 프로덕션 프록시 오류:', err);
+        if (!res.headersSent) { res.writeHead(502, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Proxy error' })); }
+      }
+      return;
+    }
+
+    // 2순위: Shopify 자격증명이 있으면 직접 호출
     const hasShopify = !!(
       process.env.VITE_SHOPIFY_STORE_DOMAIN &&
       (
