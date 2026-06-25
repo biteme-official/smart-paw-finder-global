@@ -1053,10 +1053,10 @@ function TrafficAnalysisTab({ ga, traffic }: { ga: GaData | null; traffic: GaTra
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {ga?.available ? (
           <>
-            <KpiCard label="총 세션 수" value={ga.sessions.toLocaleString()} />
-            <KpiCard label="총 사용자" value={ga.users.toLocaleString()} />
-            <KpiCard label="이탈률" value={`${(ga.bounceRate * 100).toFixed(1)}%`} />
-            <KpiCard label="평균 세션 시간" value={fmtDuration(ga.avgSessionDuration)} />
+            <KpiCard label="총 세션 수" value={ga.sessions.toLocaleString()} accent />
+            <KpiCard label="총 사용자" value={ga.users.toLocaleString()} accent />
+            <KpiCard label="이탈률" value={`${(ga.bounceRate * 100).toFixed(1)}%`} accent />
+            <KpiCard label="평균 세션 시간" value={fmtDuration(ga.avgSessionDuration)} accent />
           </>
         ) : (
           ['총 세션 수', '총 사용자', '이탈률', '평균 세션 시간'].map(t => (
@@ -1206,23 +1206,12 @@ function ConversionAnalysisTab({ ga }: { ga: GaData | null }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500 mb-1">전체 전환율</p>
-          <p className="text-2xl font-bold" style={{ color: BRAND }}>{overallCvr}%</p>
-          <p className="text-xs text-gray-400 mt-1">상품 조회 → 구매</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500 mb-1">구매 완료</p>
-          <p className="text-2xl font-bold text-gray-900">{last.count.toLocaleString()}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs text-gray-500 mb-1">결제정보 전환율</p>
-          <p className="text-2xl font-bold text-gray-900">{paymentInfoCvr}%</p>
-          <p className="text-xs text-gray-400 mt-1">결제정보→구매완료</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
+        <KpiCard label="전체 전환율" value={`${overallCvr}%`} sub="상품 조회 → 구매" accent />
+        <KpiCard label="구매 완료" value={last.count.toLocaleString()} accent />
+        <KpiCard label="결제정보 전환율" value={`${paymentInfoCvr}%`} sub="결제정보→구매완료" accent />
+        <div className="rounded-xl border border-orange-200 bg-orange-50/40 p-4">
           <p className="text-xs text-gray-500 mb-1">최대 이탈 구간</p>
-          <p className="text-sm font-bold leading-snug text-gray-900">{maxDropStep ? maxDropStep.label : '—'}</p>
+          <p className="text-sm font-bold leading-snug text-orange-600">{maxDropStep ? maxDropStep.label : '—'}</p>
           {maxDropStep && <p className="text-xs text-red-500 mt-1">-{maxDropStep.dropRate}% 이탈</p>}
         </div>
       </div>
