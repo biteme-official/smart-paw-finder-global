@@ -128,6 +128,9 @@ let shopifyToken: string | null = null;
 let shopifyTokenExpiresAt = 0;
 
 async function getShopifyAccessToken(): Promise<string> {
+  // Admin API 토큰이 있으면 OAuth 없이 직접 사용 (로컬 dev용)
+  if (process.env.SHOPIFY_ADMIN_API_TOKEN) return process.env.SHOPIFY_ADMIN_API_TOKEN;
+
   const now = Date.now();
   if (shopifyToken && now < shopifyTokenExpiresAt - 5 * 60 * 1000) return shopifyToken;
 

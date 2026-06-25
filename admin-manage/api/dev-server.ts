@@ -83,8 +83,13 @@ const server = http.createServer(async (req, res) => {
   if (section === 'dashboard') {
     const hasShopify = !!(
       process.env.VITE_SHOPIFY_STORE_DOMAIN &&
-      (process.env.REPORT_SHOPIFY_CLIENT_ID || process.env.VITE_SHOPIFY_CLIENT_ID) &&
-      (process.env.REPORT_SHOPIFY_CLIENT_SECRET || process.env.SHOPIFY_CLIENT_SECRET)
+      (
+        process.env.SHOPIFY_ADMIN_API_TOKEN ||
+        (
+          (process.env.REPORT_SHOPIFY_CLIENT_ID || process.env.VITE_SHOPIFY_CLIENT_ID) &&
+          (process.env.REPORT_SHOPIFY_CLIENT_SECRET || process.env.SHOPIFY_CLIENT_SECRET)
+        )
+      )
     );
 
     if (hasShopify) {
