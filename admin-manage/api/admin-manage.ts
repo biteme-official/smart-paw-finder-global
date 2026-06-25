@@ -311,6 +311,7 @@ const DASHBOARD_ORDERS_QUERY = `
               node {
                 title
                 quantity
+                vendor
                 originalTotalSet { shopMoney { amount } }
               }
             }
@@ -579,7 +580,7 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
     purchasingEntity: { company?: { name: string } } | null;
     customer: { tags: string[] } | null;
     shippingAddress: { countryCodeV2: string } | null;
-    lineItems: { edges: { node: { title: string; quantity: number; originalTotalSet: { shopMoney: { amount: string } } } }[] };
+    lineItems: { edges: { node: { title: string; quantity: number; vendor?: string; originalTotalSet: { shopMoney: { amount: string } } } }[] };
   }
 
   // 기간 이전 주문 중 기간 내 환불이 발생한 주문 쿼리 (Shopify Analytics 정확 일치를 위해)
@@ -651,6 +652,8 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
   const dailyMap = new Map<string, { date: string; orders: number; revenue: number }>();
   const productMap = new Map<string, { title: string; quantity: number; revenue: number }>();
   const countryMap = new Map<string, number>();
+  const brandMap = new Map<string, { brand: string; quantity: number; revenue: number }>();
+  const countryRevenueMap = new Map<string, number>();
 
   for (const edge of edges) {
     const n = edge.node as OrderNode;
@@ -692,9 +695,18 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
       totalItemsSold += item.quantity;
       const existing = productMap.get(item.title) || { title: item.title, quantity: 0, revenue: 0 };
       existing.quantity += item.quantity;
-      existing.revenue += parseFloat(item.originalTotalSet.shopMoney.amount);
+      const itemRevenue = parseFloat(item.originalTotalSet.shopMoney.amount);
+      existing.revenue += itemRevenue;
       productMap.set(item.title, existing);
+      if (item.vendor) {
+        const brand = brandMap.get(item.vendor) || { brand: item.vendor, quantity: 0, revenue: 0 };
+        brand.quantity += item.quantity;
+        brand.revenue += itemRevenue;
+        brandMap.set(item.vendor, brand);
+      }
     }
+
+    if (cc) countryRevenueMap.set(cc, (countryRevenueMap.get(cc) || 0) + amount);
   }
 
   // 기간 이전 주문의 기간 내 환불도 차감 (Shopify Analytics returns 기준)
@@ -730,6 +742,16 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
   }
   lowStock.sort((a, b) => a.quantity - b.quantity);
 
+  const brandSales = Array.from(brandMap.values())
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 20)
+    .map(b => ({ ...b, revenue: Math.round(b.revenue * 100) / 100 }));
+
+  const countryRevenue = Array.from(countryRevenueMap.entries())
+    .map(([country, revenue]) => ({ country, revenue: Math.round(revenue * 100) / 100 }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 15);
+
   return res.status(200).json({
     summary: {
       totalOrders,
@@ -752,6 +774,8 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
     countryOrders,
     lowStock,
     currency,
+    brandSales,
+    countryRevenue,
   });
 }
 
@@ -852,9 +876,15 @@ async function handleGaTraffic(req: VercelRequest, res: VercelResponse) {
     gaReport(gaToken, {
       dateRanges: [dr],
       dimensions: [{ name: 'sessionSourceMedium' }],
-      metrics: [{ name: 'sessions' }, { name: 'totalUsers' }, { name: 'bounceRate' }],
+      metrics: [
+        { name: 'sessions' },
+        { name: 'totalUsers' },
+        { name: 'bounceRate' },
+        { name: 'averageSessionDuration' },
+        { name: 'purchaseRevenue' },
+      ],
       orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
-      limit: 10,
+      limit: 15,
     }),
     gaReport(gaToken, {
       dateRanges: [dr],
@@ -877,6 +907,8 @@ async function handleGaTraffic(req: VercelRequest, res: VercelResponse) {
     sessions: parseInt(r.sessions || '0'),
     users: parseInt(r.totalUsers || '0'),
     bounceRate: Math.round(parseFloat(r.bounceRate || '0') * 10000) / 100,
+    avgSessionDuration: Math.round(parseFloat(r.averageSessionDuration || '0')),
+    revenue: Math.round(parseFloat(r.purchaseRevenue || '0') * 100) / 100,
   }));
 
   const countries = gaRows(countryReport).map(r => ({

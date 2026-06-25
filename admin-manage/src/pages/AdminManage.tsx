@@ -25,6 +25,8 @@ interface DashboardData {
   lowStock: { title: string; variant: string; quantity: number }[];
   countryOrders: { country: string; orders: number }[];
   currency: string;
+  brandSales?: { brand: string; quantity: number; revenue: number }[];
+  countryRevenue?: { country: string; revenue: number }[];
 }
 
 interface GaData {
@@ -58,7 +60,7 @@ interface GaFunnelData {
 
 interface GaTrafficData {
   available: boolean;
-  sources: { source: string; sessions: number; users: number; bounceRate: number }[];
+  sources: { source: string; sessions: number; users: number; bounceRate: number; avgSessionDuration: number; revenue: number }[];
   countries: { countryId: string; country: string; sessions: number; users: number }[];
   pages: { path: string; views: number; users: number }[];
 }
@@ -83,34 +85,6 @@ interface CustomerSummary {
   recentCustomers: Customer[];
 }
 
-interface GaData {
-  available: boolean;
-  sessions: number;
-  users: number;
-  bounceRate: number;
-  avgSessionDuration: number;
-  conversionRate: number;
-  purchases: number;
-  funnel: { step: string; label: string; count: number }[];
-  daily: { date: string; sessions: number; users: number }[];
-}
-
-interface GaFunnelData {
-  available: boolean;
-  funnelSteps: { step: string; label: string }[];
-  dailyFunnel: Record<string, unknown>[];
-  sources: { source: string; sessions: number; purchases: number; revenue: number; conversionRate: number }[];
-  pages: { path: string; views: number; bounceRate: number; avgEngagement: number }[];
-}
-
-interface GaBehaviorData {
-  available: boolean;
-  pages: { path: string; title: string; views: number; users: number; avgDuration: number; bounceRate: number }[];
-  events: { name: string; count: number; users: number }[];
-  devices: { device: string; sessions: number; users: number; transactions: number; revenue: number }[];
-  newVsReturning: { type: string; sessions: number; users: number; transactions: number }[];
-}
-
 // ─── Helpers ───
 
 const BRAND = '#f85a24';
@@ -133,6 +107,16 @@ function pageLabel(path: string, title: string) {
 
 function deviceLabel(d: string) {
   return d === 'mobile' ? '모바일' : d === 'desktop' ? '데스크톱' : d === 'tablet' ? '태블릿' : d;
+}
+
+function classifyChannel(sourceMedium: string): 'Paid' | 'Direct' | 'Organic' {
+  const parts = sourceMedium.split(' / ');
+  const source = parts[0] || '';
+  const medium = parts[1] || '';
+  if (!medium || medium === '(none)') return source === '(direct)' ? 'Direct' : 'Organic';
+  const paidKeywords = ['cpc', 'cpm', 'paid', 'ppc', 'ad', 'ads', 'display', 'social_paid'];
+  if (paidKeywords.some(k => medium.toLowerCase().includes(k))) return 'Paid';
+  return 'Organic';
 }
 
 function fmtMoney(v: number, currency = 'USD') {
@@ -1037,7 +1021,455 @@ function DashboardTab({ data, currency, range, ga, traffic, funnel }: { data: Da
   );
 }
 
-// ─── 퍼널 분석 Tab ───
+// ─── 유입 분석 Tab ───
+
+function TrafficAnalysisTab({ ga, traffic }: { ga: GaData | null; traffic: GaTrafficData | null }) {
+  if (!ga?.available && !traffic?.available) return <GaPlaceholder title="유입 분석 데이터 없음" />;
+
+  const sources = traffic?.sources ?? [];
+  const maxUsers = Math.max(...sources.map(s => s.users), 1);
+
+  const channelMap = new Map<string, number>();
+  for (const s of sources) {
+    const ch = classifyChannel(s.source);
+    channelMap.set(ch, (channelMap.get(ch) || 0) + s.users);
+  }
+  const channelData = [
+    { name: 'Paid', value: channelMap.get('Paid') || 0, color: BRAND },
+    { name: 'Direct', value: channelMap.get('Direct') || 0, color: '#94a3b8' },
+    { name: 'Organic', value: channelMap.get('Organic') || 0, color: '#3b82f6' },
+  ].filter(d => d.value > 0);
+  const totalChannelUsers = channelData.reduce((s, d) => s + d.value, 0);
+
+  const CHANNEL_BADGE: Record<string, string> = {
+    Paid: 'bg-orange-100 text-orange-700',
+    Direct: 'bg-gray-100 text-gray-600',
+    Organic: 'bg-blue-100 text-blue-700',
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {ga?.available ? (
+          <>
+            <KpiCard label="총 세션 수" value={ga.sessions.toLocaleString()} />
+            <KpiCard label="총 사용자" value={ga.users.toLocaleString()} />
+            <KpiCard label="이탈률" value={`${(ga.bounceRate * 100).toFixed(1)}%`} />
+            <KpiCard label="평균 세션 시간" value={fmtDuration(ga.avgSessionDuration)} />
+          </>
+        ) : (
+          ['총 세션 수', '총 사용자', '이탈률', '평균 세션 시간'].map(t => (
+            <GaPlaceholder key={t} title={t} compact />
+          ))
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900">소스 / 매체별 사용자</h3>
+            <p className="text-xs text-gray-400">사용자 수 기준 상위 소스</p>
+          </div>
+          <div className="px-5 py-4 space-y-2.5">
+            {sources.slice(0, 7).map((s, i) => (
+              <div key={i} className="flex items-center gap-3 text-xs">
+                <div className="w-28 truncate text-gray-700 font-medium">{s.source.replace(' / ', '/')}</div>
+                <div className="flex-1 h-5 bg-gray-100 rounded overflow-hidden">
+                  <div className="h-full rounded transition-all" style={{ width: `${(s.users / maxUsers) * 100}%`, backgroundColor: BRAND }} />
+                </div>
+                <div className="w-10 text-right font-semibold text-gray-800">{s.users.toLocaleString()}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900">채널 그룹별 비중</h3>
+            <p className="text-xs text-gray-400">Paid / Direct / Organic</p>
+          </div>
+          <div className="flex items-center justify-center gap-8 p-4 h-[calc(100%-53px)]">
+            <PieChart width={130} height={130}>
+              <Pie
+                data={channelData.length ? channelData : [{ name: '-', value: 1, color: '#e5e7eb' }]}
+                dataKey="value" cx={63} cy={63} innerRadius={38} outerRadius={60} paddingAngle={2}>
+                {(channelData.length ? channelData : [{ color: '#e5e7eb' }]).map((d, i) => (
+                  <Cell key={i} fill={d.color} />
+                ))}
+              </Pie>
+            </PieChart>
+            <div className="space-y-2">
+              {channelData.map(d => (
+                <div key={d.name} className="flex items-center gap-2 text-xs">
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                  <span className="text-gray-700 w-16">{d.name}</span>
+                  <span className="font-bold text-gray-900">
+                    {totalChannelUsers > 0 ? `${(d.value / totalChannelUsers * 100).toFixed(0)}%` : '—'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-900">소스 / 매체별 상세 지표</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="text-left px-4 py-2.5 font-medium text-gray-400">소스 / 매체</th>
+                <th className="text-center px-4 py-2.5 font-medium text-gray-400">채널</th>
+                <th className="text-right px-4 py-2.5 font-medium text-gray-400">사용자</th>
+                <th className="text-right px-4 py-2.5 font-medium text-gray-400">세션</th>
+                <th className="text-right px-4 py-2.5 font-medium text-gray-400">이탈률</th>
+                <th className="text-right px-4 py-2.5 font-medium text-gray-400">평균 세션 시간</th>
+                <th className="text-right px-4 py-2.5 font-medium text-gray-400">총 수익</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sources.map((row, i) => {
+                const ch = classifyChannel(row.source);
+                return (
+                  <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
+                    <td className="px-4 py-2.5 font-medium text-gray-800">{row.source}</td>
+                    <td className="px-4 py-2.5 text-center">
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${CHANNEL_BADGE[ch]}`}>{ch}</span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{row.users.toLocaleString()}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{row.sessions.toLocaleString()}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{row.bounceRate.toFixed(1)}%</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{fmtDuration(row.avgSessionDuration ?? 0)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">
+                      {(row.revenue ?? 0) > 0
+                        ? `$${(row.revenue ?? 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+                        : <span className="text-gray-300">—</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 전환 분석 Tab ───
+
+function ConversionAnalysisTab({ ga }: { ga: GaData | null }) {
+  if (!ga?.available || !ga.funnel || ga.funnel.length === 0) {
+    return <GaPlaceholder title="전환 분석 데이터 없음" />;
+  }
+
+  const funnel = ga.funnel;
+  const first = funnel[0];
+  const last = funnel[funnel.length - 1];
+  const maxCount = first.count || 1;
+
+  const steps = funnel.map((s, i) => {
+    const prev = funnel[i - 1];
+    const dropRate = i > 0 && prev && prev.count > 0
+      ? Math.round((1 - s.count / prev.count) * 1000) / 10
+      : null;
+    return { ...s, dropRate };
+  });
+
+  const overallCvr = first.count > 0 ? ((last.count / first.count) * 100).toFixed(2) : '0.00';
+  const addPayInfo = funnel.find(s => s.step === 'add_payment_info');
+  const paymentInfoCvr = addPayInfo && addPayInfo.count > 0
+    ? ((last.count / addPayInfo.count) * 100).toFixed(1)
+    : '0.0';
+
+  const maxDropStep = steps.reduce<typeof steps[0] | null>((m, s, i) => {
+    if (i < 2 || s.dropRate === null) return m;
+    return !m || (s.dropRate ?? 0) > (m.dropRate ?? 0) ? s : m;
+  }, null);
+
+  const top3Drop = [...steps]
+    .filter((s, i) => i >= 1 && s.dropRate !== null)
+    .sort((a, b) => (b.dropRate ?? 0) - (a.dropRate ?? 0))
+    .slice(0, 3);
+
+  const RANKS = ['1위', '2위', '3위'];
+  const RANK_STYLES = [
+    { wrap: 'bg-orange-50 border-orange-200', rate: 'text-orange-600', desc: 'text-orange-500' },
+    { wrap: 'bg-orange-50/50 border-orange-100', rate: 'text-orange-500', desc: 'text-orange-400' },
+    { wrap: 'bg-gray-50 border-gray-200', rate: 'text-gray-700', desc: 'text-gray-500' },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500 mb-1">전체 전환율</p>
+          <p className="text-2xl font-bold" style={{ color: BRAND }}>{overallCvr}%</p>
+          <p className="text-xs text-gray-400 mt-1">상품 조회 → 구매</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500 mb-1">구매 완료</p>
+          <p className="text-2xl font-bold text-gray-900">{last.count.toLocaleString()}</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500 mb-1">결제정보 전환율</p>
+          <p className="text-2xl font-bold text-gray-900">{paymentInfoCvr}%</p>
+          <p className="text-xs text-gray-400 mt-1">결제정보→구매완료</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500 mb-1">최대 이탈 구간</p>
+          <p className="text-sm font-bold leading-snug text-gray-900">{maxDropStep ? maxDropStep.label : '—'}</p>
+          {maxDropStep && <p className="text-xs text-red-500 mt-1">-{maxDropStep.dropRate}% 이탈</p>}
+        </div>
+      </div>
+
+      <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-900">EC 퍼널 전환율</h3>
+          <p className="text-xs text-gray-400">GA4 이커머스 이벤트</p>
+        </div>
+        <div className="px-6 pt-4 pb-2">
+          <div className="flex items-end justify-around gap-2" style={{ height: 180 }}>
+            {steps.map((s, i) => {
+              const heightPct = maxCount > 0 ? Math.max((s.count / maxCount) * 100, 3) : 3;
+              const opacity = 1 - i * 0.13;
+              return (
+                <div key={s.step} className="flex flex-col items-center flex-1 gap-1" style={{ height: '100%', justifyContent: 'flex-end' }}>
+                  <span className="text-xs font-bold text-gray-800 tabular-nums">{s.count.toLocaleString()}</span>
+                  <div className="w-full rounded-t-md transition-all"
+                    style={{ height: `${heightPct}%`, backgroundColor: BRAND, opacity }} />
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-around gap-2 mt-2 pb-4">
+            {steps.map((s, i) => (
+              <div key={s.step} className="flex flex-col items-center flex-1 text-center gap-0.5">
+                <span className="text-[11px] text-gray-600 font-medium leading-tight">{s.label}</span>
+                {i > 0 && s.dropRate !== null
+                  ? <span className="text-[10px] text-red-500 font-semibold">-{s.dropRate}%</span>
+                  : <span className="text-[10px] text-gray-400">—</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold text-gray-500 mb-3">이탈 구간 Top 3 <span className="font-normal text-gray-400">이탈률이 높은 순서</span></p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {top3Drop.map((s, i) => {
+            const st = RANK_STYLES[i];
+            const fIdx = funnel.findIndex(f => f.step === s.step);
+            const prev = fIdx > 0 ? funnel[fIdx - 1] : null;
+            const dropCount = prev ? prev.count - s.count : 0;
+            return (
+              <div key={s.step} className={`rounded-xl border p-4 ${st.wrap}`}>
+                <p className="text-[10px] font-semibold text-gray-400 mb-1">{RANKS[i]} · {s.label} 단계</p>
+                <p className={`text-2xl font-bold ${st.rate}`}>-{s.dropRate}%</p>
+                {prev && (
+                  <p className={`text-[11px] mt-1 ${st.desc}`}>
+                    {prev.label} {prev.count.toLocaleString()}명 중 {dropCount.toLocaleString()}명 이탈
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 판매 분석 Tab ───
+
+function SalesAnalysisTab({ data, currency, traffic }: { data: DashboardData; currency: string; traffic: GaTrafficData | null }) {
+  const [productSort, setProductSort] = useState<'quantity' | 'revenue'>('revenue');
+  const [brandSort, setBrandSort] = useState<'quantity' | 'revenue'>('revenue');
+
+  const { b2b, b2c, topProducts, brandSales = [], countryRevenue = [] } = data;
+  const countries = [...(traffic?.countries ?? [])].sort((a, b) => b.users - a.users);
+  const totalUsers = countries.reduce((s, c) => s + c.users, 0);
+  const totalRevenue = countryRevenue.reduce((s, c) => s + c.revenue, 0);
+
+  const sortedProducts = [...topProducts].sort((a, b) =>
+    productSort === 'revenue' ? b.revenue - a.revenue : b.quantity - a.quantity
+  );
+  const sortedBrands = [...brandSales].sort((a, b) =>
+    brandSort === 'revenue' ? b.revenue - a.revenue : b.quantity - a.quantity
+  );
+
+  const totalBrandRevenue = sortedBrands.reduce((s, b) => s + b.revenue, 0);
+  const top3Brands = sortedBrands.slice(0, 3);
+  const otherBrandRevenue = sortedBrands.slice(3).reduce((s, b) => s + b.revenue, 0);
+
+  function ColHeader({ field, label, active, onSort }: {
+    field: 'quantity' | 'revenue'; label: string;
+    active: 'quantity' | 'revenue'; onSort: (k: 'quantity' | 'revenue') => void;
+  }) {
+    return (
+      <th className="text-right px-4 py-2.5 font-medium text-gray-400 cursor-pointer select-none hover:text-gray-600 whitespace-nowrap"
+        onClick={() => onSort(field)}>
+        {label}{active === field ? ' ↓' : ''}
+      </th>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <ChannelCard label="소매" badge="B2C" badgeCls="bg-orange-100 text-orange-700" ch={b2c} currency={currency} />
+        <ChannelCard label="도매" badge="B2B" badgeCls="bg-blue-100 text-blue-700" ch={b2b} currency={currency} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900">상품별 매출</h3>
+            <p className="text-xs text-gray-400">매출 기준 상위 상품 · 헤더 클릭으로 정렬</p>
+          </div>
+          <div className="overflow-y-auto max-h-72">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-white border-b border-gray-100">
+                <tr>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-400">상품명</th>
+                  <ColHeader field="quantity" label="판매수량" active={productSort} onSort={setProductSort} />
+                  <ColHeader field="revenue" label="매출액" active={productSort} onSort={setProductSort} />
+                </tr>
+              </thead>
+              <tbody>
+                {sortedProducts.map((row, i) => (
+                  <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50">
+                    <td className="px-4 py-2.5 truncate max-w-[180px]">{row.title}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{row.quantity.toLocaleString()}개</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium">{fmtMoney(row.revenue, currency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900">브랜드별 매출 비중</h3>
+            <p className="text-xs text-gray-400">브랜드 기준 매출액 · 헤더 클릭으로 정렬</p>
+          </div>
+          {sortedBrands.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-8">브랜드 데이터 없음</p>
+          ) : (
+            <>
+              <div className="overflow-y-auto max-h-60">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-white border-b border-gray-100">
+                    <tr>
+                      <th className="text-left px-4 py-2.5 font-medium text-gray-400">브랜드</th>
+                      <ColHeader field="quantity" label="판매수량" active={brandSort} onSort={setBrandSort} />
+                      <ColHeader field="revenue" label="매출액" active={brandSort} onSort={setBrandSort} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedBrands.map((row, i) => (
+                      <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50">
+                        <td className="px-4 py-2.5 flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COUNTRY_COLORS[i] || COUNTRY_COLORS[5] }} />
+                          {row.brand}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">{row.quantity.toLocaleString()}개</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums font-medium">{fmtMoney(row.revenue, currency)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {totalBrandRevenue > 0 && (
+                <div className="px-4 py-2.5 border-t border-gray-100 flex flex-wrap gap-x-3 gap-y-1">
+                  {[...top3Brands, ...(otherBrandRevenue > 0 ? [{ brand: '기타', revenue: otherBrandRevenue, quantity: 0 }] : [])].map((b, i) => (
+                    <div key={b.brand} className="flex items-center gap-1 text-[10px]">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COUNTRY_COLORS[i] || COUNTRY_COLORS[5] }} />
+                      <span className="text-gray-600">{b.brand} {Math.round(b.revenue / totalBrandRevenue * 100)}%</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900">국가별 유입 비중</h3>
+            <p className="text-xs text-gray-400">사용자 수 기준</p>
+          </div>
+          <div className="overflow-y-auto max-h-64">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-white border-b border-gray-100">
+                <tr>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-400">국가</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-gray-400">사용자 수</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-gray-400">비중</th>
+                </tr>
+              </thead>
+              <tbody>
+                {countries.slice(0, 10).map((c, i) => (
+                  <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50">
+                    <td className="px-4 py-2.5">
+                      <span className="mr-1">{countryFlag(c.countryId)}</span>
+                      {c.countryId} {c.country}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{c.users.toLocaleString()}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">
+                      {totalUsers > 0 ? `${(c.users / totalUsers * 100).toFixed(0)}%` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="rounded-xl border bg-white border-gray-200 overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900">국가별 매출 비중</h3>
+            <p className="text-xs text-gray-400">주문 기준 매출액</p>
+          </div>
+          <div className="overflow-y-auto max-h-64">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-white border-b border-gray-100">
+                <tr>
+                  <th className="text-left px-4 py-2.5 font-medium text-gray-400">국가</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-gray-400">매출액</th>
+                  <th className="text-right px-4 py-2.5 font-medium text-gray-400">비중</th>
+                </tr>
+              </thead>
+              <tbody>
+                {countryRevenue.slice(0, 10).map((c, i) => (
+                  <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50">
+                    <td className="px-4 py-2.5">
+                      <span className="mr-1">{countryFlag(c.country)}</span>
+                      {c.country}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium">{fmtMoney(c.revenue, currency)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-500">
+                      {totalRevenue > 0 ? `${(c.revenue / totalRevenue * 100).toFixed(0)}%` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── (구) 퍼널 분석 Tab ───
 
 function SourceConversionCard({ sources, fmtRevenue }: { sources: GaFunnelData['sources']; fmtRevenue: (v: number) => string }) {
   const totalRevenue = sources.reduce((s, r) => s + r.revenue, 0);
@@ -1818,10 +2250,9 @@ function WeeklyReviewTab() {
 
 const TABS = [
   { id: 'dashboard', label: '대시보드' },
-  { id: 'funnel', label: '퍼널 분석' },
-  { id: 'behavior', label: '행동 분석' },
-  { id: 'members', label: '회원 분석' },
-  { id: 'review', label: '주간회고' },
+  { id: 'traffic', label: '유입 분석' },
+  { id: 'conversion', label: '전환 분석' },
+  { id: 'sales', label: '판매 분석' },
 ];
 
 function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => void }) {
@@ -1957,10 +2388,17 @@ function DashboardView({ secret, onLogout }: { secret: string; onLogout: () => v
             ? <div className="flex items-center justify-center h-64 text-sm text-gray-400">데이터를 불러오는 중...</div>
             : <DashboardTab data={dashboard} currency={dashboard.currency} range={range} ga={gaData || null} traffic={trafficData || null} funnel={funnelData || null} />
         )}
-        {activeTab === 'funnel' && <FunnelTab secret={secret} range={apiRange} ga={gaData || null} dashboardCurrency={dashboard?.currency ?? 'KRW'} />}
-        {activeTab === 'behavior' && <BehaviorTab secret={secret} range={apiRange} />}
-        {activeTab === 'members' && <CustomerTab secret={secret} range={apiRange} />}
-        {activeTab === 'review' && <WeeklyReviewTab />}
+        {activeTab === 'traffic' && (
+          <TrafficAnalysisTab ga={gaData || null} traffic={trafficData || null} />
+        )}
+        {activeTab === 'conversion' && (
+          <ConversionAnalysisTab ga={gaData || null} />
+        )}
+        {activeTab === 'sales' && (
+          isLoading || !dashboard
+            ? <div className="flex items-center justify-center h-64 text-sm text-gray-400">데이터를 불러오는 중...</div>
+            : <SalesAnalysisTab data={dashboard} currency={dashboard.currency} traffic={trafficData || null} />
+        )}
       </div>
     </div>
   );
