@@ -5,6 +5,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { trackPageView } from "@/lib/ga4-pageview";
+import { saveUtmParams } from "@/lib/browser-utils";
+import { useAuthStore, fetchB2BDiscountRate } from "@/stores/authStore";
+import { isLoggedIn as isCustomerSessionValid } from "@/lib/customer-auth";
 import Index from "./pages/Index";
 import ProductDetail from "./pages/ProductDetail";
 import CheckoutReturn from "./pages/CheckoutReturn";
@@ -30,6 +33,7 @@ import NewProductsPage from "./pages/NewProducts";
 import RefundPolicy from "./pages/RefundPolicy";
 import About from "./pages/About";
 import { WhatsAppButton } from "./components/layout/WhatsAppButton";
+import { AnnouncementBar } from "./components/layout/AnnouncementBar";
 
 const queryClient = new QueryClient();
 
@@ -51,13 +55,55 @@ function GA4PageViewTracker() {
   return null;
 }
 
+function UtmCapture() {
+  useEffect(() => {
+    saveUtmParams();
+  }, []);
+  return null;
+}
+
+function B2BDiscountSync() {
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+  const isB2B = useAuthStore((s) => s.isB2B);
+  const user = useAuthStore((s) => s.user);
+  useEffect(() => {
+    if (!isLoggedIn || !user) return;
+    if (!isCustomerSessionValid()) {
+      useAuthStore.getState().logout();
+      return;
+    }
+    const email = user.shopifyEmail || user.email;
+    if (!email) return;
+    fetch('/api/customer-tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        const tags: string[] = data.tags || [];
+        const b2b = tags.some(t => t.toUpperCase() === 'B2B');
+        useAuthStore.getState().setB2B(b2b);
+        if (b2b) fetchB2BDiscountRate();
+      })
+      .catch(() => {});
+  }, [isLoggedIn, user]);
+  useEffect(() => {
+    if (isB2B) fetchB2BDiscountRate();
+  }, [isB2B]);
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <BrowserRouter>
         <GA4PageViewTracker />
+        <UtmCapture />
+        <B2BDiscountSync />
         <Toaster />
         <Sonner closeButton />
+        <AnnouncementBar />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/product/:id" element={<ProductDetail />} />

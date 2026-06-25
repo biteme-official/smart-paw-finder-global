@@ -188,7 +188,6 @@ async function handleOG(req: VercelRequest, res: VercelResponse): Promise<void> 
       productImage = cached.imageUrl;
     } else {
       try {
-        const token = await getAccessToken();
         const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN || '';
         if (!shop) {
           console.error('[OG] VITE_SHOPIFY_STORE_DOMAIN 환경변수 없음');
@@ -197,7 +196,6 @@ async function handleOG(req: VercelRequest, res: VercelResponse): Promise<void> 
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Shopify-Storefront-Private-Token': token,
             },
             body: JSON.stringify({
               query: `query OG($h:String!){product(handle:$h){title description(truncateAt:200) featuredImage{url} images(first:1){edges{node{url}}}}}`,
@@ -332,18 +330,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const token = await getAccessToken();
     const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN || 'lovable-project-lbgum.myshopify.com';
     const apiVersion = '2025-07';
+    const isAdmin = req.query.api === 'admin';
+    const endpoint = isAdmin
+      ? `https://${shop}/admin/api/${apiVersion}/graphql.json`
+      : `https://${shop}/api/${apiVersion}/graphql.json`;
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (isAdmin) {
+      headers['X-Shopify-Access-Token'] = await getAccessToken();
+    } else {
+      headers['Shopify-Storefront-Private-Token'] = await getAccessToken();
+    }
 
     const shopifyResponse = await fetch(
-      `https://${shop}/api/${apiVersion}/graphql.json`,
+      endpoint,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Shopify-Storefront-Private-Token': token,
-        },
+        headers,
         body: JSON.stringify(req.body),
       }
     );

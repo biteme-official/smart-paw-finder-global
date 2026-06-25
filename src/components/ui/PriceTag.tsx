@@ -1,5 +1,5 @@
 import { formatPrice } from '@/lib/shopify';
-import { useAuthStore, B2B_DISCOUNT_RATE } from '@/stores/authStore';
+import { useAuthStore } from '@/stores/authStore';
 
 interface PriceTagProps {
   amount: string;
@@ -10,14 +10,14 @@ interface PriceTagProps {
 
 export function PriceTag({ amount, currencyCode, className = '', originalClassName = '' }: PriceTagProps) {
   const isB2B = useAuthStore((s) => s.isB2B);
+  const discountRate = useAuthStore((s) => s.b2bDiscountRate);
 
   if (!isB2B) {
     return <span className={className} translate="no">{formatPrice(amount, currencyCode)}</span>;
   }
 
-  const discounted = (parseFloat(amount) * (1 - B2B_DISCOUNT_RATE)).toFixed(2);
-
-  const discountPercent = Math.round(B2B_DISCOUNT_RATE * 100);
+  const discounted = (parseFloat(amount) * (1 - discountRate)).toFixed(2);
+  const discountPercent = Math.round(discountRate * 100);
 
   return (
     <span className="inline-flex flex-wrap items-baseline gap-1.5">
@@ -35,5 +35,6 @@ export function PriceTag({ amount, currencyCode, className = '', originalClassNa
 }
 
 export function getB2BPrice(amount: string): string {
-  return (parseFloat(amount) * (1 - B2B_DISCOUNT_RATE)).toFixed(2);
+  const rate = useAuthStore.getState().b2bDiscountRate;
+  return (parseFloat(amount) * (1 - rate)).toFixed(2);
 }

@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL || '';
+const SLACK_ALERT_WEBHOOK_URL = process.env.SLACK_ALERT_WEBHOOK_URL || SLACK_WEBHOOK_URL;
 
 let cachedToken: string | null = null;
 let tokenExpiresAt: number = 0;
@@ -303,20 +304,254 @@ async function sendToSlack(message: { blocks: unknown[] }) {
   }
 }
 
+// ─── Health Check ────────────────────────────────────────────────────────────
+const SITE_URL = 'https://www.biteme.one';
+const KV_KEY = 'health-check:history';
+const KV_DAILY_SENT_KEY = 'health-check:daily-sent';
+
+async function kvGet(key: string): Promise<any> {
+  const url = process.env.KV_REST_API_URL;
+  const token = process.env.KV_REST_API_TOKEN;
+  if (!url || !token) return null;
+  try {
+    const r = await fetch(`${url}/get/${key}`, { headers: { Authorization: `Bearer ${token}` } });
+    const d = await r.json();
+    return d.result ? JSON.parse(d.result) : null;
+  } catch { return null; }
+}
+
+async function kvSet(key: string, value: any, exSeconds?: number): Promise<void> {
+  const url = process.env.KV_REST_API_URL;
+  const token = process.env.KV_REST_API_TOKEN;
+  if (!url || !token) return;
+  const args = exSeconds ? `/${key}/EX/${exSeconds}` : `/${key}`;
+  await fetch(`${url}/set${args}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(JSON.stringify(value)),
+  });
+}
+
+interface CheckResult { name: string; ok: boolean; status?: number; latencyMs: number; error?: string; }
+interface HistoryEntry { timestamp: number; allOk: boolean; results: CheckResult[]; }
+
+async function checkSiteAccess(): Promise<CheckResult> {
+  const start = Date.now();
+  try {
+    const r = await fetch(SITE_URL, { method: 'GET', redirect: 'follow' });
+    return { name: 'Site Access', ok: r.ok, status: r.status, latencyMs: Date.now() - start, error: r.ok ? undefined : `HTTP ${r.status}` };
+  } catch (e) { return { name: 'Site Access', ok: false, latencyMs: Date.now() - start, error: (e as Error).message }; }
+}
+
+async function checkStorefrontQuery(): Promise<CheckResult> {
+  const start = Date.now();
+  try {
+    const r = await fetch(`${SITE_URL}/api/shopify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: SITE_URL },
+      body: JSON.stringify({ query: 'query { products(first: 1) { edges { node { id } } } }' }),
+    });
+    const d = await r.json();
+    const ok = r.ok && d?.data?.products?.edges?.length > 0;
+    return { name: 'Storefront Query', ok, status: r.status, latencyMs: Date.now() - start, error: ok ? undefined : (!r.ok ? `HTTP ${r.status}` : 'No products') };
+  } catch (e) { return { name: 'Storefront Query', ok: false, latencyMs: Date.now() - start, error: (e as Error).message }; }
+}
+
+async function checkStorefrontMutation(): Promise<CheckResult> {
+  const start = Date.now();
+  try {
+    const listR = await fetch(`${SITE_URL}/api/shopify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: SITE_URL },
+      body: JSON.stringify({ query: 'query { products(first: 1) { edges { node { variants(first: 1) { edges { node { id } } } } } } }' }),
+    });
+    const listD = await listR.json();
+    const variantId = listD?.data?.products?.edges?.[0]?.node?.variants?.edges?.[0]?.node?.id;
+    if (!variantId) return { name: 'Storefront Mutation', ok: false, latencyMs: Date.now() - start, error: 'No variant ID' };
+
+    const r = await fetch(`${SITE_URL}/api/shopify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: SITE_URL },
+      body: JSON.stringify({
+        query: 'mutation cartCreate($input: CartInput!) { cartCreate(input: $input) { cart { id checkoutUrl } userErrors { message } } }',
+        variables: { input: { lines: [{ quantity: 1, merchandiseId: variantId }] } },
+      }),
+    });
+    const d = await r.json();
+    const cart = d?.data?.cartCreate?.cart;
+    const errs = d?.data?.cartCreate?.userErrors || [];
+    const ok = r.ok && !!cart?.checkoutUrl && errs.length === 0;
+    return { name: 'Storefront Mutation', ok, status: r.status, latencyMs: Date.now() - start, error: ok ? undefined : (errs[0]?.message || `HTTP ${r.status}`) };
+  } catch (e) { return { name: 'Storefront Mutation', ok: false, latencyMs: Date.now() - start, error: (e as Error).message }; }
+}
+
+async function getMainAccessToken(): Promise<string> {
+  const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN || '';
+  const clientId = process.env.VITE_SHOPIFY_CLIENT_ID || '';
+  const clientSecret = process.env.SHOPIFY_CLIENT_SECRET || '';
+  if (!clientId || !clientSecret) throw new Error('Missing VITE_SHOPIFY_CLIENT_ID or SHOPIFY_CLIENT_SECRET');
+  const r = await fetch(`https://${shop}/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret }),
+  });
+  if (!r.ok) throw new Error(`Token failed: ${r.status}`);
+  const d = await r.json();
+  return d.access_token;
+}
+
+async function checkAdminApi(): Promise<CheckResult> {
+  const start = Date.now();
+  try {
+    const token = await getMainAccessToken();
+    const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN || '';
+    const r = await fetch(`https://${shop}/admin/api/2025-07/graphql.json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
+      body: JSON.stringify({ query: '{ shop { name } }' }),
+    });
+    const d = await r.json();
+    const ok = r.ok && !!d?.data?.shop?.name;
+    return { name: 'Admin API', ok, status: r.status, latencyMs: Date.now() - start, error: ok ? undefined : `HTTP ${r.status}` };
+  } catch (e) { return { name: 'Admin API', ok: false, latencyMs: Date.now() - start, error: (e as Error).message }; }
+}
+
+async function sendHealthAlert(results: CheckResult[]) {
+  if (!SLACK_ALERT_WEBHOOK_URL) return;
+  const failed = results.filter(r => !r.ok);
+  const kstTime = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+  const blocks: any[] = [
+    { type: 'header', text: { type: 'plain_text', text: '🚨 API Health Check 장애 감지', emoji: true } },
+    { type: 'section', text: { type: 'mrkdwn', text: `*시각:* ${kstTime}\n*장애 항목:* ${failed.length}/${results.length}` } },
+  ];
+  for (const r of failed) {
+    blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `❌ *${r.name}*\n> Status: ${r.status || 'N/A'} | Error: ${r.error || 'Unknown'} | Latency: ${r.latencyMs}ms` } });
+  }
+  for (const r of results.filter(r => r.ok)) {
+    blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `✅ *${r.name}* — ${r.latencyMs}ms` } });
+  }
+  await fetch(SLACK_ALERT_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blocks }) });
+}
+
+async function sendDailyHealthSummary(history: HistoryEntry[]) {
+  if (!SLACK_WEBHOOK_URL) return;
+  const kstDate = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
+  const total = history.length;
+  const allOk = history.filter(h => h.allOk).length;
+  const failures = history.filter(h => !h.allOk);
+  const uptimePercent = total > 0 ? ((allOk / total) * 100).toFixed(1) : '0';
+
+  const avgLatency: Record<string, number[]> = {};
+  for (const h of history) for (const r of h.results) {
+    if (!avgLatency[r.name]) avgLatency[r.name] = [];
+    avgLatency[r.name].push(r.latencyMs);
+  }
+  let latencyText = '';
+  for (const [name, values] of Object.entries(avgLatency)) {
+    const avg = Math.round(values.reduce((a, b) => a + b, 0) / values.length);
+    latencyText += `• *${name}*: avg ${avg}ms / max ${Math.max(...values)}ms\n`;
+  }
+
+  interface Incident { startTime: number; endTime?: number; checks: string[]; resolved: boolean; }
+  const incidents: Incident[] = [];
+  let currentIncident: Incident | null = null;
+  const sorted = [...history].sort((a, b) => a.timestamp - b.timestamp);
+  for (const entry of sorted) {
+    if (!entry.allOk) {
+      const failedChecks = entry.results.filter(r => !r.ok).map(r => r.name);
+      if (!currentIncident) {
+        currentIncident = { startTime: entry.timestamp, checks: [...failedChecks], resolved: false };
+      } else {
+        for (const c of failedChecks) { if (!currentIncident.checks.includes(c)) currentIncident.checks.push(c); }
+      }
+    } else if (currentIncident) {
+      currentIncident.endTime = entry.timestamp;
+      currentIncident.resolved = true;
+      incidents.push(currentIncident);
+      currentIncident = null;
+    }
+  }
+  if (currentIncident) incidents.push(currentIncident);
+
+  let incidentSummary: string;
+  if (incidents.length === 0) {
+    incidentSummary = '✅ 장애 없음';
+  } else {
+    const ongoing = incidents.filter(i => !i.resolved);
+    const resolved = incidents.filter(i => i.resolved);
+    const parts: string[] = [];
+    if (ongoing.length > 0) {
+      parts.push(`🔴 장애 ${ongoing.length}건 진행 중 (${ongoing.map(i => i.checks.join(', ')).join(' / ')})`);
+    }
+    if (resolved.length > 0) {
+      const checkCount: Record<string, number> = {};
+      for (const inc of resolved) for (const c of inc.checks) { checkCount[c] = (checkCount[c] || 0) + 1; }
+      const detail = Object.entries(checkCount).map(([name, cnt]) => cnt > 1 ? `${name} x${cnt}` : name).join(', ');
+      parts.push(`⚠️ 장애 ${resolved.length}건 발생 / 모두 해결완료 (${detail})`);
+    }
+    incidentSummary = parts.join('\n');
+  }
+
+  const blocks: any[] = [
+    { type: 'header', text: { type: 'plain_text', text: `📊 Daily Health Report — ${kstDate}`, emoji: true } },
+    { type: 'section', text: { type: 'mrkdwn', text: `*Uptime:* ${uptimePercent}% (${allOk}/${total} checks)\n*총 체크:* ${total}회 (15분 간격)` } },
+    { type: 'section', text: { type: 'mrkdwn', text: `*평균 응답속도:*\n${latencyText}` } },
+    { type: 'section', text: { type: 'mrkdwn', text: `*장애 현황:*\n${incidentSummary}` } },
+  ];
+  await fetch(SLACK_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blocks }) });
+}
+
+async function handleHealthCheck(res: VercelResponse, forceDailySummary = false) {
+  const results = await Promise.all([checkSiteAccess(), checkStorefrontQuery(), checkStorefrontMutation(), checkAdminApi()]);
+  const allOk = results.every(r => r.ok);
+  const entry: HistoryEntry = { timestamp: Date.now(), allOk, results };
+
+  const history: HistoryEntry[] = (await kvGet(KV_KEY)) || [];
+  history.push(entry);
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const trimmed = history.filter(h => h.timestamp > cutoff);
+  await kvSet(KV_KEY, trimmed, 86400);
+
+  if (!allOk) await sendHealthAlert(results);
+
+  const kstHour = parseInt(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul', hour: 'numeric', hour12: false }));
+  const lastSent: string[] = (await kvGet(KV_DAILY_SENT_KEY)) || [];
+  const todaySlot = `${new Date().toISOString().slice(0, 10)}-${kstHour}`;
+  const isScheduledHour = kstHour === 9 || kstHour === 18;
+  const shouldSend = forceDailySummary || (isScheduledHour && !lastSent.includes(todaySlot));
+  if (shouldSend) {
+    await sendDailyHealthSummary(trimmed);
+    if (!forceDailySummary) {
+      lastSent.push(todaySlot);
+      await kvSet(KV_DAILY_SENT_KEY, lastSent, 86400);
+    }
+  }
+
+  return res.status(200).json({
+    status: allOk ? 'healthy' : 'degraded',
+    timestamp: new Date().toISOString(),
+    results: results.map(r => ({ name: r.name, ok: r.ok, status: r.status, latencyMs: r.latencyMs, ...(r.error ? { error: r.error } : {}) })),
+  });
+}
+
+// ─── Main Handler ────────────────────────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Allow GET (cron) and POST (manual trigger)
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Simple auth check for manual triggers
   const authHeader = req.headers.authorization;
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    // Allow Vercel cron (no auth header but has x-vercel-cron header)
     if (!req.headers['x-vercel-cron']) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
+  }
+
+  // action=health → health check, default → daily sales report
+  if (req.query.action === 'health') {
+    const forceDailySummary = req.query.daily === 'true';
+    return handleHealthCheck(res, forceDailySummary);
   }
 
   try {

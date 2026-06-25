@@ -16,6 +16,7 @@ import { useCartStore } from "@/stores/cartStore";
 import { useFavoriteAction } from "@/hooks/useFavoriteAction";
 import { toast } from "sonner";
 import { useTranslation } from "@/hooks/useTranslation";
+import { decorateWithGaLinker, appendUtmToUrl } from "@/lib/browser-utils";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import { Footer } from "@/components/layout/Footer";
 import { RecommendedProducts } from "@/components/product/RecommendedProducts";
@@ -362,7 +363,7 @@ export default function ProductDetail() {
         { variantId: variant.id, quantity },
       ]);
       if (checkoutUrl) {
-        window.location.href = checkoutUrl;
+        window.location.href = decorateWithGaLinker(appendUtmToUrl(checkoutUrl));
       }
     } catch (err) {
       console.error('Buy now error:', err);

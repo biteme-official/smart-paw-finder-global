@@ -46,6 +46,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    console.log('[Customer Account Proxy] Endpoint:', API_ENDPOINT);
+    console.log('[Customer Account Proxy] SHOP_ID:', SHOP_ID || 'MISSING');
+
     const response = await fetch(API_ENDPOINT, {
       method: 'POST',
       headers: {
@@ -56,6 +59,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     const data = await response.text();
+    if (!response.ok) {
+      console.error('[Customer Account Proxy] Shopify responded', response.status, data.slice(0, 500));
+    }
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Access-Control-Allow-Origin', corsOrigin);
     return res.status(response.status).send(data);

@@ -3,7 +3,7 @@ import { getAccessToken, refreshAccessToken } from './customer-auth';
 
 const ACCOUNT_PROXY = '/api/customer-account';
 
-async function customerAccountRequest<T = any>(query: string, variables: Record<string, unknown> = {}): Promise<T | null> {
+async function customerAccountRequest<T = any>(query: string, variables: Record<string, unknown> = {}, _retried = false): Promise<T | null> {
   let token = getAccessToken();
   if (!token) {
     token = await refreshAccessToken();
@@ -19,14 +19,16 @@ async function customerAccountRequest<T = any>(query: string, variables: Record<
     body: JSON.stringify({ query, variables }),
   });
 
-  if (response.status === 401) {
+  if (response.status === 401 && !_retried) {
     const newToken = await refreshAccessToken();
     if (!newToken) return null;
-    return customerAccountRequest(query, variables);
+    return customerAccountRequest(query, variables, true);
   }
 
   if (!response.ok) {
-    throw new Error(`Customer Account API error: ${response.status}`);
+    const errorBody = await response.text();
+    console.error(`[CustomerAccountAPI] ${response.status}:`, errorBody);
+    throw new Error(`Customer Account API error: ${response.status} — ${errorBody.slice(0, 300)}`);
   }
 
   const data = await response.json();
@@ -170,6 +172,53 @@ export async function fetchCustomerAccount(): Promise<CustomerAccountProfile | n
       };
     }),
   };
+}
+
+const STOREFRONT_TOKEN_MUTATION = `
+  mutation {
+    storefrontCustomerAccessTokenCreate {
+      customerAccessToken
+    }
+  }
+`;
+
+const SF_TOKEN_KEY = 'sca_storefront_token';
+const SF_TOKEN_EXPIRES_KEY = 'sca_storefront_token_expires';
+
+export function getCachedStorefrontCustomerToken(): string | null {
+  const cached = localStorage.getItem(SF_TOKEN_KEY);
+  const expiresAt = localStorage.getItem(SF_TOKEN_EXPIRES_KEY);
+  if (cached && expiresAt && Date.now() < parseInt(expiresAt, 10)) {
+    return cached;
+  }
+  return null;
+}
+
+export async function createStorefrontCustomerToken(): Promise<string | null> {
+  try {
+    const cached = getCachedStorefrontCustomerToken();
+    if (cached) return cached;
+
+    const data = await customerAccountRequest<any>(STOREFRONT_TOKEN_MUTATION);
+    console.log('[StorefrontToken] API response:', JSON.stringify(data));
+    const token = data?.storefrontCustomerAccessTokenCreate?.customerAccessToken || null;
+    if (token) {
+      localStorage.setItem(SF_TOKEN_KEY, token);
+      localStorage.setItem(SF_TOKEN_EXPIRES_KEY, (Date.now() + 24 * 60 * 60 * 1000).toString());
+      console.log('[StorefrontToken] Cached successfully');
+    } else {
+      console.warn('[StorefrontToken] No token returned from API');
+    }
+    return token;
+  } catch (err) {
+    console.error('[StorefrontToken] Failed:', err);
+    return null;
+  }
+}
+
+export function clearStorefrontCustomerToken(): void {
+  localStorage.removeItem(SF_TOKEN_KEY);
+  localStorage.removeItem(SF_TOKEN_EXPIRES_KEY);
 }
 
 export async function cancelCustomerOrder(orderId: string): Promise<{ success: boolean; error?: string }> {

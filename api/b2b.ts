@@ -210,6 +210,21 @@ async function handleUpdateCountry(req: VercelRequest, res: VercelResponse) {
   }
 }
 
+async function handleGetDiscountRate(_req: VercelRequest, res: VercelResponse) {
+  const rate = await kv.get<number>('b2b:discount-rate');
+  return res.status(200).json({ rate: rate ?? 0.60 });
+}
+
+async function handleSetDiscountRate(req: VercelRequest, res: VercelResponse) {
+  if (!checkAdmin(req)) return res.status(401).json({ error: 'Unauthorized' });
+  const { rate } = req.body || {};
+  if (typeof rate !== 'number' || rate < 0 || rate > 1) {
+    return res.status(400).json({ error: 'rate must be a number between 0 and 1' });
+  }
+  await kv.set('b2b:discount-rate', rate);
+  return res.status(200).json({ success: true, rate });
+}
+
 async function handleStatus(req: VercelRequest, res: VercelResponse) {
   const email = req.query.email as string;
   if (!email) return res.status(200).json({ status: 'none' });
@@ -239,6 +254,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case 'status': return handleStatus(req, res);
       case 'shopify-b2b': return handleShopifyB2B(req, res);
       case 'update-country': return handleUpdateCountry(req, res);
+      case 'get-discount-rate': return handleGetDiscountRate(req, res);
+      case 'set-discount-rate': return handleSetDiscountRate(req, res);
       default: return res.status(400).json({ error: 'Invalid action' });
     }
   } catch (e) {

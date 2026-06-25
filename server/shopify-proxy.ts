@@ -41,8 +41,9 @@ export function shopifyProxyMiddleware(): Connect.NextHandleFunction {
   return async (req, res, next) => {
     if (req.method !== 'POST') return next();
 
-    if (req.url === '/api/shopify') {
-      return handleStorefrontProxy(req, res);
+    if (req.url === '/api/shopify' || req.url === '/api/shopify?api=admin') {
+      const useAdmin = req.url?.includes('api=admin') ?? false;
+      return handleStorefrontProxy(req, res, useAdmin);
     }
     if (req.url === '/api/cancel-order') {
       return handleCancelOrder(req, res);
@@ -60,20 +61,29 @@ async function readBody(req: Connect.IncomingMessage): Promise<string> {
   return Buffer.concat(chunks).toString('utf-8');
 }
 
-async function handleStorefrontProxy(req: Connect.IncomingMessage, res: any) {
+async function handleStorefrontProxy(req: Connect.IncomingMessage, res: any, useAdmin = false) {
   try {
     const body = await readBody(req);
-    const token = await getAccessToken();
     const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN || 'lovable-project-lbgum.myshopify.com';
+    const endpoint = useAdmin
+      ? `https://${shop}/admin/api/2025-07/graphql.json`
+      : `https://${shop}/api/2025-07/graphql.json`;
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (useAdmin) {
+      headers['X-Shopify-Access-Token'] = await getAccessToken();
+    } else {
+      const isMutation = /^\s*mutation\b/i.test(body.replace(/.*"query"\s*:\s*"/, ''));
+      if (isMutation) {
+        headers['Shopify-Storefront-Private-Token'] = await getAccessToken();
+      }
+    }
 
     const shopifyResponse = await fetch(
-      `https://${shop}/api/2025-07/graphql.json`,
+      endpoint,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Shopify-Storefront-Private-Token': token,
-        },
+        headers,
         body,
       }
     );

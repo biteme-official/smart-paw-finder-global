@@ -212,6 +212,8 @@ async function handleStatus(req: Connect.IncomingMessage, res: any, email: strin
   });
 }
 
+let devDiscountRate = 0.60;
+
 export function b2bProxyMiddleware(): Connect.NextHandleFunction {
   return async (req, res, next) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
@@ -226,6 +228,21 @@ export function b2bProxyMiddleware(): Connect.NextHandleFunction {
     }
 
     try {
+      const action = url.searchParams.get('action');
+
+      if (url.pathname === '/api/b2b' && action === 'get-discount-rate') {
+        return json(res, 200, { rate: devDiscountRate });
+      }
+      if (url.pathname === '/api/b2b' && action === 'set-discount-rate' && req.method === 'POST') {
+        if (!checkAdminAuth(req)) return json(res, 401, { error: 'Unauthorized' });
+        const body = JSON.parse(await readBody(req));
+        if (typeof body.rate !== 'number' || body.rate < 0 || body.rate > 1) {
+          return json(res, 400, { error: 'rate must be between 0 and 1' });
+        }
+        devDiscountRate = body.rate;
+        return json(res, 200, { success: true, rate: devDiscountRate });
+      }
+
       if (req.method === 'POST' && url.pathname === '/api/b2b-apply') return handleApply(req, res);
       if (req.method === 'GET' && url.pathname === '/api/b2b-list') return handleList(req, res);
       if (req.method === 'GET' && url.pathname === '/api/b2b-detail') {

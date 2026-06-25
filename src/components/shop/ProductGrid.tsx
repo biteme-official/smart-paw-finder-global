@@ -79,8 +79,6 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
     if (product.node.availableForSale === false) return true;
     const variants = product.node.variants.edges;
     if (variants.every(v => !v.node.availableForSale)) return true;
-    const inv = product.node.totalInventory;
-    if (inv !== null && inv !== undefined && inv <= 0) return true;
     const tracked = variants.filter(v => v.node.quantityAvailable !== null);
     if (tracked.length > 0 && tracked.every(v => v.node.quantityAvailable! <= 0)) return true;
     return false;

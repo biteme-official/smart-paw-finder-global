@@ -56,6 +56,41 @@ async function gaReport(token: string, body: Record<string, unknown>): Promise<R
   return res.json() as Promise<Record<string, unknown>>;
 }
 
+function getLastNWeeks(n: number): { label: string; startDate: string; endDate: string }[] {
+  const now = new Date();
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+  const yesterdayStr = fmt(yesterday);
+  const dayOfWeek = now.getDay() || 7;
+  const lastMonday = new Date(now);
+  lastMonday.setDate(now.getDate() - (dayOfWeek - 1) - 7);
+  const weeks = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const start = new Date(lastMonday);
+    start.setDate(lastMonday.getDate() - i * 7);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    const endStr = fmt(end) > yesterdayStr ? yesterdayStr : fmt(end);
+    weeks.push({
+      label: `${String(start.getMonth() + 1).padStart(2, '0')}/${String(start.getDate()).padStart(2, '0')}주`,
+      startDate: fmt(start),
+      endDate: endStr,
+    });
+  }
+  return weeks;
+}
+
+function getWeekDates(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
+  const cur = new Date(startDate + 'T00:00:00');
+  const end = new Date(endDate + 'T00:00:00');
+  while (cur <= end) {
+    dates.push(`${cur.getFullYear()}${String(cur.getMonth() + 1).padStart(2, '0')}${String(cur.getDate()).padStart(2, '0')}`);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
 type GaRow = Record<string, string>;
 function gaRows(report: Record<string, unknown> | null): GaRow[] {
   if (!report) return [];
@@ -247,12 +282,28 @@ const RECENT_CUSTOMERS_QUERY = `
 `;
 
 const DASHBOARD_ORDERS_QUERY = `
-  query DashboardOrders($query: String!) {
-    orders(first: 250, query: $query, sortKey: CREATED_AT) {
+  query DashboardOrders($query: String!, $cursor: String) {
+    orders(first: 250, query: $query, sortKey: CREATED_AT, after: $cursor) {
+      pageInfo { hasNextPage endCursor }
       edges {
         node {
           createdAt
-          totalPriceSet { shopMoney { amount currencyCode } }
+          subtotalPriceSet { shopMoney { amount currencyCode } }
+          refunds {
+            createdAt
+            refundLineItems(first: 50) {
+              edges {
+                node {
+                  subtotalSet { shopMoney { amount } }
+                }
+              }
+            }
+          }
+          purchasingEntity {
+            ... on PurchasingCompany {
+              company { name }
+            }
+          }
           customer { tags }
           shippingAddress { countryCodeV2 }
           lineItems(first: 5) {
@@ -497,35 +548,97 @@ async function handleCustomers(token: string, req: VercelRequest, res: VercelRes
 
 async function handleDashboard(token: string, req: VercelRequest, res: VercelResponse) {
   const range = (req.query.range as string) || '7d';
-  let dateQuery: string;
+  const now = new Date();
+
+  let startDate: Date;
+  let endDate: Date | null = null;
+
   if (range.startsWith('custom:')) {
-    const [, start, end] = range.split(':');
-    dateQuery = start && end
-      ? `created_at:>='${start}' created_at:<='${end}'`
-      : `created_at:>='${new Date(Date.now() - 7 * 86400000).toISOString()}'`;
+    const [, s, e] = range.split(':');
+    startDate = new Date(`${s}T00:00:00+09:00`);
+    endDate = new Date(`${e}T23:59:59.999+09:00`);
   } else {
-    const now = new Date();
     const days = range === 'today' ? 0 : range === '7d' ? 7 : range === '28d' ? 28 : 90;
-    const startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days));
-    dateQuery = `created_at:>='${startDate.toISOString()}'`;
+    startDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days));
   }
 
-  const [ordersData, lowStockData] = await Promise.all([
-    adminGraphQL(token, DASHBOARD_ORDERS_QUERY, {
-      query: `${dateQuery} financial_status:paid`,
-    }),
-    adminGraphQL(token, LOW_STOCK_PRODUCTS_QUERY),
-  ]);
+  // test:false: Shopify Analytics는 테스트 주문 제외
+  const dateFilter = endDate
+    ? `created_at:>='${startDate.toISOString()}' created_at:<='${endDate.toISOString()}' test:false`
+    : `created_at:>='${startDate.toISOString()}' test:false`;
 
   interface OrderNode {
     createdAt: string;
-    totalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
+    subtotalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
+    refunds: Array<{
+      createdAt: string;
+      refundLineItems: {
+        edges: Array<{ node: { subtotalSet: { shopMoney: { amount: string } } } }>;
+      };
+    }>;
+    purchasingEntity: { company?: { name: string } } | null;
     customer: { tags: string[] } | null;
     shippingAddress: { countryCodeV2: string } | null;
     lineItems: { edges: { node: { title: string; quantity: number; originalTotalSet: { shopMoney: { amount: string } } } }[] };
   }
 
-  const edges = ordersData.data?.orders?.edges || [];
+  // 기간 이전 주문 중 기간 내 환불이 발생한 주문 쿼리 (Shopify Analytics 정확 일치를 위해)
+  const PRE_PERIOD_REFUNDS_QUERY = `
+    query PrePeriodRefunds($query: String!) {
+      orders(first: 250, query: $query) {
+        edges {
+          node {
+            createdAt
+            refunds {
+              createdAt
+              refundLineItems(first: 50) {
+                edges { node { subtotalSet { shopMoney { amount } } } }
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const [lowStockData, allEdges, prePeriodRefundTotal] = await Promise.all([
+    adminGraphQL(token, LOW_STOCK_PRODUCTS_QUERY),
+    (async () => {
+      const collected: { node: OrderNode }[] = [];
+      let cursor: string | null = null;
+      do {
+        const page = await adminGraphQL(token, DASHBOARD_ORDERS_QUERY, {
+          query: dateFilter,
+          cursor,
+        });
+        const orders = page.data?.orders;
+        collected.push(...(orders?.edges || []));
+        cursor = orders?.pageInfo?.hasNextPage ? orders.pageInfo.endCursor : null;
+      } while (cursor);
+      return collected;
+    })(),
+    // 기간 이전 주문에서 기간 내 발생한 환불 합계 계산
+    (async () => {
+      if (!endDate) return 0;
+      // 기간 내에 updated된 주문 중 기간 이전 생성 주문 조회
+      const prePeriodFilter = `updated_at:>='${startDate.toISOString()}' updated_at:<='${endDate.toISOString()}' created_at:<='${new Date(startDate.getTime() - 1).toISOString()}'`;
+      const data = await adminGraphQL(token, PRE_PERIOD_REFUNDS_QUERY, { query: prePeriodFilter });
+      let total = 0;
+      for (const edge of (data.data?.orders?.edges || [])) {
+        for (const refund of (edge.node.refunds || [])) {
+          const refundDate = new Date(refund.createdAt);
+          if (refundDate >= startDate && refundDate <= endDate) {
+            for (const li of (refund.refundLineItems?.edges || [])) {
+              total += parseFloat(li.node.subtotalSet.shopMoney.amount);
+            }
+          }
+        }
+      }
+      return total;
+    })(),
+  ]);
+
+  const edges = allEdges;
   let totalRevenue = 0;
   let totalOrders = 0;
   let totalItemsSold = 0;
@@ -541,14 +654,29 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
 
   for (const edge of edges) {
     const n = edge.node as OrderNode;
-    const amount = parseFloat(n.totalPriceSet.shopMoney.amount);
-    currency = n.totalPriceSet.shopMoney.currencyCode || currency;
+    // net_sales = subtotalPriceSet(할인 후) - 기간 내 발행된 환불합계
+    // Shopify Analytics: returns는 환불 발행일 기준 (order 생성일 기준 아님)
+    const subtotal = parseFloat(n.subtotalPriceSet.shopMoney.amount);
+    const refundedItems = (n.refunds || []).reduce((sum, r) => {
+      const refundDate = new Date(r.createdAt);
+      if (endDate && (refundDate < startDate || refundDate > endDate)) return sum;
+      if (!endDate && refundDate < startDate) return sum;
+      return sum + (r.refundLineItems?.edges || []).reduce((s, li) =>
+        s + parseFloat(li.node.subtotalSet.shopMoney.amount), 0);
+    }, 0);
+    const amount = subtotal - refundedItems;
+    currency = n.subtotalPriceSet.shopMoney.currencyCode || currency;
     totalRevenue += amount;
     totalOrders++;
 
-    const isB2B = (n.customer?.tags || []).some((t: string) => t.toLowerCase().includes('b2b'));
+    // B2B 판정: Shopify B2B Company 주문 OR 고객 태그에 'b2b' 포함
+    const isB2B = n.purchasingEntity?.company != null
+      || (n.customer?.tags || []).some((t: string) => t.toLowerCase().includes('b2b'));
     if (isB2B) { b2bRevenue += amount; b2bOrders++; }
     else { b2cRevenue += amount; b2cOrders++; }
+
+    const country = n.shippingAddress?.countryCodeV2 || 'Unknown';
+    countryMap.set(country, (countryMap.get(country) || 0) + 1);
 
     const date = n.createdAt.slice(0, 10);
     const day = dailyMap.get(date) || { date, orders: 0, revenue: 0 };
@@ -568,6 +696,10 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
       productMap.set(item.title, existing);
     }
   }
+
+  // 기간 이전 주문의 기간 내 환불도 차감 (Shopify Analytics returns 기준)
+  totalRevenue -= prePeriodRefundTotal;
+
 
   const countryOrders = Array.from(countryMap.entries())
     .map(([country, orders]) => ({ country, orders }))
@@ -617,8 +749,8 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
     },
     dailyOrders,
     topProducts,
-    lowStock,
     countryOrders,
+    lowStock,
     currency,
   });
 }
@@ -770,7 +902,7 @@ async function handleGaFunnel(req: VercelRequest, res: VercelResponse) {
   const range = (req.query.range as string) || '7d';
   const dr = gaDateRange(range);
 
-  const [funnelByDateReport, sourceReport, pageReport] = await Promise.all([
+  const [funnelByDateReport, sourceReport, pageReport, nvrFunnelReport, hourlyReport] = await Promise.all([
     gaReport(gaToken, {
       dateRanges: [dr],
       dimensions: [{ name: 'date' }, { name: 'eventName' }],
@@ -794,7 +926,7 @@ async function handleGaFunnel(req: VercelRequest, res: VercelResponse) {
         { name: 'purchaseRevenue' },
       ],
       orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
-      limit: 15,
+      limit: 10,
     }),
     gaReport(gaToken, {
       dateRanges: [dr],
@@ -806,6 +938,25 @@ async function handleGaFunnel(req: VercelRequest, res: VercelResponse) {
       ],
       orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
       limit: 20,
+    }),
+    // 신규 vs 재방문 퍼널
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'eventName' }, { name: 'newVsReturning' }],
+      metrics: [{ name: 'eventCount' }],
+      dimensionFilter: {
+        filter: {
+          fieldName: 'eventName',
+          inListFilter: { values: ['view_item', 'add_to_cart', 'begin_checkout', 'purchase'] },
+        },
+      },
+    }),
+    // 시간대별 전환율
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'hour' }],
+      metrics: [{ name: 'sessions' }, { name: 'ecommercePurchases' }],
+      orderBys: [{ dimension: { dimensionName: 'hour' } }],
     }),
   ]);
 
@@ -848,13 +999,162 @@ async function handleGaFunnel(req: VercelRequest, res: VercelResponse) {
     avgEngagement: Math.round(parseFloat(row.userEngagementDuration || '0')),
   }));
 
+  // 신규 vs 재방문 퍼널
+  const NVR_STEPS = ['view_item', 'add_to_cart', 'begin_checkout', 'purchase'];
+  const NVR_LABELS: Record<string, string> = {
+    view_item: '상품 조회', add_to_cart: '장바구니', begin_checkout: '결제 시작', purchase: '구매 완료',
+  };
+  const nvrCounts: Record<string, Record<string, number>> = { new: {}, returning: {} };
+  for (const row of gaRows(nvrFunnelReport)) {
+    const type = row.newVsReturning === 'new' ? 'new' : 'returning';
+    const step = row.eventName;
+    if (NVR_STEPS.includes(step)) nvrCounts[type][step] = (nvrCounts[type][step] || 0) + parseInt(row.eventCount || '0');
+  }
+  const buildNvrSteps = (type: string) => {
+    const base = nvrCounts[type]['view_item'] || 1;
+    return NVR_STEPS.map(step => ({
+      step, label: NVR_LABELS[step],
+      count: nvrCounts[type][step] || 0,
+      pct: Math.round(((nvrCounts[type][step] || 0) / base) * 1000) / 10,
+    }));
+  };
+  const newVsRetFunnel = { new: buildNvrSteps('new'), returning: buildNvrSteps('returning') };
+
+  // 시간대별 전환율
+  const hourlyMap = new Map<number, { sessions: number; purchases: number }>();
+  for (const row of gaRows(hourlyReport)) {
+    const h = parseInt(row.hour || '0');
+    hourlyMap.set(h, { sessions: parseInt(row.sessions || '0'), purchases: parseInt(row.ecommercePurchases || '0') });
+  }
+  const hourly = Array.from({ length: 24 }, (_, h) => {
+    const d = hourlyMap.get(h) || { sessions: 0, purchases: 0 };
+    return { hour: h, sessions: d.sessions, purchases: d.purchases, cvr: d.sessions > 0 ? Math.round((d.purchases / d.sessions) * 10000) / 100 : 0 };
+  });
+
+  // 구매 후 재방문 코호트 — firstSessionDate 필터 + nthWeek 차원으로 직접 계산
+  const cohortWeeks = getLastNWeeks(4);
+  let cohort = null;
+  try {
+    const cohortReports = await Promise.all(cohortWeeks.map(w =>
+      gaReport(gaToken, {
+        dateRanges: [{ startDate: w.startDate, endDate: 'yesterday' }],
+        dimensions: [{ name: 'nthWeek' }],
+        metrics: [{ name: 'activeUsers' }],
+        dimensionFilter: {
+          filter: {
+            fieldName: 'firstSessionDate',
+            inListFilter: { values: getWeekDates(w.startDate, w.endDate) },
+          },
+        },
+        orderBys: [{ dimension: { dimensionName: 'nthWeek' } }],
+        limit: 20,
+      })
+    ));
+    cohort = {
+      data: cohortWeeks.map((w, ci) => {
+        const weekMap: Record<number, number> = {};
+        for (const row of gaRows(cohortReports[ci])) {
+          const idx = parseInt(row.nthWeek || '0');
+          weekMap[idx] = parseInt(row.activeUsers || '0');
+        }
+        const base = weekMap[0] || 0;
+        return {
+          cohortWeek: w.label,
+          retention: Array.from({ length: 7 }, (_, i) =>
+            weekMap[i] !== undefined ? (base > 0 ? Math.round((weekMap[i] / base) * 100) : (i === 0 ? 100 : 0)) : null
+          ),
+        };
+      }),
+      maxWeeks: 7,
+    };
+  } catch (e) { console.error('[Cohort]', e); cohort = null; }
+
   return res.status(200).json({
     available: true,
     funnelSteps: funnelSteps.map(s => ({ step: s, label: funnelLabels[s] })),
     dailyFunnel,
     sources,
     pages,
+    newVsRetFunnel,
+    hourly,
+    cohort,
   });
+}
+
+async function handleGaBehavior(req: VercelRequest, res: VercelResponse) {
+  const range = (req.query.range as string) || '7d';
+  const dr = gaDateRange(range);
+  const gaToken = await getGAAccessToken();
+  if (!gaToken) return res.status(200).json({ available: false });
+
+  const [pagesReport, eventsReport, devicesReport, newVsRetReport] = await Promise.all([
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'pagePath' }, { name: 'pageTitle' }],
+      metrics: [
+        { name: 'screenPageViews' },
+        { name: 'activeUsers' },
+        { name: 'averageSessionDuration' },
+        { name: 'bounceRate' },
+      ],
+      orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+      limit: 10,
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'eventName' }],
+      metrics: [{ name: 'eventCount' }, { name: 'totalUsers' }],
+      orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+      limit: 15,
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'deviceCategory' }],
+      metrics: [
+        { name: 'sessions' },
+        { name: 'activeUsers' },
+        { name: 'transactions' },
+        { name: 'purchaseRevenue' },
+      ],
+    }),
+    gaReport(gaToken, {
+      dateRanges: [dr],
+      dimensions: [{ name: 'newVsReturning' }],
+      metrics: [{ name: 'sessions' }, { name: 'activeUsers' }, { name: 'transactions' }],
+    }),
+  ]);
+
+  const pages = gaRows(pagesReport as Record<string, unknown> | null).map(row => ({
+    path: row.pagePath || '/',
+    title: row.pageTitle || row.pagePath || '/',
+    views: parseInt(row.screenPageViews || '0'),
+    users: parseInt(row.activeUsers || '0'),
+    avgDuration: Math.round(parseFloat(row.averageSessionDuration || '0')),
+    bounceRate: Math.round(parseFloat(row.bounceRate || '0') * 10000) / 100,
+  }));
+
+  const events = gaRows(eventsReport as Record<string, unknown> | null).map(row => ({
+    name: row.eventName || '',
+    count: parseInt(row.eventCount || '0'),
+    users: parseInt(row.totalUsers || '0'),
+  }));
+
+  const devices = gaRows(devicesReport as Record<string, unknown> | null).map(row => ({
+    device: row.deviceCategory || '',
+    sessions: parseInt(row.sessions || '0'),
+    users: parseInt(row.activeUsers || '0'),
+    transactions: parseInt(row.transactions || '0'),
+    revenue: Math.round(parseFloat(row.purchaseRevenue || '0') * 100) / 100,
+  }));
+
+  const newVsReturning = gaRows(newVsRetReport as Record<string, unknown> | null).map(row => ({
+    type: row.newVsReturning === 'new' ? 'new' : 'returning',
+    sessions: parseInt(row.sessions || '0'),
+    users: parseInt(row.activeUsers || '0'),
+    transactions: parseInt(row.transactions || '0'),
+  }));
+
+  return res.status(200).json({ available: true, pages, events, devices, newVsReturning });
 }
 
 // ─── Router ───
@@ -879,6 +1179,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (section === 'ga-overview') return await handleGaOverview(req, res);
     if (section === 'ga-funnel') return await handleGaFunnel(req, res);
     if (section === 'ga-traffic') return await handleGaTraffic(req, res);
+    if (section === 'ga-behavior') return await handleGaBehavior(req, res);
 
     const token = await getShopifyAccessToken();
     if (section === 'overview') return await handleOverview(token, res);

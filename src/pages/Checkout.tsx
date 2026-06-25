@@ -8,6 +8,7 @@ import { formatPrice } from '@/lib/shopify';
 import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
 import { fetchCustomerAccount } from '@/lib/customer-account';
 import { toast } from 'sonner';
+import { decorateWithGaLinker, appendUtmToUrl } from '@/lib/browser-utils';
 
 const B2B_MIN_ORDER = 300;
 const SHIPPING_THRESHOLD = 75;
@@ -66,7 +67,27 @@ export default function Checkout() {
       }));
       const checkoutUrl = await createCheckout(lineItems);
       if (checkoutUrl) {
-        window.location.href = checkoutUrl;
+        // GA4 purchase attribution: 결제 전 구매 데이터를 저장해
+        // CheckoutReturn에서 biteme.one 세션 기준으로 purchase 이벤트 발사
+        try {
+          const ga4Items = items.map(item => ({
+            item_id: item.product.node.id,
+            item_name: item.product.node.title,
+            item_brand: item.product.node.vendor,
+            item_category: item.product.node.productType,
+            item_variant: item.variantTitle !== 'Default Title' ? item.variantTitle : undefined,
+            price: parseFloat(item.price.amount),
+            quantity: item.quantity,
+          }));
+          sessionStorage.setItem('bm_pending_purchase', JSON.stringify({
+            txnId: `BM_${Date.now()}`,
+            items: ga4Items,
+            currency: currencyCode,
+            value: Math.round(total * 100) / 100,
+            shipping: Math.round(shipping * 100) / 100,
+          }));
+        } catch {}
+        window.location.href = decorateWithGaLinker(appendUtmToUrl(checkoutUrl));
       }
     } catch (err) {
       console.error('Checkout error:', err);
@@ -97,7 +118,7 @@ export default function Checkout() {
                 Minimum order of {formatPrice(B2B_MIN_ORDER.toString(), currencyCode)} required for B2B pricing
               </p>
               <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-                Add {formatPrice((B2B_MIN_ORDER - subtotal).toFixed(2), currencyCode)} more to unlock your 50% B2B discount at checkout.
+                Add {formatPrice((B2B_MIN_ORDER - subtotal).toFixed(2), currencyCode)} more to unlock your {Math.round(useAuthStore.getState().b2bDiscountRate * 100)}% B2B discount at checkout.
               </p>
             </div>
           </div>
@@ -183,7 +204,7 @@ export default function Checkout() {
             })()}
             {isB2B && b2bEligible && (
               <div className="flex justify-between text-sm text-green-600">
-                <span>B2B Discount (35%)</span>
+                <span>B2B Discount ({Math.round(useAuthStore.getState().b2bDiscountRate * 100)}%)</span>
                 <span translate="no">Applied at checkout</span>
               </div>
             )}
