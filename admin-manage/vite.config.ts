@@ -15,45 +15,6 @@ function mockApiPlugin(): Plugin {
     // ── 로그인 인증 ──
     overview: { ok: true },
 
-    // ── 대시보드 (Shopify) ──
-    dashboard: {
-      summary: { totalOrders: 42, totalRevenue: 5831.50, averageOrderValue: 138.85, totalItemsSold: 89 },
-      b2b: { totalOrders: 8, totalRevenue: 2240.00, averageOrderValue: 280.00 },
-      b2c: { totalOrders: 34, totalRevenue: 3591.50, averageOrderValue: 105.63 },
-      dailyOrders: daily7,
-      topProducts: [
-        { title: 'Smart Paw Finder Pro', quantity: 24, revenue: 2399.76 },
-        { title: 'GPS Collar Tracker', quantity: 18, revenue: 1799.82 },
-        { title: 'Paw Health Monitor', quantity: 12, revenue: 839.88 },
-        { title: 'Smart Feeder Bundle', quantity: 9, revenue: 539.91 },
-        { title: 'Pet Activity Band', quantity: 6, revenue: 179.94 },
-      ],
-      countryOrders: [
-        { country: 'JP', orders: 18 },
-        { country: 'KR', orders: 12 },
-        { country: 'US', orders: 7 },
-        { country: 'AU', orders: 3 },
-        { country: 'SG', orders: 2 },
-      ],
-      lowStock: [
-        { title: 'GPS Collar Tracker', variant: 'Black M', quantity: 2 },
-        { title: 'Smart Paw Finder Pro', variant: 'Blue', quantity: 3 },
-      ],
-      currency: 'USD',
-      brandSales: [
-        { brand: 'Biteme', quantity: 48, revenue: 4799.52 },
-        { brand: 'PawTech', quantity: 24, revenue: 839.88 },
-        { brand: 'FurCare', quantity: 17, revenue: 191.83 },
-      ],
-      countryRevenue: [
-        { country: 'JP', revenue: 2541.30 },
-        { country: 'KR', revenue: 1659.60 },
-        { country: 'US', revenue: 969.95 },
-        { country: 'AU', revenue: 414.75 },
-        { country: 'SG', revenue: 276.50 },
-      ],
-    },
-
     // ── GA4 Overview ──
     'ga-overview': {
       available: true,
@@ -213,6 +174,59 @@ function mockApiPlugin(): Plugin {
         if (!req.url?.startsWith('/api/admin-manage')) { next(); return; }
         const url = new URL(req.url, 'http://localhost');
         const section = url.searchParams.get('section') ?? '';
+
+        // dashboard는 range 비례 데이터 생성
+        if (section === 'dashboard') {
+          const range = url.searchParams.get('range') || '7d';
+          const mult = range === 'today' ? 0.1 : range === '28d' ? 4 : range === '90d' ? 12 : 1;
+          const numDays = range === 'today' ? 1 : range === '28d' ? 28 : range === '90d' ? 90 : 7;
+          const todayDate = new Date();
+          const dailyArr = Array.from({ length: numDays }, (_, i) => {
+            const d = new Date(todayDate); d.setDate(todayDate.getDate() - (numDays - 1) + i);
+            return {
+              date: d.toISOString().slice(0, 10),
+              orders: Math.max(1, Math.round((3 + (i % 5)) * (numDays / 7))),
+              revenue: Math.round((200 + (i * 47) % 400) * (numDays / 7) * 100) / 100,
+            };
+          });
+          const r = (base: number) => Math.round(base * mult * 100) / 100;
+          const ri = (base: number) => Math.max(0, Math.round(base * mult));
+          res.setHeader('Content-Type', 'application/json');
+          res.statusCode = 200;
+          res.end(JSON.stringify({
+            summary: { totalOrders: ri(42), totalRevenue: r(5831.50), averageOrderValue: 138.85, totalItemsSold: ri(89) },
+            b2b: { totalOrders: ri(8), totalRevenue: r(2240), averageOrderValue: 280 },
+            b2c: { totalOrders: ri(34), totalRevenue: r(3591.50), averageOrderValue: 105.63 },
+            dailyOrders: dailyArr,
+            topProducts: [
+              { title: 'Smart Paw Finder Pro', quantity: ri(24), revenue: r(2399.76) },
+              { title: 'GPS Collar Tracker', quantity: ri(18), revenue: r(1799.82) },
+              { title: 'Paw Health Monitor', quantity: ri(12), revenue: r(839.88) },
+              { title: 'Smart Feeder Bundle', quantity: ri(9), revenue: r(539.91) },
+              { title: 'Pet Activity Band', quantity: ri(6), revenue: r(179.94) },
+            ],
+            countryOrders: [
+              { country: 'JP', orders: ri(18) }, { country: 'KR', orders: ri(12) },
+              { country: 'US', orders: ri(7) }, { country: 'AU', orders: ri(3) }, { country: 'SG', orders: ri(2) },
+            ],
+            lowStock: [
+              { title: 'GPS Collar Tracker', variant: 'Black M', quantity: 2 },
+              { title: 'Smart Paw Finder Pro', variant: 'Blue', quantity: 3 },
+            ],
+            currency: 'USD',
+            brandSales: [
+              { brand: 'Biteme', quantity: ri(48), revenue: r(4799.52) },
+              { brand: 'PawTech', quantity: ri(24), revenue: r(839.88) },
+              { brand: 'FurCare', quantity: ri(17), revenue: r(191.83) },
+            ],
+            countryRevenue: [
+              { country: 'JP', revenue: r(2541.30) }, { country: 'KR', revenue: r(1659.60) },
+              { country: 'US', revenue: r(969.95) }, { country: 'AU', revenue: r(414.75) }, { country: 'SG', revenue: r(276.50) },
+            ],
+          }));
+          return;
+        }
+
         if (!(section in mockData)) {
           res.setHeader('Content-Type', 'application/json');
           res.statusCode = 400;

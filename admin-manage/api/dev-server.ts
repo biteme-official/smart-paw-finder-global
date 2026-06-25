@@ -48,7 +48,7 @@ process.on('unhandledRejection', (err) => console.error('[dev-server] unhandledR
 const { default: handler } = await import('./admin-manage.js');
 
 // GA4 섹션: 로컬 처리 / 나머지: 프로덕션 프록시
-const GA_SECTIONS = new Set(['ga-behavior', 'ga-overview', 'ga-funnel', 'ga-traffic', 'dashboard']);
+const GA_SECTIONS = new Set(['ga-behavior', 'ga-overview', 'ga-funnel', 'ga-traffic']);
 const PROD_API = 'https://biteme-admin-manage.vercel.app';
 const PORT = 3000;
 
@@ -76,6 +76,91 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Unauthorized' }));
     }
+    return;
+  }
+
+  // ── dashboard: Shopify 자격증명 있으면 실제 데이터, 없으면 range 비례 mock ──
+  if (section === 'dashboard') {
+    const hasShopify = !!(
+      process.env.VITE_SHOPIFY_STORE_DOMAIN &&
+      (process.env.REPORT_SHOPIFY_CLIENT_ID || process.env.VITE_SHOPIFY_CLIENT_ID) &&
+      (process.env.REPORT_SHOPIFY_CLIENT_SECRET || process.env.SHOPIFY_CLIENT_SECRET)
+    );
+
+    if (hasShopify) {
+      const query: Record<string, string> = {};
+      url.searchParams.forEach((v, k) => { query[k] = v; });
+      const vReq = {
+        method: req.method, url: req.url, query,
+        headers: { authorization: `Bearer ${LOCAL_ADMIN_SECRET}` }, body: null,
+      } as unknown as VercelRequest;
+      let statusCode = 200;
+      const resHeaders: Record<string, string> = {};
+      const vRes = {
+        status(code: number) { statusCode = code; return this; },
+        setHeader(k: string, v: string) { resHeaders[k] = v; return this; },
+        json(data: unknown) {
+          resHeaders['Content-Type'] ??= 'application/json';
+          if (!res.headersSent) { res.writeHead(statusCode, resHeaders); res.end(JSON.stringify(data)); }
+        },
+        send(body: string) {
+          if (!res.headersSent) { res.writeHead(statusCode, resHeaders); res.end(body); }
+        },
+      } as unknown as VercelResponse;
+      try { await handler(vReq, vRes); } catch (err) {
+        console.error('[dev-server] dashboard Shopify 오류:', err);
+        if (!res.headersSent) { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Shopify error' })); }
+      }
+      return;
+    }
+
+    // Shopify 자격증명 없음 → range 비례 mock (날짜 필터 동작 확인용)
+    const range = url.searchParams.get('range') || '7d';
+    const mult = range === 'today' ? 0.1 : range === '28d' ? 4 : range === '90d' ? 12 : 1;
+    const numDays = range === 'today' ? 1 : range === '28d' ? 28 : range === '90d' ? 90 : 7;
+    const todayDate = new Date();
+    const dailyArr = Array.from({ length: numDays }, (_, i) => {
+      const d = new Date(todayDate); d.setDate(todayDate.getDate() - (numDays - 1) + i);
+      return {
+        date: d.toISOString().slice(0, 10),
+        orders: Math.max(1, Math.round((3 + (i % 5)) * (numDays / 7))),
+        revenue: Math.round((200 + (i * 47) % 400) * (numDays / 7) * 100) / 100,
+      };
+    });
+    const r = (base: number) => Math.round(base * mult * 100) / 100;
+    const ri = (base: number) => Math.max(0, Math.round(base * mult));
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      summary: { totalOrders: ri(42), totalRevenue: r(5831.50), averageOrderValue: 138.85, totalItemsSold: ri(89) },
+      b2b: { totalOrders: ri(8), totalRevenue: r(2240), averageOrderValue: 280 },
+      b2c: { totalOrders: ri(34), totalRevenue: r(3591.50), averageOrderValue: 105.63 },
+      dailyOrders: dailyArr,
+      topProducts: [
+        { title: 'Smart Paw Finder Pro', quantity: ri(24), revenue: r(2399.76) },
+        { title: 'GPS Collar Tracker', quantity: ri(18), revenue: r(1799.82) },
+        { title: 'Paw Health Monitor', quantity: ri(12), revenue: r(839.88) },
+        { title: 'Smart Feeder Bundle', quantity: ri(9), revenue: r(539.91) },
+        { title: 'Pet Activity Band', quantity: ri(6), revenue: r(179.94) },
+      ],
+      countryOrders: [
+        { country: 'JP', orders: ri(18) }, { country: 'KR', orders: ri(12) },
+        { country: 'US', orders: ri(7) }, { country: 'AU', orders: ri(3) }, { country: 'SG', orders: ri(2) },
+      ],
+      lowStock: [
+        { title: 'GPS Collar Tracker', variant: 'Black M', quantity: 2 },
+        { title: 'Smart Paw Finder Pro', variant: 'Blue', quantity: 3 },
+      ],
+      currency: 'USD',
+      brandSales: [
+        { brand: 'Biteme', quantity: ri(48), revenue: r(4799.52) },
+        { brand: 'PawTech', quantity: ri(24), revenue: r(839.88) },
+        { brand: 'FurCare', quantity: ri(17), revenue: r(191.83) },
+      ],
+      countryRevenue: [
+        { country: 'JP', revenue: r(2541.30) }, { country: 'KR', revenue: r(1659.60) },
+        { country: 'US', revenue: r(969.95) }, { country: 'AU', revenue: r(414.75) }, { country: 'SG', revenue: r(276.50) },
+      ],
+    }));
     return;
   }
 
