@@ -663,11 +663,11 @@ function OperationsPanel({ lowStock, topProducts, currency }: {
 
 // ─── 대시보드 Tab ───
 
-function ChannelCard({ label, badge, badgeCls, ch, currency }: {
-  label: string; badge: string; badgeCls: string; ch: ChannelSummary; currency: string;
+function ChannelCard({ label, badge, badgeCls, ch, currency, accent }: {
+  label: string; badge: string; badgeCls: string; ch: ChannelSummary; currency: string; accent?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
+    <div className={`rounded-xl border p-4 ${accent ? 'border-orange-200 bg-orange-50/40' : 'border-gray-200 bg-white'}`}>
       <div className="flex items-center gap-2 mb-3">
         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${badgeCls}`}>{badge}</span>
         <span className="text-xs text-gray-400">{label}</span>
@@ -675,15 +675,15 @@ function ChannelCard({ label, badge, badgeCls, ch, currency }: {
       <div className="grid grid-cols-3 gap-3">
         <div>
           <p className="text-[11px] text-gray-400">매출</p>
-          <p className="text-lg font-bold text-gray-900">{fmtMoney(ch.totalRevenue, currency)}</p>
+          <p className={`text-lg font-bold ${accent ? 'text-orange-600' : 'text-gray-900'}`}>{fmtMoney(ch.totalRevenue, currency)}</p>
         </div>
         <div>
           <p className="text-[11px] text-gray-400">주문</p>
-          <p className="text-lg font-bold text-gray-900">{ch.totalOrders}건</p>
+          <p className={`text-lg font-bold ${accent ? 'text-orange-600' : 'text-gray-900'}`}>{ch.totalOrders}건</p>
         </div>
         <div>
           <p className="text-[11px] text-gray-400">AOV</p>
-          <p className="text-lg font-bold text-gray-900">{ch.totalOrders > 0 ? fmtMoney(ch.averageOrderValue, currency) : '—'}</p>
+          <p className={`text-lg font-bold ${accent ? 'text-orange-600' : 'text-gray-900'}`}>{ch.totalOrders > 0 ? fmtMoney(ch.averageOrderValue, currency) : '—'}</p>
         </div>
       </div>
     </div>
@@ -1312,8 +1312,8 @@ function SalesAnalysisTab({ data, currency, traffic }: { data: DashboardData; cu
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <ChannelCard label="소매" badge="B2C" badgeCls="bg-orange-100 text-orange-700" ch={b2c} currency={currency} />
-        <ChannelCard label="도매" badge="B2B" badgeCls="bg-blue-100 text-blue-700" ch={b2b} currency={currency} />
+        <ChannelCard label="소매" badge="B2C" badgeCls="bg-orange-100 text-orange-700" ch={b2c} currency={currency} accent />
+        <ChannelCard label="도매" badge="B2B" badgeCls="bg-blue-100 text-blue-700" ch={b2b} currency={currency} accent />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
