@@ -257,7 +257,7 @@ function TrafficTrendChart({ ga, dailyOrders }: { ga?: GaData | null; dailyOrder
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(d => {
       const orders = orderMap.get(d.date) ?? 0;
-      const cvr = d.users > 0 ? parseFloat((orders / d.users * 100).toFixed(2)) : 0;
+      const cvr = d.sessions > 0 ? parseFloat((orders / d.sessions * 100).toFixed(2)) : 0;
       return { date: isoToLabel(d.date), users: d.users, cvr };
     });
   const interval = Math.max(0, Math.ceil(chartData.length / 10) - 1);
@@ -477,7 +477,7 @@ function TimelineTable({ dailyOrders, currency, ga, funnel }: { dailyOrders: Das
               const g = tab === 'daily' ? gaMap.get(row.sortKey) : undefined;
               const f = tab === 'daily' ? funnelMap.get(row.sortKey) : undefined;
               // CVR/AOV: 주문 수·매출 모두 DB(Net) 기준 사용
-              const cvr = g && g.users > 0 && row.orders > 0 ? (row.orders / g.users * 100).toFixed(2) + '%' : null;
+              const cvr = g && g.sessions > 0 && row.orders > 0 ? (row.orders / g.sessions * 100).toFixed(2) + '%' : null;
               const aov = row.orders > 0 ? fmtMoney(row.revenue / row.orders, currency) : null;
               return (
                 <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
@@ -497,11 +497,12 @@ function TimelineTable({ dailyOrders, currency, ga, funnel }: { dailyOrders: Das
             {(() => {
               const gaAvail = ga?.available && ga.daily;
               const periodUsers = gaAvail ? ga!.users : null;
+              const periodSessions = gaAvail ? ga!.sessions : null;
               const funnelAvail = funnel?.available && funnel.dailyFunnel;
               const ftAddToCart = funnelAvail ? funnel!.dailyFunnel.reduce((s, d) => s + ((d.add_to_cart as number) || 0), 0) : null;
               const ftBeginCheckout = funnelAvail ? funnel!.dailyFunnel.reduce((s, d) => s + ((d.begin_checkout as number) || 0), 0) : null;
-              // 구매 수·CVR·AOV: DB Net 기준, CVR = 주문 수 / 총 사용자
-              const ftCvr = periodUsers && periodUsers > 0 && totalOrders > 0 ? (totalOrders / periodUsers * 100).toFixed(2) + '%' : null;
+              // 구매 수·CVR·AOV: DB Net 기준, CVR = 주문 수 / 총 세션 수
+              const ftCvr = periodSessions && periodSessions > 0 && totalOrders > 0 ? (totalOrders / periodSessions * 100).toFixed(2) + '%' : null;
               const ftAov = totalOrders > 0 ? fmtMoney(totalRevenue / totalOrders, currency) : null;
               return (
                 <tr className="font-semibold">
@@ -820,7 +821,7 @@ function TrafficSection({ traffic, countryOrders, funnel }: { traffic: GaTraffic
               {[...sources].sort((a, b) => b.users - a.users).map((row, i) => {
                 const share = totalSourceUsers > 0 ? (row.users / totalSourceUsers * 100).toFixed(1) : '0.0';
                 const fs = funnelSourceMap.get(row.source);
-                const cvr = fs && row.users > 0 ? (fs.purchases / row.users * 100).toFixed(2) : null;
+                const cvr = fs && row.sessions > 0 ? (fs.purchases / row.sessions * 100).toFixed(2) : null;
                 return (
                   <tr key={i} className="border-b last:border-0 hover:bg-gray-50/50 transition-colors">
                     <td className="px-4 py-2 truncate max-w-[120px]">{row.source}</td>
