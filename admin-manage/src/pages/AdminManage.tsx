@@ -160,26 +160,6 @@ function fmtDateShort(iso: string) {
   return new Date(iso).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
 }
 
-function pageLabel(path: string): string {
-  if (path === '/' || path === '') return '홈';
-  if (path.startsWith('/product/')) return '상품 상세';
-  if (path === '/checkout') return '결제';
-  if (path === '/checkout-return') return '구매 완료';
-  if (path === '/mypage') return '마이페이지';
-  if (path === '/blog') return '블로그';
-  if (path.startsWith('/blog/')) return '블로그 글';
-  if (path === '/new-products') return '신상품';
-  if (path === '/contact') return '문의';
-  return path;
-}
-
-function deviceLabel(d: string): string {
-  if (d === 'mobile') return '모바일';
-  if (d === 'desktop') return '데스크톱';
-  if (d === 'tablet') return '태블릿';
-  return d;
-}
-
 function shopifyUrl(gid: string, type: 'orders' | 'products' | 'customers') {
   const numId = gid.split('/').pop();
   return `https://admin.shopify.com/store/biteme-one/${type}/${numId}`;
