@@ -25,7 +25,7 @@ try {
 
 // ── GA4 서비스 계정 JSON 로드 ──
 if (!process.env.GA_SERVICE_ACCOUNT_JSON) {
-  const jsonPath = 'C:/Users/PC/Downloads/biteme-analytics-60f6ec0e8cb1 (1).json';
+  const jsonPath = process.env.GA_SA_JSON_PATH || '';
   try {
     process.env.GA_SERVICE_ACCOUNT_JSON = readFileSync(jsonPath, 'utf-8');
     console.log('[dev-server] GA 서비스 계정 로드됨');
@@ -34,7 +34,6 @@ if (!process.env.GA_SERVICE_ACCOUNT_JSON) {
   }
 }
 
-if (!process.env.GA4_PROPERTY_ID) process.env.GA4_PROPERTY_ID = '523116543';
 // ADMIN_SECRET은 프로덕션 secret 그대로 사용 (프록시 시 인증 유지)
 // GA4 섹션은 Authorization 헤더를 로컬 ADMIN_SECRET으로 교체
 

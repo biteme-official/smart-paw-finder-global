@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ComposedChart, LineChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, PieChart, Pie, Cell, LabelList,
 } from 'recharts';
 import { toast } from 'sonner';
@@ -121,10 +121,9 @@ function fmtPagePath(path: string) {
 }
 
 function fmtDuration(s: number) {
-  if (s < 60) return `${s}초`;
   const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return sec > 0 ? `${m}분 ${sec}초` : `${m}분`;
+  const sec = Math.round(s % 60);
+  return m > 0 ? `${m}분 ${sec}초` : `${sec}초`;
 }
 
 function pageLabel(path: string, title: string) {
@@ -135,8 +134,6 @@ function pageLabel(path: string, title: string) {
 function deviceLabel(d: string) {
   return d === 'mobile' ? '모바일' : d === 'desktop' ? '데스크톱' : d === 'tablet' ? '태블릿' : d;
 }
-
-const FUNNEL_STEP_ORDER = ['view_item', 'add_to_cart', 'begin_checkout', 'add_payment_info', 'purchase'];
 
 function fmtMoney(v: number, currency = 'USD') {
   if (currency === 'JPY') return `¥${Math.round(v).toLocaleString('ja-JP')}`;
@@ -161,11 +158,6 @@ function getMondayISO(dateStr: string) {
 
 function fmtDateShort(iso: string) {
   return new Date(iso).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
-}
-
-function fmtDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 }
 
 function pageLabel(path: string): string {
@@ -748,9 +740,9 @@ function FunnelChart({ funnel }: { funnel: GaData['funnel'] }) {
   });
 
   const maxDropIdx = data.reduce((maxI, s, i) => {
-    if (i < 2 || s.dropRate === null) return maxI;
+    if (i < 1 || s.dropRate === null) return maxI;
     return (s.dropRate ?? 0) > (data[maxI]?.dropRate ?? 0) ? i : maxI;
-  }, 2);
+  }, 1);
 
   return (
     <div className="rounded-xl border bg-white border-gray-200 overflow-hidden h-full">
@@ -990,12 +982,6 @@ function TrafficSection({ traffic, countryOrders, funnel }: { traffic: GaTraffic
 
 function DashboardTab({ data, currency, range, ga, traffic, funnel }: { data: DashboardData; currency: string; range: Range; ga: GaData | null; traffic: GaTrafficData | null; funnel: GaFunnelData | null }) {
   const { summary, b2b, b2c, dailyOrders, topProducts, lowStock } = data;
-
-  const fmtDuration = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = Math.round(s % 60);
-    return m > 0 ? `${m}분 ${sec}초` : `${sec}초`;
-  };
 
   return (
     <div className="space-y-5">
@@ -1369,28 +1355,6 @@ function FunnelTooltip({ active, payload, label }: { active?: boolean; payload?:
           </div>
         );
       })}
-    </div>
-  );
-}
-
-function FunnelBarTooltip({ active, payload, label }: { active?: boolean; payload?: { dataKey: string; value: number }[]; label?: string }) {
-  if (!active || !payload?.length) return null;
-  const countEntry = payload.find(p => p.dataKey === 'count');
-  const convEntry = payload.find(p => p.dataKey === 'convRate');
-  const convVal = convEntry?.value;
-  const dropVal = convVal != null ? (100 - convVal).toFixed(1) : null;
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-md p-3 text-xs min-w-[180px]">
-      <p className="font-semibold text-gray-800 mb-2">{label}</p>
-      {convVal != null && (
-        <div className="py-0.5 text-gray-700">전환율: {convVal}%</div>
-      )}
-      {dropVal != null && (
-        <div className="py-0.5 text-gray-700">이탈률: {dropVal}%</div>
-      )}
-      {countEntry?.value != null && (
-        <div className="py-0.5 text-gray-700">이벤트 건수: {countEntry.value.toLocaleString()}건</div>
-      )}
     </div>
   );
 }

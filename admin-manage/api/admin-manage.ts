@@ -751,7 +751,6 @@ async function handleDashboard(token: string, req: VercelRequest, res: VercelRes
     topProducts,
     countryOrders,
     lowStock,
-    countryOrders,
     currency,
   });
 }
