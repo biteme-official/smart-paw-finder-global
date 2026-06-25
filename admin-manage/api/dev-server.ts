@@ -152,9 +152,11 @@ const server = http.createServer(async (req, res) => {
     });
     const r = (base: number) => Math.round(base * mult * 100) / 100;
     const ri = (base: number) => Math.max(0, Math.round(base * mult));
+    const mockOrders = ri(42);
+    const mockRevenue = r(5831.50);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      summary: { totalOrders: ri(42), totalRevenue: r(5831.50), averageOrderValue: 138.85, totalItemsSold: ri(89) },
+      summary: { totalOrders: mockOrders, totalRevenue: mockRevenue, averageOrderValue: mockOrders > 0 ? Math.round(mockRevenue / mockOrders * 100) / 100 : 0, totalItemsSold: ri(89) },
       b2b: { totalOrders: ri(8), totalRevenue: r(2240), averageOrderValue: 280 },
       b2c: { totalOrders: ri(34), totalRevenue: r(3591.50), averageOrderValue: 105.63 },
       dailyOrders: dailyArr,

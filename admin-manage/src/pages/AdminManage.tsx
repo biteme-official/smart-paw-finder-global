@@ -1118,9 +1118,9 @@ function TrafficAnalysisTab({ ga, traffic }: { ga: GaData | null; traffic: GaTra
         <div className="px-5 py-3 border-b border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900">소스 / 매체별 상세 지표</h3>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-auto max-h-[400px]">
           <table className="w-full text-xs">
-            <thead className="bg-gray-50 border-b border-gray-100">
+            <thead className="sticky top-0 bg-gray-50 border-b border-gray-100 z-10">
               <tr>
                 <th className="text-left px-4 py-2.5 font-medium text-gray-400">소스 / 매체</th>
                 <th className="text-center px-4 py-2.5 font-medium text-gray-400">채널</th>
@@ -1198,9 +1198,9 @@ function ConversionAnalysisTab({ ga }: { ga: GaData | null }) {
 
   const RANKS = ['1위', '2위', '3위'];
   const RANK_STYLES = [
-    { wrap: 'bg-orange-50 border-orange-200', rate: 'text-orange-600', desc: 'text-orange-500' },
-    { wrap: 'bg-orange-50/50 border-orange-100', rate: 'text-orange-500', desc: 'text-orange-400' },
-    { wrap: 'bg-gray-50 border-gray-200', rate: 'text-gray-700', desc: 'text-gray-500' },
+    { wrap: 'bg-white border-red-300', rate: 'text-red-600', desc: 'text-gray-700' },
+    { wrap: 'bg-white border-orange-300', rate: 'text-orange-600', desc: 'text-gray-700' },
+    { wrap: 'bg-white border-gray-300', rate: 'text-gray-700', desc: 'text-gray-600' },
   ];
 
   return (
@@ -1269,7 +1269,7 @@ function ConversionAnalysisTab({ ga }: { ga: GaData | null }) {
             const dropCount = prev ? prev.count - s.count : 0;
             return (
               <div key={s.step} className={`rounded-xl border p-4 ${st.wrap}`}>
-                <p className="text-[10px] font-semibold text-gray-400 mb-1">{RANKS[i]} · {s.label} 단계</p>
+                <p className="text-[10px] font-semibold text-gray-500 mb-1">{RANKS[i]} · {s.label} 단계</p>
                 <p className={`text-2xl font-bold ${st.rate}`}>-{s.dropRate}%</p>
                 {prev && (
                   <p className={`text-[11px] mt-1 ${st.desc}`}>
