@@ -1,51 +1,41 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
-import { fetchAnnouncements, AnnouncementItem } from "@/lib/shopify";
 
 const DISMISSED_KEY = "announcement-bar-dismissed";
-const FILL_COUNT = 8;
 
-function MessageSet({ items }: { items: AnnouncementItem[] }) {
-  return (
-    <>
-      {Array.from({ length: FILL_COUNT }).map((_, ri) =>
-        items.map((item, ii) => (
-          <span key={`${ri}-${ii}`} className="inline-flex items-center shrink-0 mx-10">
-            <span className="text-white/60 mr-6">★</span>
-            {item.linkUrl ? (
-              <a href={item.linkUrl} className="hover:underline underline-offset-2">{item.message}</a>
-            ) : (
-              item.message
-            )}
-          </span>
-        ))
-      )}
-    </>
-  );
-}
+const MESSAGES = [
+  "🎁 First Order 10% OFF – Use Code: WELCOME10",
+  "🚚 Free Worldwide Shipping on Orders Over $75",
+];
 
 export function AnnouncementBar() {
-  const [items, setItems] = useState<AnnouncementItem[]>([]);
   const [dismissed, setDismissed] = useState(() => sessionStorage.getItem(DISMISSED_KEY) === "1");
+  const [index, setIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
     if (dismissed) return;
-    fetchAnnouncements()
-      .then(setItems)
-      .catch(() => {});
+    const timer = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIndex((prev) => (prev + 1) % MESSAGES.length);
+        setVisible(true);
+      }, 300);
+    }, 2000);
+    return () => clearInterval(timer);
   }, [dismissed]);
 
-  if (dismissed || items.length === 0) return null;
+  if (dismissed) return null;
 
   return (
-    <div className="relative bg-[#f85a24] text-white text-xs sm:text-sm overflow-hidden">
-      <div className="marquee-track flex items-center whitespace-nowrap py-2">
-        <div className="marquee-half flex items-center shrink-0">
-          <MessageSet items={items} />
-        </div>
-        <div className="marquee-half flex items-center shrink-0">
-          <MessageSet items={items} />
-        </div>
+    <div className="relative bg-[#f85a24] text-white text-xs sm:text-sm">
+      <div className="flex items-center justify-center py-2 px-8 min-h-[36px]">
+        <span
+          className="transition-opacity duration-300 text-center"
+          style={{ opacity: visible ? 1 : 0 }}
+        >
+          {MESSAGES[index]}
+        </span>
       </div>
       <button
         onClick={() => {
