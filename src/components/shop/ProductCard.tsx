@@ -51,7 +51,7 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
     : (originalAmt * 0.9).toFixed(2);
   const discountLabel = isB2B
     ? `${Math.round(b2bDiscountRate * 100)}% OFF`
-    : "10% OFF";
+    : "First Order 10% OFF";
 
   return (
     <div
