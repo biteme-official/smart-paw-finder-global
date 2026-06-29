@@ -4,8 +4,8 @@ import { X } from "lucide-react";
 const DISMISSED_KEY = "announcement-bar-dismissed";
 
 const MESSAGES = [
-  "🎁 First Order 10% OFF – Use Code: WELCOME10",
-  "🚚 Free Worldwide Shipping on Orders Over $75",
+  { text: "🎁 First Order 10% OFF – Use Code: WELCOME10", className: "text-white" },
+  { text: "🚚 Free Worldwide Shipping on Orders Over $75", className: "text-lime-300" },
 ];
 
 export function AnnouncementBar() {
@@ -31,10 +31,10 @@ export function AnnouncementBar() {
     <div className="relative bg-[#f85a24] text-white text-xs sm:text-sm">
       <div className="flex items-center justify-center py-2 px-8 min-h-[36px]">
         <span
-          className="transition-opacity duration-300 text-center"
+          className={`transition-opacity duration-300 text-center ${MESSAGES[index].className}`}
           style={{ opacity: visible ? 1 : 0 }}
         >
-          {MESSAGES[index]}
+          {MESSAGES[index].text}
         </span>
       </div>
       <button
