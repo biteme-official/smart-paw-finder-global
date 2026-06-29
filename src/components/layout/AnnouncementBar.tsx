@@ -4,8 +4,8 @@ import { X } from "lucide-react";
 const DISMISSED_KEY = "announcement-bar-dismissed";
 
 const MESSAGES = [
-  { text: "🎁 First Order 10% OFF – Use Code: WELCOME10", className: "text-white" },
-  { text: "🚚 Free Worldwide Shipping on Orders Over $75", className: "text-lime-300" },
+  { text: "🎁 First Order 10% OFF – Use Code: WELCOME10", className: "text-gray-900" },
+  { text: "🚚 Free Worldwide Shipping on Orders Over $75", className: "text-gray-900" },
 ];
 
 export function AnnouncementBar() {
@@ -28,7 +28,7 @@ export function AnnouncementBar() {
   if (dismissed) return null;
 
   return (
-    <div className="relative bg-[#f85a24] text-white text-xs sm:text-sm">
+    <div className="relative bg-[#FFD600] text-gray-900 text-xs sm:text-sm">
       <div className="flex items-center justify-center py-2 px-8 min-h-[36px]">
         <span
           className={`transition-opacity duration-300 text-center ${MESSAGES[index].className}`}
@@ -42,7 +42,7 @@ export function AnnouncementBar() {
           setDismissed(true);
           sessionStorage.setItem(DISMISSED_KEY, "1");
         }}
-        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-white/20 rounded transition-colors"
+        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-black/10 rounded transition-colors"
         aria-label="Close announcement"
       >
         <X className="h-3.5 w-3.5" />
