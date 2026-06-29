@@ -32,12 +32,17 @@ export function InstagramReels() {
         .then((p) => setProducts((prev) => { const n = [...prev]; n[i] = p; return n; }))
         .catch(() => {});
 
-      fetch(`/api/ig-thumbnail?shortcode=${shortcode}`)
-        .then((r) => r.json())
-        .then((d: { thumbnail_url: string | null }) => {
-          if (d.thumbnail_url) setThumbnails((prev) => { const n = [...prev]; n[i] = d.thumbnail_url; return n; });
-        })
-        .catch(() => {});
+      const manualThumb = CURATED_REELS[i].thumbnailUrl;
+      if (manualThumb) {
+        setThumbnails((prev) => { const n = [...prev]; n[i] = manualThumb; return n; });
+      } else {
+        fetch(`/api/ig-thumbnail?shortcode=${shortcode}`)
+          .then((r) => r.json())
+          .then((d: { thumbnail_url: string | null }) => {
+            if (d.thumbnail_url) setThumbnails((prev) => { const n = [...prev]; n[i] = d.thumbnail_url; return n; });
+          })
+          .catch(() => {});
+      }
     });
   }, []);
 
