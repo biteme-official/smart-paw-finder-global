@@ -1,179 +1,166 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Play, ShoppingCart } from "lucide-react";
-import { CURATED_REELS } from "@/data/curated-reels";
-import { fetchProductByHandle, ShopifyProduct, formatPrice } from "@/lib/shopify";
-import { Button } from "@/components/ui/button";
-import { ProductOptionDialog } from "@/components/shop/ProductOptionDialog";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { Play, Instagram, X, ChevronLeft, ChevronRight } from "lucide-react";
 
-type ProductNode = ShopifyProduct["node"];
+interface Reel {
+  id: string;
+  media_type: string;
+  media_url?: string;
+  thumbnail_url?: string;
+  permalink: string;
+  caption?: string;
+  timestamp: string;
+}
 
 export function InstagramReels() {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [products, setProducts] = useState<(ProductNode | null)[]>(
-    Array(CURATED_REELS.length).fill(null)
-  );
-  const [optionDialogOpen, setOptionDialogOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
-  const dragStartX = useRef<number | null>(null);
+  const [reels, setReels] = useState<Reel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedReel, setSelectedReel] = useState<Reel | null>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    CURATED_REELS.forEach(({ productHandle }, i) => {
-      fetchProductByHandle(productHandle)
-        .then((p) => {
-          setProducts((prev) => {
-            const next = [...prev];
-            next[i] = p;
-            return next;
-          });
-        })
-        .catch(() => {});
-    });
+    fetch("/api/instagram-reels")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.reels) setReels(data.reels);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  const goTo = useCallback((index: number) => {
-    setActiveIndex(((index % CURATED_REELS.length) + CURATED_REELS.length) % CURATED_REELS.length);
+  const updateScrollButtons = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 0);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
   }, []);
 
-  const prev = () => goTo(activeIndex - 1);
-  const next = () => goTo(activeIndex + 1);
+  useEffect(() => {
+    updateScrollButtons();
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", updateScrollButtons, { passive: true });
+    window.addEventListener("resize", updateScrollButtons);
+    return () => {
+      el.removeEventListener("scroll", updateScrollButtons);
+      window.removeEventListener("resize", updateScrollButtons);
+    };
+  }, [reels, updateScrollButtons]);
 
-  const onDragStart = (clientX: number) => { dragStartX.current = clientX; };
-  const onDragEnd = (clientX: number) => {
-    if (dragStartX.current === null) return;
-    const diff = dragStartX.current - clientX;
-    if (Math.abs(diff) > 50) diff > 0 ? next() : prev();
-    dragStartX.current = null;
+  const scroll = (direction: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const amount = el.clientWidth * 0.8;
+    el.scrollBy({ left: direction === "left" ? -amount : amount, behavior: "smooth" });
   };
 
-  const activeReel = CURATED_REELS[activeIndex];
-  const activeProduct = products[activeIndex];
+  if (!loading && reels.length === 0) return null;
 
   return (
-    <section className="py-10 px-4 bg-[#fafafa]">
-      <div className="max-w-7xl mx-auto">
-        <h2 className="text-xl font-bold text-center mb-8">Loved by the Community 🐾</h2>
+    <>
+      <section className="py-8 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center gap-2 mb-4">
+            <Instagram className="h-5 w-5 text-pink-500" />
+            <h2 className="text-lg font-bold">See more on our Insta🐶</h2>
+            <a
+              href="https://www.instagram.com/biteme_global/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-muted-foreground hover:text-pink-500 transition-colors"
+            >
+              @biteme_global
+            </a>
+          </div>
 
-        <div className="flex items-start gap-3 justify-center">
-          <button
-            onClick={prev}
-            className="mt-28 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-colors flex-none"
-            aria-label="이전 릴스"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-
-          <div
-            className="flex flex-col items-center w-full max-w-[300px]"
-            onMouseDown={(e) => onDragStart(e.clientX)}
-            onMouseUp={(e) => onDragEnd(e.clientX)}
-            onTouchStart={(e) => onDragStart(e.touches[0].clientX)}
-            onTouchEnd={(e) => onDragEnd(e.changedTouches[0].clientX)}
-          >
-            <div className="w-full aspect-[9/16] rounded-2xl overflow-hidden bg-black shadow-xl">
-              <iframe
-                key={activeReel.shortcode}
-                src={`https://www.instagram.com/p/${activeReel.shortcode}/embed/?cr=1&v=14`}
-                className="w-full h-full border-0"
-                allowFullScreen
-                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
-                scrolling="no"
-                title={`Instagram Reel ${activeReel.shortcode}`}
-              />
-            </div>
-
-            {activeProduct && (
-              <div className="mt-3 w-full bg-white rounded-2xl shadow-sm border border-border p-3 flex items-center gap-3">
-                <img
-                  src={activeProduct.images.edges[0]?.node.url}
-                  alt={activeProduct.title}
-                  className="w-14 h-14 rounded-xl object-cover flex-none"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold leading-tight line-clamp-2">{activeProduct.title}</p>
-                  <p className="text-sm text-orange-500 font-bold mt-1">
-                    {formatPrice(
-                      activeProduct.priceRange.minVariantPrice.amount,
-                      activeProduct.priceRange.minVariantPrice.currencyCode
-                    )}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  className="flex-none bg-black text-white hover:bg-black/80 rounded-full px-3"
-                  onClick={() => {
-                    setSelectedProduct({ node: activeProduct } as ShopifyProduct);
-                    setOptionDialogOpen(true);
-                  }}
-                >
-                  <ShoppingCart className="h-3.5 w-3.5 mr-1" />
-                  Add
-                </Button>
+          <div className="relative group">
+            {loading ? (
+              <div className="flex gap-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex-none w-36 aspect-[9/16] bg-muted animate-pulse rounded-xl"
+                  />
+                ))}
+              </div>
+            ) : (
+              <div
+                ref={scrollRef}
+                style={{ overflowX: "scroll", WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
+                className="flex gap-3 pb-2 scrollbar-hide"
+              >
+                {reels.map((reel) => (
+                  <button
+                    key={reel.id}
+                    onClick={() => setSelectedReel(reel)}
+                    className="flex-none w-36 aspect-[9/16] relative rounded-xl overflow-hidden bg-muted group/card cursor-pointer"
+                  >
+                    <img
+                      src={reel.thumbnail_url || reel.media_url}
+                      alt={reel.caption?.slice(0, 40) || "Instagram Reel"}
+                      className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity">
+                      <div className="bg-white/90 rounded-full p-2">
+                        <Play className="h-5 w-5 text-black fill-black" />
+                      </div>
+                    </div>
+                    <div className="absolute bottom-2 left-2">
+                      <div className="bg-black/60 rounded-full p-1">
+                        <Play className="h-3 w-3 text-white fill-white" />
+                      </div>
+                    </div>
+                  </button>
+                ))}
               </div>
             )}
 
-            <div className="flex items-center gap-2 mt-4">
-              {CURATED_REELS.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => goTo(i)}
-                  className={`h-2 rounded-full transition-all duration-300 ${
-                    i === activeIndex ? "w-5 bg-black" : "w-2 bg-gray-300 hover:bg-gray-400"
-                  }`}
-                  aria-label={`${i + 1}번 릴스로 이동`}
-                />
-              ))}
-            </div>
-          </div>
-
-          <button
-            onClick={next}
-            className="mt-28 p-2 rounded-full bg-white shadow-md hover:bg-gray-100 transition-colors flex-none"
-            aria-label="다음 릴스"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="flex gap-2 justify-center mt-5 overflow-x-auto pb-1 scrollbar-hide">
-          {CURATED_REELS.map(({ shortcode }, i) => {
-            const product = products[i];
-            const isActive = i === activeIndex;
-            return (
+            {canScrollLeft && (
               <button
-                key={shortcode}
-                onClick={() => goTo(i)}
-                className={`flex-none w-16 aspect-[9/16] rounded-xl overflow-hidden relative transition-all duration-200 ${
-                  isActive ? "ring-2 ring-black scale-105" : "opacity-50 hover:opacity-75"
-                }`}
-                aria-label={`${i + 1}번 릴스 선택`}
+                onClick={() => scroll("left")}
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 z-10 bg-white/90 shadow-md rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
               >
-                {product?.images.edges[0]?.node.url ? (
-                  <img
-                    src={product.images.edges[0].node.url}
-                    alt={product.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-orange-100 to-pink-100" />
-                )}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className={`rounded-full p-1 ${isActive ? "bg-black/60" : "bg-black/40"}`}>
-                    <Play className="h-2.5 w-2.5 text-white fill-white" />
-                  </div>
-                </div>
+                <ChevronLeft className="h-5 w-5 text-foreground" />
               </button>
-            );
-          })}
+            )}
+            {canScrollRight && (
+              <button
+                onClick={() => scroll("right")}
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 z-10 bg-white/90 shadow-md rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <ChevronRight className="h-5 w-5 text-foreground" />
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      </section>
 
-      {selectedProduct && (
-        <ProductOptionDialog
-          open={optionDialogOpen}
-          onOpenChange={setOptionDialogOpen}
-          product={selectedProduct}
-        />
+      {selectedReel && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setSelectedReel(null)}
+        >
+          <div
+            className="relative w-full max-w-sm aspect-[9/16] rounded-2xl overflow-hidden bg-black"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <iframe
+              src={`${selectedReel.permalink}embed/`}
+              className="w-full h-full border-0"
+              allowFullScreen
+              allow="autoplay; encrypted-media"
+            />
+            <button
+              onClick={() => setSelectedReel(null)}
+              className="absolute top-3 right-3 z-10 bg-black/60 rounded-full p-1.5 text-white hover:bg-black/80 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
       )}
-    </section>
+    </>
   );
 }
