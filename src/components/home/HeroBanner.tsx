@@ -110,7 +110,7 @@ export function HeroBanner() {
               className="w-full h-auto block"
             />
             {banner.linkUrl && (
-              <div className="absolute bottom-8 md:bottom-10 left-6 md:left-12">
+              <div className="absolute bottom-10 md:bottom-12 right-6 md:right-16">
                 <button
                   onClick={(e) => { e.stopPropagation(); handleBannerClick(banner.linkUrl); }}
                   className="bg-white/95 text-black text-xs md:text-sm font-semibold px-6 py-2.5 rounded-full shadow-xl hover:bg-white active:scale-95 transition-all whitespace-nowrap border border-white/20"
