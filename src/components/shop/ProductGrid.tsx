@@ -36,6 +36,7 @@ interface ProductGridProps {
 }
 
 const PRODUCTS_PER_PAGE = 12;
+const BEST_SELLING_INITIAL = 30;
 const DEFAULT_MAX_PRICE = 100;
 
 export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCollections = null, overrideTitle = null, defaultBestSelling = false }: ProductGridProps) => {
@@ -189,7 +190,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
           setCollectionTitle(collectionResponse.collectionTitle);
         } else if (defaultBestSelling && !searchQuery) {
           countPromise = fetchProductCount(undefined);
-          response = await fetchBestSellingProductsPaginated(PRODUCTS_PER_PAGE);
+          response = await fetchBestSellingProductsPaginated(BEST_SELLING_INITIAL);
         } else {
           const query = getQuery();
           countPromise = fetchProductCount(query);

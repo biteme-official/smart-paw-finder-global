@@ -110,12 +110,12 @@ export function HeroBanner() {
               className="w-full h-auto block"
             />
             {banner.linkUrl && (
-              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 md:left-10 md:translate-x-0">
+              <div className="absolute bottom-8 md:bottom-10 left-1/2 -translate-x-1/2">
                 <button
                   onClick={(e) => { e.stopPropagation(); handleBannerClick(banner.linkUrl); }}
-                  className="bg-white text-black text-xs md:text-sm font-semibold px-5 py-2 rounded-full shadow-lg hover:bg-white/90 active:scale-95 transition-all whitespace-nowrap"
+                  className="bg-white/95 text-black text-xs md:text-sm font-semibold px-6 py-2.5 rounded-full shadow-xl hover:bg-white active:scale-95 transition-all whitespace-nowrap border border-white/20"
                 >
-                  Shop Now
+                  Shop Now →
                 </button>
               </div>
             )}

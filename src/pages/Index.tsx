@@ -10,7 +10,7 @@ import { InstagramReels } from "@/components/home/InstagramReels";
 import { ProductGrid } from "@/components/shop/ProductGrid";
 import { useScrollRestoration } from "@/hooks/useScrollRestoration";
 import { ScrollToTop } from "@/components/ui/ScrollToTop";
-import { ShopifyProduct, fetchCollectionProducts, fetchBestSellingProducts, fetchProductsByNumericIds } from "@/lib/shopify";
+import { ShopifyProduct, fetchCollectionProducts, fetchNewProducts } from "@/lib/shopify";
 
 function useCurationProducts(collectionHandle: string, count = 10) {
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
@@ -24,18 +24,12 @@ function useCurationProducts(collectionHandle: string, count = 10) {
   return { products, loading };
 }
 
-function useTopReviewedProducts(count = 10) {
+function useJustOpenedProducts(count = 12) {
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    fetch(`/api/top-reviewed-products?limit=${count}`)
-      .then(r => r.ok ? r.json() : { products: [] })
-      .then(async (data: { products: { numericId: string }[] }) => {
-        const ids = (data.products ?? []).map((p: { numericId: string }) => p.numericId);
-        if (!ids.length) { setProducts([]); return; }
-        const fetched = await fetchProductsByNumericIds(ids);
-        setProducts(fetched.filter(p => p.node.variants.edges.some(v => v.node.availableForSale)));
-      })
+    fetchNewProducts(count)
+      .then(r => setProducts(r.filter(p => p.node.variants.edges.some(v => v.node.availableForSale))))
       .catch(() => setProducts([]))
       .finally(() => setLoading(false));
   }, [count]);
@@ -51,7 +45,7 @@ const Index = () => {
 
   const summer = useCurationProducts("summer-essentials");
   const ourPicks = useCurationProducts("our-picks");
-  const reviewBest = useTopReviewedProducts(10);
+  const justOpened = useJustOpenedProducts(12);
 
   const handleSearch = (query: string) => {
     if (query) {
@@ -100,12 +94,12 @@ const Index = () => {
               animationDelay="0.45s"
             />
             <CurationSection
-              title="Review Best"
-              viewAllHref="/?collection=all"
-              products={reviewBest.products}
-              loading={reviewBest.loading}
-              badge="★"
-              badgeClassName="bg-yellow-400 text-black"
+              title="Just Opened"
+              viewAllHref="/new-products"
+              products={justOpened.products}
+              loading={justOpened.loading}
+              badge="NEW"
+              badgeClassName="bg-emerald-500 text-white"
               animationDelay="0.5s"
             />
           </div>

@@ -113,7 +113,7 @@ export function PopularProducts() {
       <div className="flex items-center justify-between px-4 mb-3">
         <h2 className="text-base font-bold text-foreground">Popular Products</h2>
         <button
-          onClick={() => navigate("/?collection=best-sellers")}
+          onClick={() => { navigate("/"); setTimeout(() => { document.getElementById("product-grid")?.scrollIntoView({ behavior: "smooth" }); }, 300); }}
           className="flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           View All
