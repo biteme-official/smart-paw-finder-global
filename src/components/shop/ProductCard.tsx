@@ -52,7 +52,6 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
   const discountLabel = isB2B
     ? `${Math.round(b2bDiscountRate * 100)}% OFF`
     : "10% OFF";
-  const firstOrderLabel = isB2B ? null : "10% OFF first order";
 
   return (
     <div
@@ -88,15 +87,6 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
         >
           <Heart className={`h-3.5 w-3.5 ${checkFavorite(product.node.handle) ? "fill-red-500 text-red-500" : "text-muted-foreground"}`} />
         </button>
-
-        {/* First order pill — bottom-left of image */}
-        {!isSoldOut && firstOrderLabel && (
-          <div className="absolute bottom-2 left-2 z-10">
-            <span className="inline-block bg-orange-500 text-white text-[10px] font-semibold px-2.5 py-1 rounded-full leading-none">
-              {firstOrderLabel}
-            </span>
-          </div>
-        )}
 
         {/* Sold out overlay */}
         {isSoldOut && (
