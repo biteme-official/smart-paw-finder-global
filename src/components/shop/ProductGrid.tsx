@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ShopifyProduct, fetchProducts, fetchCollectionProducts, fetchCollectionIntersection, fetchProductCount, fetchCollectionProductCount } from '@/lib/shopify';
+import { ShopifyProduct, fetchProducts, fetchBestSellingProductsPaginated, fetchCollectionProducts, fetchCollectionIntersection, fetchProductCount, fetchCollectionProductCount } from '@/lib/shopify';
 import { PriceTag } from '@/components/ui/PriceTag';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -32,12 +32,13 @@ interface ProductGridProps {
   collectionHandle?: string | null;
   multiCollections?: string[] | null;  // e.g. ["ssfw", "toy"] → intersection
   overrideTitle?: string | null;
+  defaultBestSelling?: boolean;
 }
 
 const PRODUCTS_PER_PAGE = 12;
 const DEFAULT_MAX_PRICE = 100;
 
-export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCollections = null, overrideTitle = null }: ProductGridProps) => {
+export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCollections = null, overrideTitle = null, defaultBestSelling = false }: ProductGridProps) => {
   const [allProducts, setAllProducts] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -186,6 +187,9 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
           const collectionResponse = await fetchCollectionProducts(collectionHandle, PRODUCTS_PER_PAGE);
           response = collectionResponse;
           setCollectionTitle(collectionResponse.collectionTitle);
+        } else if (defaultBestSelling && !searchQuery) {
+          countPromise = fetchProductCount(undefined);
+          response = await fetchBestSellingProductsPaginated(PRODUCTS_PER_PAGE);
         } else {
           const query = getQuery();
           countPromise = fetchProductCount(query);
@@ -217,6 +221,8 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
         return;
       } else if (collectionHandle) {
         response = await fetchCollectionProducts(collectionHandle, PRODUCTS_PER_PAGE, endCursor);
+      } else if (defaultBestSelling && !searchQuery) {
+        response = await fetchBestSellingProductsPaginated(PRODUCTS_PER_PAGE, endCursor);
       } else {
         const query = getQuery();
         response = await fetchProducts(PRODUCTS_PER_PAGE, query, endCursor);
@@ -229,7 +235,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, hasNextPage, endCursor, multiCollections, collectionHandle, getQuery]);
+  }, [loadingMore, hasNextPage, endCursor, multiCollections, collectionHandle, defaultBestSelling, searchQuery, getQuery]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {

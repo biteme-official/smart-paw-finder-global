@@ -93,7 +93,7 @@ export function NewProducts() {
   return (
     <section className="mt-6 pb-4 animate-fade-up" style={{ animationDelay: "0.2s" }}>
       <div className="flex items-center justify-between px-4 mb-3">
-        <h2 className="text-base font-bold text-foreground">New Products</h2>
+        <h2 className="text-base font-bold text-foreground">New Arrivals</h2>
         <button
           onClick={() => navigate("/new-products")}
           className="flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground transition-colors"

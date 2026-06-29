@@ -100,7 +100,7 @@ export function HeroBanner() {
         {banners.map((banner) => (
           <div
             key={banner.id}
-            className="w-full flex-shrink-0"
+            className="w-full flex-shrink-0 relative"
             onClick={() => handleBannerClick(banner.linkUrl)}
             style={{ cursor: banner.linkUrl ? 'pointer' : 'default' }}
           >
@@ -109,6 +109,16 @@ export function HeroBanner() {
               alt={banner.image!.altText || "Banner"}
               className="w-full h-auto block"
             />
+            {banner.linkUrl && (
+              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 md:left-10 md:translate-x-0">
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleBannerClick(banner.linkUrl); }}
+                  className="bg-white text-black text-xs md:text-sm font-semibold px-5 py-2 rounded-full shadow-lg hover:bg-white/90 active:scale-95 transition-all whitespace-nowrap"
+                >
+                  Shop Now
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>

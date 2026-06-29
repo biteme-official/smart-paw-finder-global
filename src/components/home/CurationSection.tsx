@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef, useCallback } from "react";
-import { ShoppingCart, Heart, ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { useRef, useCallback, useState, useEffect } from "react";
+import { ChevronLeft, ChevronRight, ShoppingCart, Heart, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { ShopifyProduct, fetchBestSellingProducts } from "@/lib/shopify";
+import { ShopifyProduct } from "@/lib/shopify";
 import { PriceTag } from "@/components/ui/PriceTag";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,23 +9,30 @@ import { ProductOptionDialog } from "@/components/shop/ProductOptionDialog";
 import { useFavoriteAction } from "@/hooks/useFavoriteAction";
 import { useProductReviewSummary } from "@/hooks/useProductReview";
 
-const BADGES = [
+interface CurationSectionProps {
+  title: string;
+  viewAllHref: string;
+  products: ShopifyProduct[];
+  loading: boolean;
+  badge?: string;
+  badgeClassName?: string;
+  animationDelay?: string;
+}
+
+type BadgeDef = { label: string; className: string };
+const DEFAULT_BADGES: BadgeDef[] = [
   { label: "BEST", className: "bg-primary text-primary-foreground" },
   { label: "HOT", className: "bg-red-500 text-white" },
-  { label: "PICK", className: "bg-primary text-primary-foreground" },
-  { label: "TOP", className: "bg-amber-500 text-white" },
-  { label: "BEST", className: "bg-primary text-primary-foreground" },
-  { label: "HOT", className: "bg-red-500 text-white" },
-  { label: "PICK", className: "bg-primary text-primary-foreground" },
-  { label: "TOP", className: "bg-amber-500 text-white" },
+  { label: "NEW", className: "bg-emerald-500 text-white" },
+  { label: "PICK", className: "bg-amber-500 text-white" },
 ];
 
-function ReviewBadge({ productId }: { productId: string }) {
+function ReviewRow({ productId }: { productId: string }) {
   const numericId = productId.split("/").pop() ?? "";
   const { avgRating, count } = useProductReviewSummary(numericId);
   if (!count) return null;
   return (
-    <div className="flex items-center gap-0.5 mt-1.5">
+    <div className="flex items-center gap-0.5 mt-1">
       <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
       <span className="text-[11px] text-muted-foreground">
         {avgRating.toFixed(1)} ({count})
@@ -34,16 +41,22 @@ function ReviewBadge({ productId }: { productId: string }) {
   );
 }
 
-export function PopularProducts() {
+export function CurationSection({
+  title,
+  viewAllHref,
+  products,
+  loading,
+  badge,
+  badgeClassName = "bg-primary text-primary-foreground",
+  animationDelay = "0s",
+}: CurationSectionProps) {
   const navigate = useNavigate();
-  const [products, setProducts] = useState<ShopifyProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [optionDialogOpen, setOptionDialogOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
-  const { toggleFavorite, checkFavorite } = useFavoriteAction();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [optionDialogOpen, setOptionDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
+  const { toggleFavorite, checkFavorite } = useFavoriteAction();
 
   const updateScrollButtons = useCallback(() => {
     const el = scrollRef.current;
@@ -64,23 +77,26 @@ export function PopularProducts() {
     };
   }, [products, updateScrollButtons]);
 
-  const scroll = (direction: "left" | "right") => {
+  const scroll = (dir: "left" | "right") => {
     const el = scrollRef.current;
     if (!el) return;
-    el.scrollBy({ left: direction === "left" ? -el.clientWidth * 0.8 : el.clientWidth * 0.8, behavior: "smooth" });
+    el.scrollBy({ left: dir === "left" ? -el.clientWidth * 0.8 : el.clientWidth * 0.8, behavior: "smooth" });
   };
-
-  useEffect(() => {
-    fetchBestSellingProducts(12)
-      .then((result) => setProducts(result.filter(p => p.node.variants.edges.some(v => v.node.availableForSale))))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
 
   const handleAddToCart = (e: React.MouseEvent, product: ShopifyProduct) => {
     e.stopPropagation();
     setSelectedProduct(product);
     setOptionDialogOpen(true);
+  };
+
+  const handleViewAll = () => {
+    if (viewAllHref.startsWith("/") && !viewAllHref.startsWith("/?")) {
+      navigate(viewAllHref);
+    } else if (viewAllHref.startsWith("/?")) {
+      navigate(viewAllHref);
+    } else {
+      navigate(viewAllHref);
+    }
   };
 
   if (loading) {
@@ -106,14 +122,14 @@ export function PopularProducts() {
     );
   }
 
-  if (products.length === 0) return null;
+  if (!products.length) return null;
 
   return (
-    <section className="mt-6 pb-4 animate-fade-up" style={{ animationDelay: "0.3s" }}>
+    <section className="mt-6 pb-4 animate-fade-up" style={{ animationDelay }}>
       <div className="flex items-center justify-between px-4 mb-3">
-        <h2 className="text-base font-bold text-foreground">Popular Products</h2>
+        <h2 className="text-base font-bold text-foreground">{title}</h2>
         <button
-          onClick={() => navigate("/?collection=best-sellers")}
+          onClick={handleViewAll}
           className="flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           View All
@@ -122,14 +138,13 @@ export function PopularProducts() {
       </div>
 
       <div className="relative group">
-        <div
-          ref={scrollRef}
-          className="flex gap-3 md:gap-4 px-4 overflow-x-auto pb-2 scrollbar-hide"
-        >
+        <div ref={scrollRef} className="flex gap-3 md:gap-4 px-4 overflow-x-auto pb-2 scrollbar-hide">
           {products.map((product, index) => {
             const image = product.node.images.edges[0]?.node;
             const price = product.node.priceRange.minVariantPrice;
-            const badge = BADGES[index % BADGES.length];
+            const badgeDef = badge
+              ? { label: badge, className: badgeClassName }
+              : DEFAULT_BADGES[index % DEFAULT_BADGES.length];
 
             return (
               <div
@@ -150,8 +165,8 @@ export function PopularProducts() {
                       No Image
                     </div>
                   )}
-                  <span className={`absolute top-2 left-2 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${badge.className}`}>
-                    {badge.label}
+                  <span className={`absolute top-2 left-2 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${badgeDef.className}`}>
+                    {badgeDef.label}
                   </span>
                   <button
                     onClick={(e) => { e.stopPropagation(); toggleFavorite(product.node.handle); }}
@@ -164,7 +179,7 @@ export function PopularProducts() {
                   <h3 className="text-xs font-medium text-foreground line-clamp-2 mb-1 min-h-[32px]">
                     {product.node.title}
                   </h3>
-                  <ReviewBadge productId={product.node.id} />
+                  <ReviewRow productId={product.node.id} />
                   <div className="flex items-center justify-between gap-1 mt-1.5">
                     <PriceTag amount={price.amount} currencyCode={price.currencyCode} className="text-sm font-bold text-primary" originalClassName="text-xs" />
                     <Button
