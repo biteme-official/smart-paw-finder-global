@@ -102,8 +102,8 @@ const Index = () => {
               badgeClassName="bg-emerald-500 text-white"
               animationDelay="0.5s"
             />
+            <InstagramReels />
           </div>
-          <InstagramReels />
         </>
       )}
       <main className="max-w-7xl mx-auto pb-20">
