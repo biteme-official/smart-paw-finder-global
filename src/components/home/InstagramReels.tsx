@@ -227,10 +227,10 @@ export function InstagramReels() {
                 key={id}
                 ref={el => { cardRefs.current[i] = el; }}
                 style={{ scrollSnapAlign: "center" }}
-                className={`flex-shrink-0 flex flex-col transition-all duration-300 w-[52vw] ${
+                className={`flex-shrink-0 flex flex-col transition-all duration-300 ${
                   isActive
-                    ? "md:w-[175px] opacity-100"
-                    : "md:w-[140px] opacity-50 cursor-pointer"
+                    ? "w-[52vw] md:w-[175px] opacity-100"
+                    : "w-[36vw] md:w-[140px] opacity-50 cursor-pointer"
                 }`}
                 onClick={() => { if (!isActive) goTo(i); }}
               >
