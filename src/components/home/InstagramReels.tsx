@@ -207,7 +207,7 @@ export function InstagramReels() {
       <div className="relative">
         <div
           ref={scrollRef}
-          className="flex gap-2 md:gap-3 overflow-x-auto scrollbar-hide py-1"
+          className="flex items-center gap-2 md:gap-3 overflow-x-auto scrollbar-hide py-1"
           style={{ scrollSnapType: "x mandatory" }}
         >
           {/*
