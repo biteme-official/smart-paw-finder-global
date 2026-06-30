@@ -572,12 +572,30 @@ export async function fetchCuratedReels(first: number = 20): Promise<ShopifyCura
     const shortcode = fields.shortcode?.trim()
       || (fields.reel_url ? extractReelShortcode(fields.reel_url) : null)
       || '';
+
+    // reel_url이 Instagram URL이면 video 소스로 사용 불가 — null 처리
+    const rawReelUrl = fields.reel_url?.trim() || '';
+    const isInstagramUrl = rawReelUrl.includes('instagram.com');
+    const videoUrl = rawReelUrl && !isInstagramUrl ? rawReelUrl : null;
+
+    if (rawReelUrl && isInstagramUrl) {
+      console.warn(
+        `[curated_reel] product_handle="${fields.product_handle}" 의 reel_url이 Instagram URL입니다.\n` +
+        `→ Shopify Admin에서 reel_url을 MP4 파일 URL로 변경해야 영상이 재생됩니다.\n` +
+        `→ 현재 값: ${rawReelUrl}`
+      );
+    } else if (!rawReelUrl) {
+      console.warn(
+        `[curated_reel] product_handle="${fields.product_handle}" 의 reel_url이 비어 있습니다.\n` +
+        `→ Shopify Admin에서 reel_url에 MP4 파일 URL을 입력해야 영상이 재생됩니다.`
+      );
+    }
+
     return {
       id: edge.node.id,
       shortcode,
       thumbnailUrl: fields.thumbnail_url || null,
-      // reel_url을 영상 소스로 사용 (Shopify Files에 업로드한 MP4 URL)
-      videoUrl: fields.reel_url || null,
+      videoUrl,
       productHandle: fields.product_handle?.trim() || '',
       sortOrder: Number(fields.sort_order) || 0,
     };
