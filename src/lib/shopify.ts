@@ -528,6 +528,54 @@ export async function fetchCollectionIntersectionCount(handles: string[]): Promi
   return count;
 }
 
+// Curated Reels (Metaobjects)
+export interface ShopifyCuratedReel {
+  id: string;
+  shortcode: string;
+  thumbnailUrl: string | null;
+  productHandle: string;
+  sortOrder: number;
+}
+
+const GET_CURATED_REELS_QUERY = `
+  query GetCuratedReels($first: Int!) {
+    metaobjects(type: "curated_reel", first: $first) {
+      edges {
+        node {
+          id
+          fields {
+            key
+            value
+          }
+        }
+      }
+    }
+  }
+`;
+
+export async function fetchCuratedReels(first: number = 20): Promise<ShopifyCuratedReel[]> {
+  const data = await adminApiRequest(GET_CURATED_REELS_QUERY, { first });
+  if (!data) return [];
+
+  const reels: ShopifyCuratedReel[] = (data.data?.metaobjects?.edges || []).map((edge: { node: { id: string; fields: { key: string; value: string }[] } }) => {
+    const fields: Record<string, string> = {};
+    for (const f of edge.node.fields) {
+      if (f.value) fields[f.key] = f.value;
+    }
+    return {
+      id: edge.node.id,
+      shortcode: fields.shortcode || '',
+      thumbnailUrl: fields.thumbnail_url || null,
+      productHandle: fields.product_handle || '',
+      sortOrder: Number(fields.sort_order) || 0,
+    };
+  });
+
+  return reels
+    .filter(r => r.shortcode && r.productHandle)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
 // Banners (Metaobjects)
 export interface ShopifyBanner {
   id: string;

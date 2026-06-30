@@ -1,19 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Play, X, ShoppingCart } from "lucide-react";
 import { CURATED_REELS } from "@/data/curated-reels";
-import { fetchProductByHandle, ShopifyProduct, formatPrice } from "@/lib/shopify";
+import { fetchCuratedReels, fetchProductByHandle, ShopifyProduct, formatPrice } from "@/lib/shopify";
 import { Button } from "@/components/ui/button";
 import { ProductOptionDialog } from "@/components/shop/ProductOptionDialog";
 
 type ProductNode = ShopifyProduct["node"];
 
+interface ReelItem {
+  shortcode: string;
+  productHandle: string;
+  thumbnailUrl: string | null;
+}
+
 export function InstagramReels() {
-  const [products, setProducts] = useState<(ProductNode | null)[]>(
-    Array(CURATED_REELS.length).fill(null)
-  );
-  const [thumbnails, setThumbnails] = useState<(string | null)[]>(
-    Array(CURATED_REELS.length).fill(null)
-  );
+  const [reels, setReels] = useState<ReelItem[]>([]);
+  const [products, setProducts] = useState<(ProductNode | null)[]>([]);
   const [activeCard, setActiveCard] = useState<number | null>(null);
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
@@ -27,23 +29,29 @@ export function InstagramReels() {
   const isPointerDown = useRef(false);
 
   useEffect(() => {
-    CURATED_REELS.forEach(({ productHandle, shortcode }, i) => {
-      fetchProductByHandle(productHandle)
-        .then((p) => setProducts((prev) => { const n = [...prev]; n[i] = p; return n; }))
-        .catch(() => {});
-
-      const manualThumb = CURATED_REELS[i].thumbnailUrl;
-      if (manualThumb) {
-        setThumbnails((prev) => { const n = [...prev]; n[i] = manualThumb; return n; });
-      } else {
-        fetch(`/api/ig-thumbnail?shortcode=${shortcode}`)
-          .then((r) => r.json())
-          .then((d: { thumbnail_url: string | null }) => {
-            if (d.thumbnail_url) setThumbnails((prev) => { const n = [...prev]; n[i] = d.thumbnail_url; return n; });
-          })
-          .catch(() => {});
-      }
-    });
+    fetchCuratedReels(20)
+      .then((shopifyReels) => {
+        const list: ReelItem[] = shopifyReels.length > 0
+          ? shopifyReels.map(r => ({ shortcode: r.shortcode, productHandle: r.productHandle, thumbnailUrl: r.thumbnailUrl }))
+          : CURATED_REELS.map(r => ({ shortcode: r.shortcode, productHandle: r.productHandle, thumbnailUrl: r.thumbnailUrl ?? null }));
+        setReels(list);
+        setProducts(Array(list.length).fill(null));
+        list.forEach(({ productHandle }, i) => {
+          fetchProductByHandle(productHandle)
+            .then((p) => setProducts((prev) => { const n = [...prev]; n[i] = p; return n; }))
+            .catch(() => {});
+        });
+      })
+      .catch(() => {
+        const list = CURATED_REELS.map(r => ({ shortcode: r.shortcode, productHandle: r.productHandle, thumbnailUrl: r.thumbnailUrl ?? null }));
+        setReels(list);
+        setProducts(Array(list.length).fill(null));
+        list.forEach(({ productHandle }, i) => {
+          fetchProductByHandle(productHandle)
+            .then((p) => setProducts((prev) => { const n = [...prev]; n[i] = p; return n; }))
+            .catch(() => {});
+        });
+      });
   }, []);
 
   const updateScrollState = useCallback(() => {
@@ -63,7 +71,7 @@ export function InstagramReels() {
       el.removeEventListener("scroll", updateScrollState);
       window.removeEventListener("resize", updateScrollState);
     };
-  }, [products, updateScrollState]);
+  }, [reels, updateScrollState]);
 
   const scrollByCards = (dir: "left" | "right") => {
     const el = scrollRef.current;
@@ -121,9 +129,9 @@ export function InstagramReels() {
           onPointerUp={onPointerUp}
           onPointerLeave={onPointerUp}
         >
-          {CURATED_REELS.map(({ shortcode }, i) => {
+          {reels.map(({ shortcode, thumbnailUrl }, i) => {
             const product = products[i];
-            const reelThumb = thumbnails[i];
+            const reelThumb = thumbnailUrl;
             const isActive = activeCard === i;
 
             return (
