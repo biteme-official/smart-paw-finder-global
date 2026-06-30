@@ -4,6 +4,9 @@ export default {
   darkMode: ["class"],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
   prefix: "",
+  safelist: [
+    "w-[52vw]", "w-[36vw]", "w-[24vw]", "w-[19vw]", "w-[14vw]",
+  ],
   theme: {
     container: {
       center: true,
