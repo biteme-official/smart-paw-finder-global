@@ -44,7 +44,8 @@ function buildReelList(shopifyReels: Awaited<ReturnType<typeof fetchCuratedReels
 export function InstagramReels() {
   const [reels, setReels] = useState<ReelItem[]>([]);
   const [products, setProducts] = useState<(ProductNode | null)[]>([]);
-  const [activeIndex, setActiveIndex] = useState(0);
+  // Start at index 2 (middle); updated after reels load
+  const [activeIndex, setActiveIndex] = useState(2);
   const [muted, setMuted] = useState(true);
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
@@ -67,8 +68,19 @@ export function InstagramReels() {
 
   useEffect(() => {
     fetchCuratedReels(20)
-      .then(r => { const list = buildReelList(r); setReels(list); initProducts(list); })
-      .catch(() => { const list = buildReelList([]); setReels(list); initProducts(list); });
+      .then(r => {
+        const list = buildReelList(r);
+        setReels(list);
+        initProducts(list);
+        // Start from middle so both sides have previews
+        setActiveIndex(Math.floor(list.length / 2));
+      })
+      .catch(() => {
+        const list = buildReelList([]);
+        setReels(list);
+        initProducts(list);
+        setActiveIndex(Math.floor(list.length / 2));
+      });
   }, [initProducts]);
 
   const goTo = useCallback((index: number) => {
@@ -79,40 +91,33 @@ export function InstagramReels() {
     });
   }, [reels.length]);
 
-  // Play active video; fallback timer for thumbnail-only cards
+  // Fallback timer for thumbnail-only cards
   useEffect(() => {
     if (reels.length === 0) return;
-
     const hasVideo = !!reels[activeIndex]?.videoUrl;
-
     if (timerRef.current) clearTimeout(timerRef.current);
-
     if (!hasVideo) {
       timerRef.current = setTimeout(() => goTo(activeIndex + 1), FALLBACK_ADVANCE_MS);
     }
-
-    const v = videoRef.current;
-    if (v) {
-      v.muted = muted;
-      v.currentTime = 0;
-      v.play().catch(() => {});
-    }
-
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [activeIndex, reels, muted, goTo]);
+  }, [activeIndex, reels, goTo]);
 
-  // Sync muted state to video element
+  // Sync muted state to active video
   useEffect(() => {
     if (videoRef.current) videoRef.current.muted = muted;
   }, [muted]);
 
   // Scroll active card to center
   useEffect(() => {
-    cardRefs.current[activeIndex]?.scrollIntoView({
-      inline: "center",
-      behavior: "smooth",
-      block: "nearest",
+    // Small rAF delay to let DOM update first
+    const id = requestAnimationFrame(() => {
+      cardRefs.current[activeIndex]?.scrollIntoView({
+        inline: "center",
+        behavior: "smooth",
+        block: "nearest",
+      });
     });
+    return () => cancelAnimationFrame(id);
   }, [activeIndex, reels.length]);
 
   const handleVideoEnded = useCallback(() => {
@@ -144,8 +149,6 @@ export function InstagramReels() {
 
   if (reels.length === 0) return null;
 
-  const activeReel = reels[activeIndex];
-
   return (
     <section className="mt-6 pb-4">
       <div className="px-4 mb-4">
@@ -153,14 +156,17 @@ export function InstagramReels() {
       </div>
 
       <div className="relative">
-        {/* Scroll container */}
         <div
           ref={scrollRef}
           className="flex gap-3 overflow-x-auto scrollbar-hide py-1"
           style={{ scrollSnapType: "x mandatory" }}
         >
-          {/* Left spacer to allow first card to center */}
-          <div className="flex-shrink-0 w-[calc(50vw-130px)] md:w-[calc(50vw-160px)]" aria-hidden />
+          {/*
+            Spacer = (100vw - activeCardWidth) / 2
+            activeCard: 65vw mobile / 280px desktop
+            spacer: 17.5vw mobile / 140px desktop  (centers first card)
+          */}
+          <div className="flex-shrink-0 w-[17.5vw] md:w-[140px]" aria-hidden />
 
           {reels.map(({ shortcode, thumbnailUrl, videoUrl }, i) => {
             const isActive = i === activeIndex;
@@ -174,12 +180,12 @@ export function InstagramReels() {
                 style={{ scrollSnapAlign: "center" }}
                 className={`flex-shrink-0 flex flex-col transition-all duration-300 ${
                   isActive
-                    ? "w-[260px] md:w-[320px] opacity-100"
-                    : "w-[200px] md:w-[250px] opacity-55 cursor-pointer"
+                    ? "w-[65vw] md:w-[280px] opacity-100"
+                    : "w-[52vw] md:w-[210px] opacity-50 cursor-pointer"
                 }`}
                 onClick={() => { if (!isActive) goTo(i); }}
               >
-                {/* Media area — 9:16 */}
+                {/* 9:16 media area */}
                 <div
                   className={`w-full aspect-[9/16] relative rounded-2xl overflow-hidden bg-black transition-shadow duration-300 ${
                     isActive ? "shadow-xl" : "shadow-sm"
@@ -189,19 +195,19 @@ export function InstagramReels() {
                     <>
                       <video
                         ref={videoRef}
-                        key={`${shortcode}-video`}
+                        key={shortcode}
                         src={videoUrl}
                         poster={poster}
+                        autoPlay
                         muted={muted}
                         playsInline
                         preload="auto"
                         onEnded={handleVideoEnded}
                         className="w-full h-full object-cover"
                       />
-                      {/* Mute toggle */}
                       <button
                         onClick={e => { e.stopPropagation(); setMuted(m => !m); }}
-                        className="absolute top-3 right-3 z-10 bg-black/50 hover:bg-black/70 rounded-full p-1.5 transition-colors"
+                        className="absolute top-3 right-3 z-10 bg-black/50 hover:bg-black/70 rounded-full p-2 transition-colors"
                         aria-label={muted ? "소리 켜기" : "소리 끄기"}
                       >
                         {muted
@@ -210,23 +216,20 @@ export function InstagramReels() {
                         }
                       </button>
                     </>
+                  ) : thumbnailUrl ? (
+                    <img
+                      src={poster}
+                      alt={`Reel ${i + 1}`}
+                      width={1080}
+                      height={1920}
+                      className="w-full h-full object-cover"
+                      draggable={false}
+                    />
                   ) : (
-                    /* Thumbnail — active(no video) or inactive card */
-                    thumbnailUrl ? (
-                      <img
-                        src={poster}
-                        alt={`Reel ${i + 1}`}
-                        width={1080}
-                        height={1920}
-                        className="w-full h-full object-cover"
-                        draggable={false}
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-orange-50 to-pink-100" />
-                    )
+                    <div className="w-full h-full bg-gradient-to-br from-orange-50 to-pink-100" />
                   )}
 
-                  {/* Auto-advance progress bar (thumbnail-only active card) */}
+                  {/* Progress bar — thumbnail-only active card */}
                   {isActive && !videoUrl && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/20">
                       <div
@@ -282,10 +285,9 @@ export function InstagramReels() {
           })}
 
           {/* Right spacer */}
-          <div className="flex-shrink-0 w-[calc(50vw-130px)] md:w-[calc(50vw-160px)]" aria-hidden />
+          <div className="flex-shrink-0 w-[17.5vw] md:w-[140px]" aria-hidden />
         </div>
 
-        {/* Left arrow */}
         <button
           onClick={() => goTo(activeIndex - 1)}
           className="absolute left-2 top-[38%] -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-md rounded-full p-2 transition-colors"
@@ -293,8 +295,6 @@ export function InstagramReels() {
         >
           <ChevronLeft className="h-4 w-4 text-foreground" />
         </button>
-
-        {/* Right arrow */}
         <button
           onClick={() => goTo(activeIndex + 1)}
           className="absolute right-2 top-[38%] -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-md rounded-full p-2 transition-colors"
