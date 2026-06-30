@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Volume2, VolumeX } from "lucide-react";
 import { CURATED_REELS } from "@/data/curated-reels";
 import { fetchCuratedReels, fetchProductByHandle, ShopifyProduct, formatPrice } from "@/lib/shopify";
@@ -44,7 +44,9 @@ function buildReelList(shopifyReels: Awaited<ReturnType<typeof fetchCuratedReels
 export function InstagramReels() {
   const [reels, setReels] = useState<ReelItem[]>([]);
   const [products, setProducts] = useState<(ProductNode | null)[]>([]);
-  const [activeIndex, setActiveIndex] = useState(2);
+  // activeIndex: virtual index into the triple-cloned array [copy0, copy1, copy2]
+  // Always normalized into copy1 (range [n, 2n-1]) after any scroll/navigation.
+  const [activeIndex, setActiveIndex] = useState(0);
   const [muted, setMuted] = useState(true);
   const [videoFailed, setVideoFailed] = useState(false);
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
@@ -54,6 +56,20 @@ export function InstagramReels() {
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Prevents the scrollToCard effect from firing a second smooth scroll after a silent jump
+  const isNormalizingRef = useRef(false);
+
+  const n = reels.length;
+
+  // Triple the reels for infinite illusion: [copy0][copy1][copy2]
+  // copy1 (indices n..2n-1) is the "active" window we always normalize back to.
+  const virtualReels = useMemo(
+    () => (n > 0 ? [...reels, ...reels, ...reels] : []),
+    [reels, n]
+  );
+
+  // Real index into the original reels array (0..n-1)
+  const realActiveIndex = n > 0 ? ((activeIndex % n) + n) % n : 0;
 
   const addItem = useCartStore(state => state.addItem);
 
@@ -63,16 +79,14 @@ export function InstagramReels() {
     if (!el) return;
     el.muted = true;
     setVideoFailed(false);
-    el.play().catch((err) => {
-      console.warn('[InstagramReels] autoplay blocked:', err);
-    });
+    el.play().catch(err => console.warn('[InstagramReels] autoplay blocked:', err));
   }, []);
 
   const initProducts = useCallback((list: ReelItem[]) => {
     setProducts(Array(list.length).fill(null));
     list.forEach(({ productHandle }, i) => {
       fetchProductByHandle(productHandle)
-        .then(p => setProducts(prev => { const n = [...prev]; n[i] = p; return n; }))
+        .then(p => setProducts(prev => { const next = [...prev]; next[i] = p; return next; }))
         .catch(() => {});
     });
   }, []);
@@ -83,39 +97,64 @@ export function InstagramReels() {
         const list = buildReelList(r);
         setReels(list);
         initProducts(list);
-        setActiveIndex(Math.floor(list.length / 2));
+        setActiveIndex(list.length); // Start at first card of copy1 (real index 0)
       })
       .catch(() => {
         const list = buildReelList([]);
         setReels(list);
         initProducts(list);
-        setActiveIndex(Math.floor(list.length / 2));
+        setActiveIndex(list.length);
       });
   }, [initProducts]);
 
-  const goTo = useCallback((index: number) => {
-    setActiveIndex(prev => {
-      const len = reels.length;
-      if (len === 0) return prev;
-      return ((index % len) + len) % len;
-    });
-  }, [reels.length]);
-
-  // Calculate exact scroll position to center a card, then scroll there
-  const scrollToCard = useCallback((index: number) => {
+  // Scroll to a virtual card index.
+  // instant=true: no animation (used for silent boundary jumps)
+  const scrollToCard = useCallback((index: number, instant = false) => {
     const container = scrollRef.current;
     const card = cardRefs.current[index];
     if (!container || !card) return;
     const target = card.offsetLeft + card.offsetWidth / 2 - container.clientWidth / 2;
-    container.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+    if (instant) {
+      // Temporarily disable scroll-snap so the browser doesn't fight the instant jump
+      container.style.scrollSnapType = 'none';
+      container.scrollLeft = Math.max(0, target);
+      requestAnimationFrame(() => {
+        container.style.scrollSnapType = 'x mandatory';
+      });
+    } else {
+      container.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+    }
   }, []);
 
-  // Detect which card is centered after user swipe
-  // touchend + 350ms: waits for iOS scroll-snap animation to finish before reading position
-  // scrollend: modern-browser fallback (fires after snap completes)
+  // Navigate to a virtual index (arrow clicks, card clicks).
+  // No modulo — let normalizeAfterScroll handle boundary wrapping.
+  const goTo = useCallback((index: number) => {
+    if (n === 0) return;
+    setActiveIndex(index);
+  }, [n]);
+
+  // After user scroll lands on a card, normalize virtual index back to copy1
+  // if we've drifted into copy0 or copy2. The instant jump is invisible because
+  // copy0/copy2 content is identical to copy1 at the equivalent position.
+  const normalizeAfterScroll = useCallback((newActive: number) => {
+    if (n === 0) return;
+    let targetIdx = newActive;
+    if (newActive < n) targetIdx = newActive + n;          // copy0 → copy1
+    else if (newActive >= 2 * n) targetIdx = newActive - n; // copy2 → copy1
+
+    if (targetIdx !== newActive) {
+      isNormalizingRef.current = true;
+      scrollToCard(targetIdx, true); // silent instant jump
+    }
+    setActiveIndex(targetIdx);
+  }, [n, scrollToCard]);
+
+  // Detect which card is centered after user swipe.
+  // touchend + 350ms: waits for iOS scroll-snap animation before reading position.
+  // scrollend: modern-browser complement.
   useEffect(() => {
     const container = scrollRef.current;
-    if (!container || reels.length === 0) return;
+    if (!container || n === 0) return;
 
     const detectCenter = () => {
       const center = container.scrollLeft + container.clientWidth / 2;
@@ -125,7 +164,7 @@ export function InstagramReels() {
         const d = Math.abs(card.offsetLeft + card.offsetWidth / 2 - center);
         if (d < minDist) { minDist = d; closest = i; }
       });
-      setActiveIndex(closest);
+      normalizeAfterScroll(closest);
     };
 
     let t: ReturnType<typeof setTimeout>;
@@ -139,20 +178,21 @@ export function InstagramReels() {
       container.removeEventListener('scrollend', detectCenter);
       clearTimeout(t);
     };
-  }, [reels.length]);
+  }, [n, normalizeAfterScroll]);
 
-  // Fallback timer for thumbnail-only (or video failed) cards
+  // Fallback timer: auto-advance when there's no video
   useEffect(() => {
-    if (reels.length === 0) return;
-    const hasVideo = !!reels[activeIndex]?.videoUrl && !videoFailed;
+    if (n === 0) return;
+    const hasVideo = !!reels[realActiveIndex]?.videoUrl && !videoFailed;
     if (timerRef.current) clearTimeout(timerRef.current);
     if (!hasVideo) {
       timerRef.current = setTimeout(() => goTo(activeIndex + 1), FALLBACK_ADVANCE_MS);
     }
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [activeIndex, reels, goTo, videoFailed]);
+  }, [realActiveIndex, reels, goTo, videoFailed, activeIndex, n]);
 
-  useEffect(() => { setVideoFailed(false); }, [activeIndex]);
+  // Reset video failure state when the real card changes
+  useEffect(() => { setVideoFailed(false); }, [realActiveIndex]);
 
   const toggleMute = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -163,11 +203,21 @@ export function InstagramReels() {
     });
   }, []);
 
-  // Scroll active card to exact center (arrow / dot navigation)
+  // Scroll active card to center on arrow/dot navigation.
+  // Skip if we just did a silent normalization jump (isNormalizingRef).
+  // Use instant scroll on first load (scrollLeft === 0) to avoid a visible animation.
   useEffect(() => {
-    const id = requestAnimationFrame(() => scrollToCard(activeIndex));
+    if (isNormalizingRef.current) {
+      isNormalizingRef.current = false;
+      return;
+    }
+    const id = requestAnimationFrame(() => {
+      const container = scrollRef.current;
+      const isInitialPosition = !container || container.scrollLeft === 0;
+      scrollToCard(activeIndex, isInitialPosition);
+    });
     return () => cancelAnimationFrame(id);
-  }, [activeIndex, reels.length, scrollToCard]);
+  }, [activeIndex, virtualReels.length, scrollToCard]);
 
   const handleVideoEnded = useCallback(() => {
     goTo(activeIndex + 1);
@@ -196,7 +246,7 @@ export function InstagramReels() {
     }
   }, [addItem]);
 
-  if (reels.length === 0) return null;
+  if (n === 0) return null;
 
   return (
     <section className="mt-6 pb-4">
@@ -210,21 +260,18 @@ export function InstagramReels() {
           className="flex gap-2 md:gap-3 overflow-x-auto scrollbar-hide py-4"
           style={{ scrollSnapType: "x mandatory" }}
         >
-          {/*
-            Mobile:  all cards 52vw, inactive scaled to 88% visually, spacer=24vw
-                     → side preview ≈ 22vw visible (46% of card visible)
-            Desktop: all cards 175px, inactive scaled to 88%
-          */}
+          {/* Left spacer — centers the first active card in copy1 */}
           <div className="flex-shrink-0 w-[24vw] md:w-16" aria-hidden />
 
-          {reels.map(({ id, thumbnailUrl, videoUrl }, i) => {
+          {virtualReels.map(({ id, thumbnailUrl, videoUrl }, i) => {
             const isActive = i === activeIndex;
-            const product = products[i];
+            const realIdx = i % n;
+            const product = products[realIdx];
             const poster = thumbnailUrl ? getThumbSrc(thumbnailUrl) : undefined;
 
             return (
               <div
-                key={id}
+                key={`${realIdx}-${Math.floor(i / n)}`}
                 ref={el => { cardRefs.current[i] = el; }}
                 className={`flex-shrink-0 flex flex-col w-[52vw] md:w-[175px] rounded-2xl overflow-hidden bg-secondary shadow-sm transition-[opacity,transform] duration-300 ${
                   isActive ? "opacity-100" : "opacity-60 cursor-pointer"
@@ -242,7 +289,7 @@ export function InstagramReels() {
                     <>
                       <video
                         ref={videoCallbackRef}
-                        key={`${activeIndex}-${id}`}
+                        key={`video-${realActiveIndex}`}
                         src={videoUrl}
                         poster={poster}
                         autoPlay
@@ -269,7 +316,7 @@ export function InstagramReels() {
                   ) : thumbnailUrl ? (
                     <img
                       src={poster}
-                      alt={`Reel ${i + 1}`}
+                      alt={`Reel ${realIdx + 1}`}
                       width={1080}
                       height={1920}
                       className="w-full h-full object-cover"
@@ -283,7 +330,7 @@ export function InstagramReels() {
                   {isActive && !videoUrl && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/20">
                       <div
-                        key={activeIndex}
+                        key={realActiveIndex}
                         className="h-full bg-white/70"
                         style={{ animation: `reel-progress ${FALLBACK_ADVANCE_MS}ms linear forwards` }}
                       />
@@ -354,14 +401,14 @@ export function InstagramReels() {
         </button>
       </div>
 
-      {/* Dot indicators */}
+      {/* Dot indicators — based on real index */}
       <div className="flex justify-center gap-1.5 mt-3">
         {reels.map((_, i) => (
           <button
             key={i}
-            onClick={() => goTo(i)}
+            onClick={() => goTo(n + i)} // Always jump to copy1 equivalent
             className={`rounded-full transition-all duration-300 ${
-              i === activeIndex
+              i === realActiveIndex
                 ? "w-4 h-1.5 bg-foreground"
                 : "w-1.5 h-1.5 bg-foreground/25 hover:bg-foreground/50"
             }`}
