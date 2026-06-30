@@ -101,30 +101,42 @@ export function InstagramReels() {
     });
   }, [reels.length]);
 
-  // Detect which card is centered after user swipe (scrollend + debounce fallback)
+  // Calculate exact scroll position to center a card, then scroll there
+  const scrollToCard = useCallback((index: number) => {
+    const container = scrollRef.current;
+    const card = cardRefs.current[index];
+    if (!container || !card) return;
+    const target = card.offsetLeft + card.offsetWidth / 2 - container.clientWidth / 2;
+    container.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+  }, []);
+
+  // Detect which card is centered after user swipe
+  // touchend + 350ms: waits for iOS scroll-snap animation to finish before reading position
+  // scrollend: modern-browser fallback (fires after snap completes)
   useEffect(() => {
     const container = scrollRef.current;
     if (!container || reels.length === 0) return;
 
-    const updateActive = () => {
+    const detectCenter = () => {
       const center = container.scrollLeft + container.clientWidth / 2;
       let closest = 0, minDist = Infinity;
       cardRefs.current.forEach((card, i) => {
         if (!card) return;
-        const dist = Math.abs(card.offsetLeft + card.offsetWidth / 2 - center);
-        if (dist < minDist) { minDist = dist; closest = i; }
+        const d = Math.abs(card.offsetLeft + card.offsetWidth / 2 - center);
+        if (d < minDist) { minDist = d; closest = i; }
       });
       setActiveIndex(closest);
     };
 
-    container.addEventListener('scrollend', updateActive);
     let t: ReturnType<typeof setTimeout>;
-    const onScroll = () => { clearTimeout(t); t = setTimeout(updateActive, 150); };
-    container.addEventListener('scroll', onScroll, { passive: true });
+    const onTouchEnd = () => { t = setTimeout(detectCenter, 350); };
+
+    container.addEventListener('touchend', onTouchEnd, { passive: true });
+    container.addEventListener('scrollend', detectCenter);
 
     return () => {
-      container.removeEventListener('scrollend', updateActive);
-      container.removeEventListener('scroll', onScroll);
+      container.removeEventListener('touchend', onTouchEnd);
+      container.removeEventListener('scrollend', detectCenter);
       clearTimeout(t);
     };
   }, [reels.length]);
@@ -151,17 +163,11 @@ export function InstagramReels() {
     });
   }, []);
 
-  // Scroll active card to center (arrow / dot navigation)
+  // Scroll active card to exact center (arrow / dot navigation)
   useEffect(() => {
-    const id = requestAnimationFrame(() => {
-      cardRefs.current[activeIndex]?.scrollIntoView({
-        inline: "center",
-        behavior: "smooth",
-        block: "nearest",
-      });
-    });
+    const id = requestAnimationFrame(() => scrollToCard(activeIndex));
     return () => cancelAnimationFrame(id);
-  }, [activeIndex, reels.length]);
+  }, [activeIndex, reels.length, scrollToCard]);
 
   const handleVideoEnded = useCallback(() => {
     goTo(activeIndex + 1);
@@ -334,17 +340,16 @@ export function InstagramReels() {
           <div className="flex-shrink-0 w-[12vw] md:w-16" aria-hidden />
         </div>
 
-        {/* Arrow buttons — hidden on mobile, visible on desktop */}
         <button
           onClick={() => goTo(activeIndex - 1)}
-          className="hidden md:flex absolute left-2 top-[38%] -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-md rounded-full p-2 transition-colors"
+          className="absolute left-2 top-[38%] -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-md rounded-full p-2 transition-colors"
           aria-label="이전"
         >
           <ChevronLeft className="h-4 w-4 text-foreground" />
         </button>
         <button
           onClick={() => goTo(activeIndex + 1)}
-          className="hidden md:flex absolute right-2 top-[38%] -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-md rounded-full p-2 transition-colors"
+          className="absolute right-2 top-[38%] -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-md rounded-full p-2 transition-colors"
           aria-label="다음"
         >
           <ChevronRight className="h-4 w-4 text-foreground" />
