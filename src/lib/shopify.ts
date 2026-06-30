@@ -531,7 +531,7 @@ export async function fetchCollectionIntersectionCount(handles: string[]): Promi
 // Curated Reels (Metaobjects)
 export interface ShopifyCuratedReel {
   id: string;
-  shortcode: string;
+  shortcode: string;   // optional — only needed if Instagram embed is used
   thumbnailUrl: string | null;
   videoUrl: string | null;
   productHandle: string;
@@ -584,8 +584,9 @@ export async function fetchCuratedReels(first: number = 20): Promise<ShopifyCura
   });
 
   return reels
-    .filter(r => r.shortcode.trim() && r.productHandle.trim())
-    // sort_order 미입력(0) 항목은 맨 뒤로 → 새 항목을 비워도 자동으로 마지막에 노출
+    // productHandle만 필수 — shortcode는 video 재생에 불필요
+    .filter(r => r.productHandle.trim())
+    // sort_order 미입력(0) 항목은 맨 뒤로
     .sort((a, b) => (a.sortOrder || Infinity) - (b.sortOrder || Infinity));
 }
 

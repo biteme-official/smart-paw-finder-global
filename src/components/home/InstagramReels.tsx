@@ -10,6 +10,7 @@ import { toast } from "sonner";
 type ProductNode = ShopifyProduct["node"];
 
 interface ReelItem {
+  id: string;
   shortcode: string;
   productHandle: string;
   thumbnailUrl: string | null;
@@ -27,13 +28,15 @@ const getThumbSrc = (url: string) => {
 function buildReelList(shopifyReels: Awaited<ReturnType<typeof fetchCuratedReels>>): ReelItem[] {
   if (shopifyReels.length > 0) {
     return shopifyReels.map(r => ({
+      id: r.id,
       shortcode: r.shortcode,
       productHandle: r.productHandle,
       thumbnailUrl: r.thumbnailUrl,
       videoUrl: r.videoUrl,
     }));
   }
-  return CURATED_REELS.map(r => ({
+  return CURATED_REELS.map((r, i) => ({
+    id: `static-${i}`,
     shortcode: r.shortcode,
     productHandle: r.productHandle,
     thumbnailUrl: r.thumbnailUrl ?? null,
@@ -186,14 +189,14 @@ export function InstagramReels() {
           */}
           <div className="flex-shrink-0 w-[24vw] md:w-16" aria-hidden />
 
-          {reels.map(({ shortcode, thumbnailUrl, videoUrl }, i) => {
+          {reels.map(({ id, shortcode, thumbnailUrl, videoUrl }, i) => {
             const isActive = i === activeIndex;
             const product = products[i];
             const poster = thumbnailUrl ? getThumbSrc(thumbnailUrl) : undefined;
 
             return (
               <div
-                key={shortcode}
+                key={id}
                 ref={el => { cardRefs.current[i] = el; }}
                 style={{ scrollSnapAlign: "center" }}
                 className={`flex-shrink-0 flex flex-col transition-all duration-300 ${
@@ -213,7 +216,7 @@ export function InstagramReels() {
                     <>
                       <video
                         ref={videoCallbackRef}
-                        key={`${activeIndex}-${shortcode}`}
+                        key={`${activeIndex}-${id}`}
                         src={videoUrl}
                         poster={poster}
                         autoPlay
