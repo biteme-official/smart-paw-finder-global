@@ -35,12 +35,14 @@ interface ProductGridProps {
 }
 
 const PRODUCTS_PER_PAGE = 12;
-const BEST_SELLING_INITIAL = 30;
+const BEST_SELLING_INITIAL = 12;
 const DEFAULT_MAX_PRICE = 100;
 
 export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCollections = null, overrideTitle = null, defaultBestSelling = false }: ProductGridProps) => {
   const [allProducts, setAllProducts] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [endCursor, setEndCursor] = useState<string | null>(null);
@@ -167,6 +169,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   useEffect(() => {
     const loadProducts = async () => {
       setLoading(true);
+      setLoadError(false);
       setAllProducts([]);
       setEndCursor(null);
       setHasNextPage(false);
@@ -201,12 +204,13 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
         countPromise.then(c => setTotalProductCount(c));
       } catch (error) {
         console.error('Failed to fetch products:', error);
+        setLoadError(true);
       } finally {
         setLoading(false);
       }
     };
     loadProducts();
-  }, [searchQuery, collectionHandle, multiCollections, overrideTitle, getQuery]);
+  }, [searchQuery, collectionHandle, multiCollections, overrideTitle, getQuery, retryKey]);
 
   // Load more products
   const loadMore = useCallback(async () => {
@@ -284,6 +288,20 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   }, [collectionHandle]);
 
   const displayTitle = searchQuery ? getSearchText() : overrideTitle || collectionTitle || "ALL";
+
+  if (loadError) {
+    return (
+      <section className="py-8 px-4">
+        <h2 className="text-2xl font-bold mb-6">{displayTitle}</h2>
+        <div className="bg-muted/50 rounded-xl p-12 text-center">
+          <p className="text-muted-foreground text-lg mb-4">상품을 불러올 수 없습니다.</p>
+          <Button variant="outline" onClick={() => setRetryKey(k => k + 1)}>
+            다시 시도
+          </Button>
+        </div>
+      </section>
+    );
+  }
 
   if (loading) {
     return (

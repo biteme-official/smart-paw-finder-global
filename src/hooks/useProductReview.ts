@@ -9,20 +9,47 @@ interface ReviewSummary {
 const cache = new Map<string, ReviewSummary>();
 const pending = new Map<string, Promise<ReviewSummary>>();
 
+// Concurrency limiter — max 5 simultaneous /api/kr-reviews requests
+const MAX_CONCURRENT = 5;
+let activeCount = 0;
+const waitQueue: Array<() => void> = [];
+
+function acquire(): Promise<void> {
+  if (activeCount < MAX_CONCURRENT) {
+    activeCount++;
+    return Promise.resolve();
+  }
+  return new Promise(resolve => waitQueue.push(resolve));
+}
+
+function release(): void {
+  const next = waitQueue.shift();
+  if (next) {
+    next();
+  } else {
+    activeCount--;
+  }
+}
+
 async function fetchReviewSummary(numericId: string): Promise<ReviewSummary> {
   if (cache.has(numericId)) return cache.get(numericId)!;
   if (pending.has(numericId)) return pending.get(numericId)!;
 
-  const promise = fetch(`/api/kr-reviews?shopify_product_id=${numericId}`)
-    .then(r => r.ok ? r.json() : { reviews: [] })
-    .then((data): ReviewSummary => {
+  const promise: Promise<ReviewSummary> = acquire().then(async () => {
+    try {
+      const r = await fetch(`/api/kr-reviews?shopify_product_id=${numericId}`);
+      const data = r.ok ? await r.json() : { reviews: [] };
       const reviews: { rating: number }[] = data.reviews ?? [];
       if (!reviews.length) return { avgRating: 0, count: 0 };
-      const avg = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+      const avg = reviews.reduce((sum, rv) => sum + rv.rating, 0) / reviews.length;
       return { avgRating: avg, count: reviews.length };
-    })
-    .catch((): ReviewSummary => ({ avgRating: 0, count: 0 }))
-    .finally(() => pending.delete(numericId));
+    } catch {
+      return { avgRating: 0, count: 0 };
+    } finally {
+      pending.delete(numericId);
+      release();
+    }
+  });
 
   pending.set(numericId, promise);
   const result = await promise;
