@@ -553,6 +553,11 @@ const GET_CURATED_REELS_QUERY = `
   }
 `;
 
+function extractReelShortcode(url: string): string | null {
+  const match = url.match(/instagram\.com\/(?:reel|p)\/([A-Za-z0-9_-]+)/);
+  return match?.[1] ?? null;
+}
+
 export async function fetchCuratedReels(first: number = 20): Promise<ShopifyCuratedReel[]> {
   const data = await adminApiRequest(GET_CURATED_REELS_QUERY, { first });
   if (!data) return [];
@@ -562,9 +567,10 @@ export async function fetchCuratedReels(first: number = 20): Promise<ShopifyCura
     for (const f of edge.node.fields) {
       if (f.value) fields[f.key] = f.value;
     }
+    const shortcode = fields.shortcode || (fields.reel_url ? extractReelShortcode(fields.reel_url) : null) || '';
     return {
       id: edge.node.id,
-      shortcode: fields.shortcode || '',
+      shortcode,
       thumbnailUrl: fields.thumbnail_url || null,
       productHandle: fields.product_handle || '',
       sortOrder: Number(fields.sort_order) || 0,
