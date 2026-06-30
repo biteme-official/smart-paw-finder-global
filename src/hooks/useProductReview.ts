@@ -9,12 +9,17 @@ interface ReviewSummary {
 const cache = new Map<string, ReviewSummary>();
 const pending = new Map<string, Promise<ReviewSummary>>();
 
+// Tracks IDs currently in-flight in a batch request to prevent duplicate concurrent fetches
+const batchInFlight = new Set<string>();
+
 export async function fetchBatchReviewSummary(
   ids: string[]
 ): Promise<Record<string, ReviewSummary>> {
   if (!ids.length) return {};
-  const uncached = ids.filter(id => !cache.has(id));
+  // Skip IDs already cached or currently being fetched
+  const uncached = ids.filter(id => !cache.has(id) && !batchInFlight.has(id));
   if (uncached.length) {
+    uncached.forEach(id => batchInFlight.add(id));
     try {
       const r = await fetch(`/api/kr-reviews-batch?ids=${uncached.join(',')}`);
       if (r.ok) {
@@ -25,6 +30,8 @@ export async function fetchBatchReviewSummary(
       }
     } catch {
       // fall through — cache stays empty for these ids
+    } finally {
+      uncached.forEach(id => batchInFlight.delete(id));
     }
   }
   return Object.fromEntries(ids.map(id => [id, cache.get(id) ?? { avgRating: 0, count: 0 }]));
