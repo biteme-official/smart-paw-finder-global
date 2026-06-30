@@ -79,6 +79,8 @@ export function InstagramReels() {
     if (!el) return;
     el.muted = true;
     setVideoFailed(false);
+    // If already buffered (fast network / cached), show immediately
+    if (el.readyState >= 3) el.style.opacity = '1';
     el.play().catch(err => console.warn('[InstagramReels] autoplay blocked:', err));
   }, []);
 
@@ -287,20 +289,34 @@ export function InstagramReels() {
                 <div className="w-full aspect-[9/16] relative bg-black">
                   {isActive && videoUrl && !videoFailed ? (
                     <>
+                      {/* Thumbnail shown while video buffers — prevents black flash */}
+                      {thumbnailUrl && (
+                        <img
+                          src={poster}
+                          alt=""
+                          aria-hidden
+                          width={1080}
+                          height={1920}
+                          className="absolute inset-0 w-full h-full object-cover"
+                          draggable={false}
+                        />
+                      )}
+                      {/* Video starts invisible; fades in once canplay fires */}
                       <video
                         ref={videoCallbackRef}
                         key={`video-${realActiveIndex}`}
                         src={videoUrl}
-                        poster={poster}
                         autoPlay
                         playsInline
                         preload="auto"
+                        onCanPlay={e => { (e.target as HTMLVideoElement).style.opacity = '1'; }}
                         onEnded={handleVideoEnded}
                         onError={() => {
                           console.error('[InstagramReels] video load failed. URL:', videoUrl);
                           setVideoFailed(true);
                         }}
-                        className="w-full h-full object-cover"
+                        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+                        style={{ opacity: 0 }}
                       />
                       <button
                         onClick={toggleMute}
@@ -319,11 +335,11 @@ export function InstagramReels() {
                       alt={`Reel ${realIdx + 1}`}
                       width={1080}
                       height={1920}
-                      className="w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full object-cover"
                       draggable={false}
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-orange-50 to-pink-100" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-orange-50 to-pink-100" />
                   )}
 
                   {/* Progress bar — thumbnail-only active card */}
