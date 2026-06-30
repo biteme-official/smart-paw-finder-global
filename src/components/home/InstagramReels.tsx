@@ -193,8 +193,8 @@ export function InstagramReels() {
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [realActiveIndex, reels, goTo, videoFailed, activeIndex, n]);
 
-  // Reset video failure state when the real card changes
-  useEffect(() => { setVideoFailed(false); }, [realActiveIndex]);
+  // Reset video failure and muted state when the real card changes
+  useEffect(() => { setVideoFailed(false); setMuted(true); }, [realActiveIndex]);
 
   const toggleMute = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();

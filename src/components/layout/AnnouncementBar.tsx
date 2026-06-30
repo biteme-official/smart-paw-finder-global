@@ -15,14 +15,15 @@ export function AnnouncementBar() {
 
   useEffect(() => {
     if (dismissed) return;
+    let fadeTimer: ReturnType<typeof setTimeout>;
     const timer = setInterval(() => {
       setVisible(false);
-      setTimeout(() => {
+      fadeTimer = setTimeout(() => {
         setIndex((prev) => (prev + 1) % MESSAGES.length);
         setVisible(true);
       }, 300);
     }, 2000);
-    return () => clearInterval(timer);
+    return () => { clearInterval(timer); clearTimeout(fadeTimer); };
   }, [dismissed]);
 
   if (dismissed) return null;
