@@ -293,8 +293,8 @@ export function InstagramReels() {
                   )}
                 </div>
 
-                {/* Product info — active card only on mobile, all cards on desktop */}
-                <div className={`mt-2 px-0.5 ${isActive ? "" : "hidden md:block"}`}>
+                {/* Product info */}
+                <div className="mt-2 px-0.5">
                   {product ? (
                     <>
                       <div className="flex items-center gap-2 mb-2">
