@@ -11,7 +11,6 @@ type ProductNode = ShopifyProduct["node"];
 
 interface ReelItem {
   id: string;
-  shortcode: string;
   productHandle: string;
   thumbnailUrl: string | null;
   videoUrl: string | null;
@@ -29,7 +28,6 @@ function buildReelList(shopifyReels: Awaited<ReturnType<typeof fetchCuratedReels
   if (shopifyReels.length > 0) {
     return shopifyReels.map(r => ({
       id: r.id,
-      shortcode: r.shortcode,
       productHandle: r.productHandle,
       thumbnailUrl: r.thumbnailUrl,
       videoUrl: r.videoUrl,
@@ -37,7 +35,6 @@ function buildReelList(shopifyReels: Awaited<ReturnType<typeof fetchCuratedReels
   }
   return CURATED_REELS.map((r, i) => ({
     id: `static-${i}`,
-    shortcode: r.shortcode,
     productHandle: r.productHandle,
     thumbnailUrl: r.thumbnailUrl ?? null,
     videoUrl: null,
@@ -86,7 +83,6 @@ export function InstagramReels() {
         const list = buildReelList(r);
         setReels(list);
         initProducts(list);
-        // Start from middle so both sides have previews
         setActiveIndex(Math.floor(list.length / 2));
       })
       .catch(() => {
@@ -105,6 +101,34 @@ export function InstagramReels() {
     });
   }, [reels.length]);
 
+  // Detect which card is centered after user swipe (scrollend + debounce fallback)
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container || reels.length === 0) return;
+
+    const updateActive = () => {
+      const center = container.scrollLeft + container.clientWidth / 2;
+      let closest = 0, minDist = Infinity;
+      cardRefs.current.forEach((card, i) => {
+        if (!card) return;
+        const dist = Math.abs(card.offsetLeft + card.offsetWidth / 2 - center);
+        if (dist < minDist) { minDist = dist; closest = i; }
+      });
+      setActiveIndex(closest);
+    };
+
+    container.addEventListener('scrollend', updateActive);
+    let t: ReturnType<typeof setTimeout>;
+    const onScroll = () => { clearTimeout(t); t = setTimeout(updateActive, 150); };
+    container.addEventListener('scroll', onScroll, { passive: true });
+
+    return () => {
+      container.removeEventListener('scrollend', updateActive);
+      container.removeEventListener('scroll', onScroll);
+      clearTimeout(t);
+    };
+  }, [reels.length]);
+
   // Fallback timer for thumbnail-only (or video failed) cards
   useEffect(() => {
     if (reels.length === 0) return;
@@ -116,10 +140,8 @@ export function InstagramReels() {
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [activeIndex, reels, goTo, videoFailed]);
 
-  // Reset videoFailed state when active card changes
   useEffect(() => { setVideoFailed(false); }, [activeIndex]);
 
-  // Sync muted toggle to active video
   const toggleMute = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setMuted(m => {
@@ -129,9 +151,8 @@ export function InstagramReels() {
     });
   }, []);
 
-  // Scroll active card to center
+  // Scroll active card to center (arrow / dot navigation)
   useEffect(() => {
-    // Small rAF delay to let DOM update first
     const id = requestAnimationFrame(() => {
       cardRefs.current[activeIndex]?.scrollIntoView({
         inline: "center",
@@ -180,16 +201,17 @@ export function InstagramReels() {
       <div className="relative">
         <div
           ref={scrollRef}
-          className="flex gap-3 overflow-x-auto scrollbar-hide py-1"
+          className="flex gap-2 md:gap-3 overflow-x-auto scrollbar-hide py-1"
           style={{ scrollSnapType: "x mandatory" }}
         >
           {/*
-            Mobile:  center=52vw, inactive=38vw, spacer=24vw  → 2 partial cards visible
-            Desktop: center=175px, inactive=140px, spacer=64px → 6 cards visible
+            Mobile:  card=76vw (active & inactive same width), spacer=12vw
+                     → side preview ≈ 12vw−8px ≈ 10vw (조선미녀 스타일)
+            Desktop: active=175px, inactive=140px, spacer=64px
           */}
-          <div className="flex-shrink-0 w-[24vw] md:w-16" aria-hidden />
+          <div className="flex-shrink-0 w-[12vw] md:w-16" aria-hidden />
 
-          {reels.map(({ id, shortcode, thumbnailUrl, videoUrl }, i) => {
+          {reels.map(({ id, thumbnailUrl, videoUrl }, i) => {
             const isActive = i === activeIndex;
             const product = products[i];
             const poster = thumbnailUrl ? getThumbSrc(thumbnailUrl) : undefined;
@@ -199,10 +221,10 @@ export function InstagramReels() {
                 key={id}
                 ref={el => { cardRefs.current[i] = el; }}
                 style={{ scrollSnapAlign: "center" }}
-                className={`flex-shrink-0 flex flex-col transition-all duration-300 ${
+                className={`flex-shrink-0 flex flex-col transition-all duration-300 w-[76vw] ${
                   isActive
-                    ? "w-[52vw] md:w-[175px] opacity-100"
-                    : "w-[38vw] md:w-[140px] opacity-50 cursor-pointer"
+                    ? "md:w-[175px] opacity-100"
+                    : "md:w-[140px] opacity-50 cursor-pointer"
                 }`}
                 onClick={() => { if (!isActive) goTo(i); }}
               >
@@ -224,8 +246,7 @@ export function InstagramReels() {
                         preload="auto"
                         onEnded={handleVideoEnded}
                         onError={() => {
-                          console.error('[InstagramReels] video load failed. URL:', videoUrl,
-                            '— video_url must be an MP4 link, not an image URL.');
+                          console.error('[InstagramReels] video load failed. URL:', videoUrl);
                           setVideoFailed(true);
                         }}
                         className="w-full h-full object-cover"
@@ -266,8 +287,8 @@ export function InstagramReels() {
                   )}
                 </div>
 
-                {/* Product info */}
-                <div className="mt-2 px-0.5">
+                {/* Product info — active card only on mobile, all cards on desktop */}
+                <div className={`mt-2 px-0.5 ${isActive ? "" : "hidden md:block"}`}>
                   {product ? (
                     <>
                       <div className="flex items-center gap-2 mb-2">
@@ -310,19 +331,20 @@ export function InstagramReels() {
           })}
 
           {/* Right spacer */}
-          <div className="flex-shrink-0 w-[24vw] md:w-16" aria-hidden />
+          <div className="flex-shrink-0 w-[12vw] md:w-16" aria-hidden />
         </div>
 
+        {/* Arrow buttons — hidden on mobile, visible on desktop */}
         <button
           onClick={() => goTo(activeIndex - 1)}
-          className="absolute left-2 top-[38%] -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-md rounded-full p-2 transition-colors"
+          className="hidden md:flex absolute left-2 top-[38%] -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-md rounded-full p-2 transition-colors"
           aria-label="이전"
         >
           <ChevronLeft className="h-4 w-4 text-foreground" />
         </button>
         <button
           onClick={() => goTo(activeIndex + 1)}
-          className="absolute right-2 top-[38%] -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-md rounded-full p-2 transition-colors"
+          className="hidden md:flex absolute right-2 top-[38%] -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-md rounded-full p-2 transition-colors"
           aria-label="다음"
         >
           <ChevronRight className="h-4 w-4 text-foreground" />
