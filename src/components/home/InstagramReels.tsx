@@ -57,6 +57,15 @@ export function InstagramReels() {
 
   const addItem = useCartStore(state => state.addItem);
 
+  // Ref callback: called immediately when video mounts/unmounts
+  // React's muted prop is buggy — must set el.muted directly
+  const videoCallbackRef = useCallback((el: HTMLVideoElement | null) => {
+    videoRef.current = el;
+    if (!el) return;
+    el.muted = true;
+    el.play().catch(() => {});
+  }, []);
+
   const initProducts = useCallback((list: ReelItem[]) => {
     setProducts(Array(list.length).fill(null));
     list.forEach(({ productHandle }, i) => {
@@ -102,10 +111,15 @@ export function InstagramReels() {
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [activeIndex, reels, goTo]);
 
-  // Sync muted state to active video
-  useEffect(() => {
-    if (videoRef.current) videoRef.current.muted = muted;
-  }, [muted]);
+  // Sync muted toggle to active video
+  const toggleMute = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMuted(m => {
+      const next = !m;
+      if (videoRef.current) videoRef.current.muted = next;
+      return next;
+    });
+  }, []);
 
   // Scroll active card to center
   useEffect(() => {
@@ -194,19 +208,18 @@ export function InstagramReels() {
                   {isActive && videoUrl ? (
                     <>
                       <video
-                        ref={videoRef}
-                        key={shortcode}
+                        ref={videoCallbackRef}
+                        key={`${activeIndex}-${shortcode}`}
                         src={videoUrl}
                         poster={poster}
                         autoPlay
-                        muted={muted}
                         playsInline
                         preload="auto"
                         onEnded={handleVideoEnded}
                         className="w-full h-full object-cover"
                       />
                       <button
-                        onClick={e => { e.stopPropagation(); setMuted(m => !m); }}
+                        onClick={toggleMute}
                         className="absolute top-3 right-3 z-10 bg-black/50 hover:bg-black/70 rounded-full p-2 transition-colors"
                         aria-label={muted ? "소리 켜기" : "소리 끄기"}
                       >
