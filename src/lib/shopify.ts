@@ -568,19 +568,23 @@ export async function fetchCuratedReels(first: number = 20): Promise<ShopifyCura
     for (const f of edge.node.fields) {
       if (f.value) fields[f.key] = f.value;
     }
-    const shortcode = fields.shortcode || (fields.reel_url ? extractReelShortcode(fields.reel_url) : null) || '';
+    // shortcode: 직접 입력 값 우선, 없으면 reel_url에서 Instagram shortcode 추출
+    const shortcode = fields.shortcode?.trim()
+      || (fields.reel_url ? extractReelShortcode(fields.reel_url) : null)
+      || '';
     return {
       id: edge.node.id,
       shortcode,
       thumbnailUrl: fields.thumbnail_url || null,
-      videoUrl: fields.video_url || null,
-      productHandle: fields.product_handle || '',
+      // reel_url을 영상 소스로 사용 (Shopify Files에 업로드한 MP4 URL)
+      videoUrl: fields.reel_url || null,
+      productHandle: fields.product_handle?.trim() || '',
       sortOrder: Number(fields.sort_order) || 0,
     };
   });
 
   return reels
-    .filter(r => r.shortcode && r.productHandle)
+    .filter(r => r.shortcode.trim() && r.productHandle.trim())
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
