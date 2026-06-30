@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Play, X, ShoppingCart } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { CURATED_REELS } from "@/data/curated-reels";
 import { fetchCuratedReels, fetchProductByHandle, ShopifyProduct, formatPrice } from "@/lib/shopify";
+import { useCartStore } from "@/stores/cartStore";
 import { Button } from "@/components/ui/button";
 import { ProductOptionDialog } from "@/components/shop/ProductOptionDialog";
+import { toast } from "sonner";
 
 type ProductNode = ShopifyProduct["node"];
 
@@ -13,241 +15,276 @@ interface ReelItem {
   thumbnailUrl: string | null;
 }
 
+const AUTO_ADVANCE_MS = 20_000;
+
+const getThumbSrc = (url: string) => {
+  if (!url.includes("cdn.shopify.com")) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}width=1080&height=1920&crop=center`;
+};
+
+function loadReels(shopifyReels: Awaited<ReturnType<typeof fetchCuratedReels>>): ReelItem[] {
+  if (shopifyReels.length > 0) {
+    return shopifyReels.map(r => ({
+      shortcode: r.shortcode,
+      productHandle: r.productHandle,
+      thumbnailUrl: r.thumbnailUrl,
+    }));
+  }
+  return CURATED_REELS.map(r => ({
+    shortcode: r.shortcode,
+    productHandle: r.productHandle,
+    thumbnailUrl: r.thumbnailUrl ?? null,
+  }));
+}
+
 export function InstagramReels() {
   const [reels, setReels] = useState<ReelItem[]>([]);
   const [products, setProducts] = useState<(ProductNode | null)[]>([]);
-  const [activeCard, setActiveCard] = useState<number | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const dragStartX = useRef(0);
-  const scrollStartLeft = useRef(0);
-  const hasDragged = useRef(false);
-  const isPointerDown = useRef(false);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const addItem = useCartStore(state => state.addItem);
+
+  const initProducts = useCallback((list: ReelItem[]) => {
+    setProducts(Array(list.length).fill(null));
+    list.forEach(({ productHandle }, i) => {
+      fetchProductByHandle(productHandle)
+        .then(p => setProducts(prev => { const n = [...prev]; n[i] = p; return n; }))
+        .catch(() => {});
+    });
+  }, []);
 
   useEffect(() => {
     fetchCuratedReels(20)
-      .then((shopifyReels) => {
-        const list: ReelItem[] = shopifyReels.length > 0
-          ? shopifyReels.map(r => ({ shortcode: r.shortcode, productHandle: r.productHandle, thumbnailUrl: r.thumbnailUrl }))
-          : CURATED_REELS.map(r => ({ shortcode: r.shortcode, productHandle: r.productHandle, thumbnailUrl: r.thumbnailUrl ?? null }));
+      .then(shopifyReels => {
+        const list = loadReels(shopifyReels);
         setReels(list);
-        setProducts(Array(list.length).fill(null));
-        list.forEach(({ productHandle }, i) => {
-          fetchProductByHandle(productHandle)
-            .then((p) => setProducts((prev) => { const n = [...prev]; n[i] = p; return n; }))
-            .catch(() => {});
-        });
+        initProducts(list);
       })
       .catch(() => {
-        const list = CURATED_REELS.map(r => ({ shortcode: r.shortcode, productHandle: r.productHandle, thumbnailUrl: r.thumbnailUrl ?? null }));
+        const list = loadReels([]);
         setReels(list);
-        setProducts(Array(list.length).fill(null));
-        list.forEach(({ productHandle }, i) => {
-          fetchProductByHandle(productHandle)
-            .then((p) => setProducts((prev) => { const n = [...prev]; n[i] = p; return n; }))
-            .catch(() => {});
-        });
+        initProducts(list);
       });
-  }, []);
+  }, [initProducts]);
 
-  const updateScrollState = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 4);
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
-  }, []);
-
+  // Auto-advance timer — resets whenever activeIndex or reels.length changes
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    updateScrollState();
-    el.addEventListener("scroll", updateScrollState, { passive: true });
-    window.addEventListener("resize", updateScrollState);
-    return () => {
-      el.removeEventListener("scroll", updateScrollState);
-      window.removeEventListener("resize", updateScrollState);
-    };
-  }, [reels, updateScrollState]);
+    if (reels.length === 0) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      setActiveIndex(prev => (prev + 1) % reels.length);
+    }, AUTO_ADVANCE_MS);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [activeIndex, reels.length]);
 
-  const scrollByCards = (dir: "left" | "right") => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const cardW = (el.querySelector<HTMLElement>("[data-card]")?.offsetWidth ?? 208) + 12;
-    el.scrollBy({ left: dir === "left" ? -cardW * 2 : cardW * 2, behavior: "smooth" });
-  };
+  // Scroll active card to center of viewport
+  useEffect(() => {
+    cardRefs.current[activeIndex]?.scrollIntoView({
+      inline: "center",
+      behavior: "smooth",
+      block: "nearest",
+    });
+  }, [activeIndex, reels.length]);
 
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!scrollRef.current) return;
-    isPointerDown.current = true;
-    hasDragged.current = false;
-    dragStartX.current = e.clientX;
-    scrollStartLeft.current = scrollRef.current.scrollLeft;
-    scrollRef.current.setPointerCapture(e.pointerId);
-  };
+  const goTo = useCallback((index: number) => {
+    setActiveIndex(prev => {
+      const len = reels.length;
+      if (len === 0) return prev;
+      return ((index % len) + len) % len;
+    });
+  }, [reels.length]);
 
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isPointerDown.current || !scrollRef.current) return;
-    const walk = dragStartX.current - e.clientX;
-    if (Math.abs(walk) > 6) hasDragged.current = true;
-    scrollRef.current.scrollLeft = scrollStartLeft.current + walk;
-  };
+  const handleAddToCart = useCallback((product: ProductNode, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const variants = product.variants.edges;
+    const isSingleVariant =
+      variants.length === 1 && variants[0].node.title === "Default Title";
 
-  const onPointerUp = () => { isPointerDown.current = false; };
+    if (isSingleVariant) {
+      const variant = variants[0].node;
+      addItem({
+        product: { node: product } as ShopifyProduct,
+        variantId: variant.id,
+        variantTitle: variant.title,
+        price: variant.price,
+        quantity: 1,
+        quantityAvailable: null,
+        selectedOptions: variant.selectedOptions,
+      });
+      toast.success("Added to cart", {
+        description: product.title,
+        position: "top-center",
+      });
+    } else {
+      setSelectedProduct({ node: product } as ShopifyProduct);
+      setOptionDialogOpen(true);
+    }
+  }, [addItem]);
 
-  const handleThumbClick = (i: number) => {
-    if (!hasDragged.current) setActiveCard(i);
-  };
-
-  const getThumbSrc = (url: string) => {
-    if (!url.includes("cdn.shopify.com")) return url;
-    const sep = url.includes("?") ? "&" : "?";
-    return `${url}${sep}width=1080&height=1920&crop=center`;
-  };
+  if (reels.length === 0) return null;
 
   return (
-    // mt-6 pb-4 matches CurationSection's outer section classes exactly
     <section className="mt-6 pb-4">
-      <div className="flex items-center justify-between px-4 mb-3">
+      <div className="flex items-center justify-between px-4 mb-4">
         <h2 className="text-base font-bold text-foreground">Loved by the Community 🐾</h2>
       </div>
 
-      <div className="relative group">
-        {canScrollLeft && (
-          <button
-            onClick={() => scrollByCards("left")}
-            className="absolute left-0 top-[40%] -translate-y-1/2 -translate-x-1 z-10 bg-white/90 shadow-md rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
-            aria-label="이전"
-          >
-            <ChevronLeft className="h-5 w-5 text-foreground" />
-          </button>
-        )}
-
+      <div className="relative">
+        {/* Carousel scroll container */}
         <div
           ref={scrollRef}
-          className="flex gap-3 md:gap-4 px-4 overflow-x-auto pb-2 scrollbar-hide select-none"
-          style={{ WebkitOverflowScrolling: "touch" }}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerLeave={onPointerUp}
+          className="flex gap-3 overflow-x-auto scrollbar-hide py-1"
+          style={{ scrollSnapType: "x mandatory" }}
         >
+          {/* Left spacer — centers first card */}
+          <div className="flex-shrink-0 w-[calc(50vw-130px)] md:w-[calc(50vw-160px)]" aria-hidden />
+
           {reels.map(({ shortcode, thumbnailUrl }, i) => {
+            const isActive = i === activeIndex;
             const product = products[i];
-            const reelThumb = thumbnailUrl;
-            const isActive = activeCard === i;
 
             return (
-              <div key={shortcode} data-card className="flex-shrink-0 flex flex-col w-40 md:w-52">
-                {/* 상단: 릴스 썸네일 (9:16) */}
-                <div className="w-full aspect-[9/16] relative rounded-xl overflow-hidden bg-muted">
+              <div
+                key={shortcode}
+                ref={el => { cardRefs.current[i] = el; }}
+                style={{ scrollSnapAlign: "center" }}
+                className={`flex-shrink-0 flex flex-col transition-all duration-400 ${
+                  isActive
+                    ? "w-[260px] md:w-[320px] opacity-100"
+                    : "w-[200px] md:w-[250px] opacity-55 cursor-pointer"
+                }`}
+                onClick={() => { if (!isActive) goTo(i); }}
+              >
+                {/* Video / Thumbnail */}
+                <div
+                  className={`w-full aspect-[9/16] relative rounded-2xl overflow-hidden bg-muted transition-shadow duration-300 ${
+                    isActive ? "shadow-xl" : "shadow-sm"
+                  }`}
+                >
                   {isActive ? (
-                    <>
-                      <iframe
-                        key={shortcode}
-                        src={`https://www.instagram.com/p/${shortcode}/embed/?cr=1&v=14`}
-                        className="w-full h-full border-0"
-                        allowFullScreen
-                        allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
-                        scrolling="no"
-                        title={`Instagram Reel ${shortcode}`}
-                      />
-                      <button
-                        onClick={() => setActiveCard(null)}
-                        className="absolute top-2 right-2 z-10 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 transition-colors"
-                        aria-label="닫기"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      className="w-full h-full relative group/card"
-                      onClick={() => handleThumbClick(i)}
+                    <iframe
+                      key={shortcode}
+                      src={`https://www.instagram.com/p/${shortcode}/embed/?cr=1&v=14`}
+                      className="w-full h-full border-0"
+                      allowFullScreen
+                      allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
+                      scrolling="no"
+                      title={`Instagram Reel ${shortcode}`}
+                    />
+                  ) : thumbnailUrl ? (
+                    <img
+                      src={getThumbSrc(thumbnailUrl)}
+                      alt={`Reel ${i + 1}`}
+                      width={1080}
+                      height={1920}
+                      className="w-full h-full object-cover"
                       draggable={false}
-                    >
-                      {reelThumb ? (
-                        <img
-                          src={getThumbSrc(reelThumb)}
-                          alt={`Reel ${i + 1}`}
-                          width={1080}
-                          height={1920}
-                          className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300"
-                          draggable={false}
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-orange-50 to-pink-100 flex items-center justify-center">
-                          <div className="w-8 h-8 rounded-full bg-black/10 animate-pulse" />
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-black/10 group-hover/card:bg-black/25 transition-colors" />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="bg-white/80 backdrop-blur-sm rounded-full p-2.5 shadow-lg group-hover/card:scale-110 transition-transform">
-                          <Play className="h-4 w-4 text-black fill-black" />
-                        </div>
-                      </div>
-                    </button>
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-orange-50 to-pink-100" />
+                  )}
+
+                  {/* Auto-advance progress bar */}
+                  {isActive && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/20">
+                      <div
+                        key={activeIndex}
+                        className="h-full bg-white/70"
+                        style={{
+                          animation: `reel-progress ${AUTO_ADVANCE_MS}ms linear forwards`,
+                        }}
+                      />
+                    </div>
                   )}
                 </div>
 
-                {/* 하단: 상품 카드 */}
-                {product ? (
-                  <div className="mt-1.5 bg-card rounded-xl border border-border overflow-hidden shadow-sm">
-                    <div className="p-2.5">
-                      <div className="flex items-center gap-2 mb-1.5">
+                {/* Product info */}
+                <div className="mt-2 px-0.5">
+                  {product ? (
+                    <>
+                      <div className="flex items-center gap-2 mb-2">
                         <img
                           src={product.images.edges[0]?.node.url}
                           alt={product.title}
-                          className="w-8 h-8 rounded-lg object-cover flex-none"
+                          className="w-10 h-10 rounded-lg object-cover flex-none border border-border"
                           draggable={false}
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-medium text-foreground line-clamp-2 leading-tight">
+                          <p className="text-xs font-medium text-foreground line-clamp-2 leading-tight mb-0.5">
                             {product.title}
                           </p>
+                          <span className="text-sm font-bold text-orange-500" translate="no">
+                            {formatPrice(
+                              product.priceRange.minVariantPrice.amount,
+                              product.priceRange.minVariantPrice.currencyCode,
+                            )}
+                          </span>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-sm font-bold text-orange-500 leading-none" translate="no">
-                          {formatPrice(
-                            product.priceRange.minVariantPrice.amount,
-                            product.priceRange.minVariantPrice.currencyCode
-                          )}
-                        </span>
-                        <Button
-                          size="sm"
-                          className="h-8 w-8 p-0 flex-shrink-0 rounded-full bg-secondary text-foreground hover:bg-secondary/80"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedProduct({ node: product } as ShopifyProduct);
-                            setOptionDialogOpen(true);
-                          }}
-                        >
-                          <ShoppingCart className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-1.5 h-20 bg-muted rounded-xl animate-pulse" />
-                )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full rounded-full text-xs h-8 font-medium"
+                        onClick={(e) => handleAddToCart(product, e)}
+                      >
+                        Add to cart
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="h-10 bg-muted rounded-lg animate-pulse mb-2" />
+                      <div className="h-8 bg-muted rounded-full animate-pulse" />
+                    </>
+                  )}
+                </div>
               </div>
             );
           })}
+
+          {/* Right spacer — centers last card */}
+          <div className="flex-shrink-0 w-[calc(50vw-130px)] md:w-[calc(50vw-160px)]" aria-hidden />
         </div>
 
-        {canScrollRight && (
+        {/* Left arrow */}
+        <button
+          onClick={() => goTo(activeIndex - 1)}
+          className="absolute left-2 top-[38%] -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-md rounded-full p-2 transition-colors"
+          aria-label="이전"
+        >
+          <ChevronLeft className="h-4 w-4 text-foreground" />
+        </button>
+
+        {/* Right arrow */}
+        <button
+          onClick={() => goTo(activeIndex + 1)}
+          className="absolute right-2 top-[38%] -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-md rounded-full p-2 transition-colors"
+          aria-label="다음"
+        >
+          <ChevronRight className="h-4 w-4 text-foreground" />
+        </button>
+      </div>
+
+      {/* Dot indicators */}
+      <div className="flex justify-center gap-1.5 mt-3">
+        {reels.map((_, i) => (
           <button
-            onClick={() => scrollByCards("right")}
-            className="absolute right-0 top-[40%] -translate-y-1/2 translate-x-1 z-10 bg-white/90 shadow-md rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
-            aria-label="다음"
-          >
-            <ChevronRight className="h-5 w-5 text-foreground" />
-          </button>
-        )}
+            key={i}
+            onClick={() => goTo(i)}
+            className={`rounded-full transition-all duration-300 ${
+              i === activeIndex
+                ? "w-4 h-1.5 bg-foreground"
+                : "w-1.5 h-1.5 bg-foreground/25 hover:bg-foreground/50"
+            }`}
+            aria-label={`릴스 ${i + 1}`}
+          />
+        ))}
       </div>
 
       {selectedProduct && (
