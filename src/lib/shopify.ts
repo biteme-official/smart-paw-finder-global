@@ -585,7 +585,8 @@ export async function fetchCuratedReels(first: number = 20): Promise<ShopifyCura
 
   return reels
     .filter(r => r.shortcode.trim() && r.productHandle.trim())
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+    // sort_order 미입력(0) 항목은 맨 뒤로 → 새 항목을 비워도 자동으로 마지막에 노출
+    .sort((a, b) => (a.sortOrder || Infinity) - (b.sortOrder || Infinity));
 }
 
 // Banners (Metaobjects)
