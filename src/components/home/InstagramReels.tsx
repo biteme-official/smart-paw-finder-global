@@ -207,13 +207,13 @@ export function InstagramReels() {
       <div className="relative">
         <div
           ref={scrollRef}
-          className="flex items-center gap-2 md:gap-3 overflow-x-auto scrollbar-hide py-1"
+          className="flex gap-2 md:gap-3 overflow-x-auto scrollbar-hide py-4"
           style={{ scrollSnapType: "x mandatory" }}
         >
           {/*
-            Mobile:  card=62vw (active & inactive same width), spacer=19vw
-                     → side preview ≈ 19vw−8px ≈ 17vw
-            Desktop: active=175px, inactive=140px, spacer=64px
+            Mobile:  all cards 52vw, inactive scaled to 88% visually, spacer=24vw
+                     → side preview ≈ 22vw visible (46% of card visible)
+            Desktop: all cards 175px, inactive scaled to 88%
           */}
           <div className="flex-shrink-0 w-[24vw] md:w-16" aria-hidden />
 
@@ -226,20 +226,18 @@ export function InstagramReels() {
               <div
                 key={id}
                 ref={el => { cardRefs.current[i] = el; }}
-                style={{ scrollSnapAlign: "center" }}
-                className={`flex-shrink-0 flex flex-col transition-opacity duration-300 ${
-                  isActive
-                    ? "w-[52vw] md:w-[175px] opacity-100"
-                    : "w-[42vw] md:w-[140px] opacity-50 cursor-pointer"
+                className={`flex-shrink-0 flex flex-col w-[52vw] md:w-[175px] rounded-2xl overflow-hidden bg-secondary shadow-sm transition-[opacity,transform] duration-300 ${
+                  isActive ? "opacity-100" : "opacity-60 cursor-pointer"
                 }`}
+                style={{
+                  scrollSnapAlign: "center",
+                  transform: isActive ? "scale(1)" : "scale(0.88)",
+                  transformOrigin: "center",
+                }}
                 onClick={() => { if (!isActive) goTo(i); }}
               >
                 {/* 9:16 media area */}
-                <div
-                  className={`w-full aspect-[9/16] relative rounded-2xl overflow-hidden bg-black transition-shadow duration-300 ${
-                    isActive ? "shadow-xl" : "shadow-sm"
-                  }`}
-                >
+                <div className="w-full aspect-[9/16] relative bg-black">
                   {isActive && videoUrl && !videoFailed ? (
                     <>
                       <video
@@ -294,7 +292,7 @@ export function InstagramReels() {
                 </div>
 
                 {/* Product info */}
-                <div className="mt-2 px-0.5">
+                <div className="p-2 pb-3">
                   {product ? (
                     <>
                       <div className="flex items-center gap-2 mb-2">
