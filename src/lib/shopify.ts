@@ -533,6 +533,7 @@ export interface ShopifyCuratedReel {
   id: string;
   shortcode: string;
   thumbnailUrl: string | null;
+  videoUrl: string | null;
   productHandle: string;
   sortOrder: number;
 }
@@ -572,6 +573,7 @@ export async function fetchCuratedReels(first: number = 20): Promise<ShopifyCura
       id: edge.node.id,
       shortcode,
       thumbnailUrl: fields.thumbnail_url || null,
+      videoUrl: fields.video_url || null,
       productHandle: fields.product_handle || '',
       sortOrder: Number(fields.sort_order) || 0,
     };
