@@ -102,6 +102,12 @@ export function InstagramReels() {
     if (!hasDragged.current) setActiveCard(i);
   };
 
+  const getThumbSrc = (url: string) => {
+    if (!url.includes("cdn.shopify.com")) return url;
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}width=1080&height=1920&crop=center`;
+  };
+
   return (
     // mt-6 pb-4 matches CurationSection's outer section classes exactly
     <section className="mt-6 pb-4">
@@ -165,8 +171,10 @@ export function InstagramReels() {
                     >
                       {reelThumb ? (
                         <img
-                          src={reelThumb}
+                          src={getThumbSrc(reelThumb)}
                           alt={`Reel ${i + 1}`}
+                          width={1080}
+                          height={1920}
                           className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300"
                           draggable={false}
                         />
