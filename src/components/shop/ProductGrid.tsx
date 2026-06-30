@@ -294,9 +294,9 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
       <section className="py-8 px-4">
         <h2 className="text-2xl font-bold mb-6">{displayTitle}</h2>
         <div className="bg-muted/50 rounded-xl p-12 text-center">
-          <p className="text-muted-foreground text-lg mb-4">상품을 불러올 수 없습니다.</p>
+          <p className="text-muted-foreground text-lg mb-4">Failed to load products.</p>
           <Button variant="outline" onClick={() => setRetryKey(k => k + 1)}>
-            다시 시도
+            Retry
           </Button>
         </div>
       </section>
