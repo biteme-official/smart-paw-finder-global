@@ -211,11 +211,11 @@ export function InstagramReels() {
           style={{ scrollSnapType: "x mandatory" }}
         >
           {/*
-            Mobile:  card=76vw (active & inactive same width), spacer=12vw
-                     → side preview ≈ 12vw−8px ≈ 10vw (조선미녀 스타일)
+            Mobile:  card=62vw (active & inactive same width), spacer=19vw
+                     → side preview ≈ 19vw−8px ≈ 17vw
             Desktop: active=175px, inactive=140px, spacer=64px
           */}
-          <div className="flex-shrink-0 w-[12vw] md:w-16" aria-hidden />
+          <div className="flex-shrink-0 w-[19vw] md:w-16" aria-hidden />
 
           {reels.map(({ id, thumbnailUrl, videoUrl }, i) => {
             const isActive = i === activeIndex;
@@ -227,7 +227,7 @@ export function InstagramReels() {
                 key={id}
                 ref={el => { cardRefs.current[i] = el; }}
                 style={{ scrollSnapAlign: "center" }}
-                className={`flex-shrink-0 flex flex-col transition-all duration-300 w-[76vw] ${
+                className={`flex-shrink-0 flex flex-col transition-all duration-300 w-[62vw] ${
                   isActive
                     ? "md:w-[175px] opacity-100"
                     : "md:w-[140px] opacity-50 cursor-pointer"
@@ -337,7 +337,7 @@ export function InstagramReels() {
           })}
 
           {/* Right spacer */}
-          <div className="flex-shrink-0 w-[12vw] md:w-16" aria-hidden />
+          <div className="flex-shrink-0 w-[19vw] md:w-16" aria-hidden />
         </div>
 
         <button
