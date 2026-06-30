@@ -44,9 +44,9 @@ function buildReelList(shopifyReels: Awaited<ReturnType<typeof fetchCuratedReels
 export function InstagramReels() {
   const [reels, setReels] = useState<ReelItem[]>([]);
   const [products, setProducts] = useState<(ProductNode | null)[]>([]);
-  // Start at index 2 (middle); updated after reels load
   const [activeIndex, setActiveIndex] = useState(2);
   const [muted, setMuted] = useState(true);
+  const [videoFailed, setVideoFailed] = useState(false);
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
 
@@ -57,13 +57,15 @@ export function InstagramReels() {
 
   const addItem = useCartStore(state => state.addItem);
 
-  // Ref callback: called immediately when video mounts/unmounts
-  // React's muted prop is buggy — must set el.muted directly
+  // React's muted prop is buggy — set el.muted directly on mount, then call play()
   const videoCallbackRef = useCallback((el: HTMLVideoElement | null) => {
     videoRef.current = el;
     if (!el) return;
     el.muted = true;
-    el.play().catch(() => {});
+    setVideoFailed(false);
+    el.play().catch((err) => {
+      console.warn('[InstagramReels] autoplay blocked:', err);
+    });
   }, []);
 
   const initProducts = useCallback((list: ReelItem[]) => {
@@ -100,16 +102,19 @@ export function InstagramReels() {
     });
   }, [reels.length]);
 
-  // Fallback timer for thumbnail-only cards
+  // Fallback timer for thumbnail-only (or video failed) cards
   useEffect(() => {
     if (reels.length === 0) return;
-    const hasVideo = !!reels[activeIndex]?.videoUrl;
+    const hasVideo = !!reels[activeIndex]?.videoUrl && !videoFailed;
     if (timerRef.current) clearTimeout(timerRef.current);
     if (!hasVideo) {
       timerRef.current = setTimeout(() => goTo(activeIndex + 1), FALLBACK_ADVANCE_MS);
     }
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [activeIndex, reels, goTo]);
+  }, [activeIndex, reels, goTo, videoFailed]);
+
+  // Reset videoFailed state when active card changes
+  useEffect(() => { setVideoFailed(false); }, [activeIndex]);
 
   // Sync muted toggle to active video
   const toggleMute = useCallback((e: React.MouseEvent) => {
@@ -176,11 +181,10 @@ export function InstagramReels() {
           style={{ scrollSnapType: "x mandatory" }}
         >
           {/*
-            Spacer = (100vw - activeCardWidth) / 2
-            activeCard: 65vw mobile / 280px desktop
-            spacer: 17.5vw mobile / 140px desktop  (centers first card)
+            Mobile:  center=52vw, inactive=38vw, spacer=24vw  → 2 partial cards visible
+            Desktop: center=175px, inactive=140px, spacer=64px → 6 cards visible
           */}
-          <div className="flex-shrink-0 w-[17.5vw] md:w-[140px]" aria-hidden />
+          <div className="flex-shrink-0 w-[24vw] md:w-16" aria-hidden />
 
           {reels.map(({ shortcode, thumbnailUrl, videoUrl }, i) => {
             const isActive = i === activeIndex;
@@ -194,8 +198,8 @@ export function InstagramReels() {
                 style={{ scrollSnapAlign: "center" }}
                 className={`flex-shrink-0 flex flex-col transition-all duration-300 ${
                   isActive
-                    ? "w-[65vw] md:w-[280px] opacity-100"
-                    : "w-[52vw] md:w-[210px] opacity-50 cursor-pointer"
+                    ? "w-[52vw] md:w-[175px] opacity-100"
+                    : "w-[38vw] md:w-[140px] opacity-50 cursor-pointer"
                 }`}
                 onClick={() => { if (!isActive) goTo(i); }}
               >
@@ -205,7 +209,7 @@ export function InstagramReels() {
                     isActive ? "shadow-xl" : "shadow-sm"
                   }`}
                 >
-                  {isActive && videoUrl ? (
+                  {isActive && videoUrl && !videoFailed ? (
                     <>
                       <video
                         ref={videoCallbackRef}
@@ -216,6 +220,11 @@ export function InstagramReels() {
                         playsInline
                         preload="auto"
                         onEnded={handleVideoEnded}
+                        onError={() => {
+                          console.error('[InstagramReels] video load failed. URL:', videoUrl,
+                            '— video_url must be an MP4 link, not an image URL.');
+                          setVideoFailed(true);
+                        }}
                         className="w-full h-full object-cover"
                       />
                       <button
@@ -298,7 +307,7 @@ export function InstagramReels() {
           })}
 
           {/* Right spacer */}
-          <div className="flex-shrink-0 w-[17.5vw] md:w-[140px]" aria-hidden />
+          <div className="flex-shrink-0 w-[24vw] md:w-16" aria-hidden />
         </div>
 
         <button
