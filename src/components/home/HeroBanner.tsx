@@ -100,7 +100,7 @@ export function HeroBanner() {
         {banners.map((banner) => (
           <div
             key={banner.id}
-            className="w-full flex-shrink-0 relative"
+            className="w-full flex-shrink-0"
             onClick={() => handleBannerClick(banner.linkUrl)}
             style={{ cursor: banner.linkUrl ? 'pointer' : 'default' }}
           >

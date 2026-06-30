@@ -16,6 +16,7 @@ interface ProductCardProps {
   onAddToCart: (e: React.MouseEvent) => void;
   onClick: () => void;
   isSoldOut?: boolean;
+  reviewSummary?: { avgRating: number; count: number };
 }
 
 function StarRow({ avgRating, count }: { avgRating: number; count: number }) {
@@ -35,10 +36,12 @@ function StarRow({ avgRating, count }: { avgRating: number; count: number }) {
   );
 }
 
-export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = false }: ProductCardProps) {
+export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = false, reviewSummary }: ProductCardProps) {
   const { toggleFavorite, checkFavorite } = useFavoriteAction();
   const numericId = product.node.id.split("/").pop() ?? "";
-  const { avgRating, count } = useProductReviewSummary(numericId);
+  // Pass empty string when reviewSummary is provided to skip the individual fetch
+  const hookResult = useProductReviewSummary(reviewSummary !== undefined ? "" : numericId);
+  const { avgRating, count } = reviewSummary ?? hookResult;
   const isB2B = useAuthStore((s) => s.isB2B);
   const b2bDiscountRate = useAuthStore((s) => s.b2bDiscountRate);
 

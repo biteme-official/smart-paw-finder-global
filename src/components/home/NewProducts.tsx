@@ -5,11 +5,13 @@ import { ShopifyProduct, fetchNewProducts } from "@/lib/shopify";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductOptionDialog } from "@/components/shop/ProductOptionDialog";
 import { ProductCard } from "@/components/shop/ProductCard";
+import { fetchBatchReviewSummary } from "@/hooks/useProductReview";
 
 export function NewProducts() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reviewMap, setReviewMap] = useState<Record<string, { avgRating: number; count: number }>>({});
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -52,6 +54,8 @@ export function NewProducts() {
           )
         );
         setProducts(available);
+        const ids = available.map(p => p.node.id.split("/").pop()!);
+        fetchBatchReviewSummary(ids).then(setReviewMap);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -105,16 +109,20 @@ export function NewProducts() {
         ref={scrollRef}
         className="flex gap-3 md:gap-4 px-4 overflow-x-auto pb-2 scrollbar-hide"
       >
-        {products.slice(0, 20).map((product) => (
-          <div key={product.node.id} className="flex-shrink-0 w-40 md:w-52">
-            <ProductCard
-              product={product}
-              badge={{ label: "NEW", className: "bg-emerald-500 text-white" }}
-              onClick={() => navigate(`/product/${product.node.handle}`)}
-              onAddToCart={(e) => handleAddToCart(e, product)}
-            />
-          </div>
-        ))}
+        {products.slice(0, 20).map((product) => {
+          const numericId = product.node.id.split("/").pop()!;
+          return (
+            <div key={product.node.id} className="flex-shrink-0 w-40 md:w-52">
+              <ProductCard
+                product={product}
+                badge={{ label: "NEW", className: "bg-emerald-500 text-white" }}
+                onClick={() => navigate(`/product/${product.node.handle}`)}
+                onAddToCart={(e) => handleAddToCart(e, product)}
+                reviewSummary={reviewMap[numericId]}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {canScrollLeft && (

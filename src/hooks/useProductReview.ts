@@ -9,6 +9,27 @@ interface ReviewSummary {
 const cache = new Map<string, ReviewSummary>();
 const pending = new Map<string, Promise<ReviewSummary>>();
 
+export async function fetchBatchReviewSummary(
+  ids: string[]
+): Promise<Record<string, ReviewSummary>> {
+  if (!ids.length) return {};
+  const uncached = ids.filter(id => !cache.has(id));
+  if (uncached.length) {
+    try {
+      const r = await fetch(`/api/kr-reviews-batch?ids=${uncached.join(',')}`);
+      if (r.ok) {
+        const data: Record<string, ReviewSummary> = await r.json();
+        for (const [id, summary] of Object.entries(data)) {
+          cache.set(id, summary);
+        }
+      }
+    } catch {
+      // fall through — cache stays empty for these ids
+    }
+  }
+  return Object.fromEntries(ids.map(id => [id, cache.get(id) ?? { avgRating: 0, count: 0 }]));
+}
+
 // Concurrency limiter — max 5 simultaneous /api/kr-reviews requests
 const MAX_CONCURRENT = 5;
 let activeCount = 0;

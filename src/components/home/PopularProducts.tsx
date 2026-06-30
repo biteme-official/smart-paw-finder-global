@@ -5,16 +5,9 @@ import { ShopifyProduct, fetchBestSellingProducts } from "@/lib/shopify";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductOptionDialog } from "@/components/shop/ProductOptionDialog";
 import { ProductCard, ProductCardBadge } from "@/components/shop/ProductCard";
+import { fetchBatchReviewSummary } from "@/hooks/useProductReview";
 
 const BADGES: ProductCardBadge[] = [
-  { label: "BEST", className: "bg-red-500 text-white" },
-  { label: "HOT",  className: "bg-orange-500 text-white" },
-  { label: "PICK", className: "bg-primary text-primary-foreground" },
-  { label: "TOP",  className: "bg-amber-500 text-white" },
-  { label: "BEST", className: "bg-red-500 text-white" },
-  { label: "HOT",  className: "bg-orange-500 text-white" },
-  { label: "PICK", className: "bg-primary text-primary-foreground" },
-  { label: "TOP",  className: "bg-amber-500 text-white" },
   { label: "BEST", className: "bg-red-500 text-white" },
   { label: "HOT",  className: "bg-orange-500 text-white" },
   { label: "PICK", className: "bg-primary text-primary-foreground" },
@@ -25,6 +18,7 @@ export function PopularProducts() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reviewMap, setReviewMap] = useState<Record<string, { avgRating: number; count: number }>>({});
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -58,7 +52,12 @@ export function PopularProducts() {
 
   useEffect(() => {
     fetchBestSellingProducts(12)
-      .then((result) => setProducts(result.filter(p => p.node.variants.edges.some(v => v.node.availableForSale))))
+      .then((result) => {
+        const available = result.filter(p => p.node.variants.edges.some(v => v.node.availableForSale));
+        setProducts(available);
+        const ids = available.map(p => p.node.id.split("/").pop()!);
+        fetchBatchReviewSummary(ids).then(setReviewMap);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -103,16 +102,20 @@ export function PopularProducts() {
 
       <div className="relative group">
         <div ref={scrollRef} className="flex gap-3 md:gap-4 px-4 overflow-x-auto pb-2 scrollbar-hide">
-          {products.map((product, index) => (
-            <div key={product.node.id} className="flex-shrink-0 w-40 md:w-52">
-              <ProductCard
-                product={product}
-                badge={BADGES[index % BADGES.length]}
-                onClick={() => navigate(`/product/${product.node.handle}`)}
-                onAddToCart={() => { setSelectedProduct(product); setOptionDialogOpen(true); }}
-              />
-            </div>
-          ))}
+          {products.map((product, index) => {
+            const numericId = product.node.id.split("/").pop()!;
+            return (
+              <div key={product.node.id} className="flex-shrink-0 w-40 md:w-52">
+                <ProductCard
+                  product={product}
+                  badge={BADGES[index % BADGES.length]}
+                  onClick={() => navigate(`/product/${product.node.handle}`)}
+                  onAddToCart={() => { setSelectedProduct(product); setOptionDialogOpen(true); }}
+                  reviewSummary={reviewMap[numericId]}
+                />
+              </div>
+            );
+          })}
         </div>
 
         {canScrollLeft && (

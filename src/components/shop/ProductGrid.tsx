@@ -10,6 +10,7 @@ import { ProductFilters, SortOption, FilterState } from './ProductFilters';
 import { ProductOptionDialog } from './ProductOptionDialog';
 import { useTranslation } from '@/hooks/useTranslation';
 import { trackViewItemList, shopifyToGA4Item } from '@/lib/ga4-ecommerce';
+import { fetchBatchReviewSummary } from '@/hooks/useProductReview';
 
 // Product skeleton component
 const ProductSkeleton = () => (
@@ -44,9 +45,12 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   const [loadError, setLoadError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
+  const loadMoreErrorRef = useRef(false);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [endCursor, setEndCursor] = useState<string | null>(null);
   const [totalProductCount, setTotalProductCount] = useState<number | null>(null);
+  const [reviewMap, setReviewMap] = useState<Record<string, { avgRating: number; count: number }>>({});
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -202,6 +206,8 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
         setHasNextPage(response.pageInfo.hasNextPage);
         setEndCursor(response.pageInfo.endCursor);
         countPromise.then(c => setTotalProductCount(c));
+        const ids = response.products.map(p => p.node.id.split("/").pop()!);
+        fetchBatchReviewSummary(ids).then(map => setReviewMap(prev => ({ ...prev, ...map })));
       } catch (error) {
         console.error('Failed to fetch products:', error);
         setLoadError(true);
@@ -209,12 +215,13 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
         setLoading(false);
       }
     };
+    setReviewMap({});
     loadProducts();
   }, [searchQuery, collectionHandle, multiCollections, overrideTitle, getQuery, retryKey]);
 
   // Load more products
   const loadMore = useCallback(async () => {
-    if (loadingMore || !hasNextPage || !endCursor) return;
+    if (loadingMore || !hasNextPage || !endCursor || loadMoreErrorRef.current) return;
 
     setLoadingMore(true);
     try {
@@ -233,8 +240,12 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
       setAllProducts(prev => [...prev, ...response.products]);
       setHasNextPage(response.pageInfo.hasNextPage);
       setEndCursor(response.pageInfo.endCursor);
+      const ids = response.products.map(p => p.node.id.split("/").pop()!);
+      fetchBatchReviewSummary(ids).then(map => setReviewMap(prev => ({ ...prev, ...map })));
     } catch (error) {
       console.error('Failed to load more products:', error);
+      loadMoreErrorRef.current = true;
+      setLoadMoreError(true);
     } finally {
       setLoadingMore(false);
     }
@@ -375,6 +386,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredAndSortedProducts.map((product) => {
               const isCompletelyOutOfStock = isProductSoldOut(product);
+              const numericId = product.node.id.split("/").pop()!;
               return (
                 <ProductCard
                   key={product.node.id}
@@ -382,6 +394,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
                   isSoldOut={isCompletelyOutOfStock}
                   onClick={() => handleProductClick(product.node.handle)}
                   onAddToCart={(e) => handleAddToCart(e, product)}
+                  reviewSummary={reviewMap[numericId]}
                 />
               );
             })}
@@ -389,8 +402,18 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
 
           {/* Infinite scroll trigger */}
           <div ref={loadMoreRef} className="h-20 flex items-center justify-center">
-            {loadingMore && (
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            {loadingMore && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
+            {loadMoreError && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  loadMoreErrorRef.current = false;
+                  setLoadMoreError(false);
+                  loadMore();
+                }}
+              >
+                Failed to load more. Retry
+              </Button>
             )}
           </div>
 

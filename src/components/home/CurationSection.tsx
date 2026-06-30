@@ -14,6 +14,7 @@ interface CurationSectionProps {
   badge?: string;
   badgeClassName?: string;
   animationDelay?: string;
+  reviewMap?: Record<string, { avgRating: number; count: number }>;
 }
 
 const DEFAULT_BADGES: ProductCardBadge[] = [
@@ -31,6 +32,7 @@ export function CurationSection({
   badge,
   badgeClassName = "bg-primary text-primary-foreground",
   animationDelay = "0s",
+  reviewMap,
 }: CurationSectionProps) {
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -108,6 +110,7 @@ export function CurationSection({
             const badgeDef: ProductCardBadge = badge
               ? { label: badge, className: badgeClassName }
               : DEFAULT_BADGES[index % DEFAULT_BADGES.length];
+            const numericId = product.node.id.split("/").pop()!;
             return (
               <div key={product.node.id} className="flex-shrink-0 w-40 md:w-52">
                 <ProductCard
@@ -115,6 +118,7 @@ export function CurationSection({
                   badge={badgeDef}
                   onClick={() => navigate(`/product/${product.node.handle}`)}
                   onAddToCart={() => { setSelectedProduct(product); setOptionDialogOpen(true); }}
+                  reviewSummary={reviewMap?.[numericId]}
                 />
               </div>
             );
