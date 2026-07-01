@@ -17,9 +17,11 @@ interface AuthStore {
   isLoggedIn: boolean;
   isB2B: boolean;
   b2bDiscountRate: number;
+  hasOrdered: boolean | null;
   login: (user: UserProfile) => void;
   setB2B: (isB2B: boolean) => void;
   setB2BDiscountRate: (rate: number) => void;
+  setHasOrdered: (v: boolean) => void;
   logout: () => void;
 }
 
@@ -32,13 +34,15 @@ export const useAuthStore = create<AuthStore>()(
       isLoggedIn: false,
       isB2B: false,
       b2bDiscountRate: DEFAULT_B2B_DISCOUNT_RATE,
+      hasOrdered: null,
       login: (user) => {
-        set({ user, isLoggedIn: true });
+        set({ user, isLoggedIn: true, hasOrdered: null });
         useFavoritesStore.getState().mergeGuestToUser(user.userId);
       },
       setB2B: (isB2B) => set({ isB2B }),
       setB2BDiscountRate: (rate) => set({ b2bDiscountRate: rate }),
-      logout: () => set({ user: null, isLoggedIn: false, isB2B: false }),
+      setHasOrdered: (v) => set({ hasOrdered: v }),
+      logout: () => set({ user: null, isLoggedIn: false, isB2B: false, hasOrdered: null }),
     }),
     {
       name: 'auth',

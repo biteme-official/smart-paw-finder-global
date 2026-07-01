@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { HeroBanner } from "@/components/home/HeroBanner";
@@ -12,16 +12,20 @@ import { useScrollRestoration } from "@/hooks/useScrollRestoration";
 import { ScrollToTop } from "@/components/ui/ScrollToTop";
 import { ShopifyProduct, fetchCollectionProducts, fetchNewProducts } from "@/lib/shopify";
 
-// Fetch only when the section's wrapper div enters the viewport (rootMargin: 200px ahead)
+// Fetch only when the section's wrapper div enters the viewport (rootMargin: 200px ahead).
+// Uses callback ref so the observer re-attaches correctly after showHeroBanner toggles.
 function useLazyCurationProducts(collectionHandle: string, count = 10) {
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const sectionRef = useRef<HTMLDivElement>(null);
   const fetchedRef = useRef(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
-  useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
+  const sectionRef = useCallback((el: HTMLDivElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+    if (!el || fetchedRef.current) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -32,13 +36,14 @@ function useLazyCurationProducts(collectionHandle: string, count = 10) {
             .catch(() => setProducts([]))
             .finally(() => setLoading(false));
           observer.disconnect();
+          observerRef.current = null;
         }
       },
       { rootMargin: '200px', threshold: 0 }
     );
 
     observer.observe(el);
-    return () => observer.disconnect();
+    observerRef.current = observer;
   }, [collectionHandle, count]);
 
   return { products, loading, sectionRef };
@@ -47,12 +52,15 @@ function useLazyCurationProducts(collectionHandle: string, count = 10) {
 function useLazyJustOpenedProducts(count = 12) {
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const sectionRef = useRef<HTMLDivElement>(null);
   const fetchedRef = useRef(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
-  useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
+  const sectionRef = useCallback((el: HTMLDivElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+    if (!el || fetchedRef.current) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -63,13 +71,14 @@ function useLazyJustOpenedProducts(count = 12) {
             .catch(() => setProducts([]))
             .finally(() => setLoading(false));
           observer.disconnect();
+          observerRef.current = null;
         }
       },
       { rootMargin: '200px', threshold: 0 }
     );
 
     observer.observe(el);
-    return () => observer.disconnect();
+    observerRef.current = observer;
   }, [count]);
 
   return { products, loading, sectionRef };

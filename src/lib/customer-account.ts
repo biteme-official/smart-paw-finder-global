@@ -221,6 +221,13 @@ export function clearStorefrontCustomerToken(): void {
   localStorage.removeItem(SF_TOKEN_EXPIRES_KEY);
 }
 
+export async function fetchCustomerHasOrdered(): Promise<boolean> {
+  const data = await customerAccountRequest<any>(
+    `query { customer { orders(first: 1) { edges { node { id } } } } }`
+  );
+  return (data?.customer?.orders?.edges?.length ?? 0) > 0;
+}
+
 export async function cancelCustomerOrder(orderId: string): Promise<{ success: boolean; error?: string }> {
   const token = getAccessToken();
   if (!token) return { success: false, error: 'Not logged in' };

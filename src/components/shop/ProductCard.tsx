@@ -41,10 +41,16 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
   const { avgRating, count } = useProductReviewSummary(numericId);
   const isB2B = useAuthStore((s) => s.isB2B);
   const b2bDiscountRate = useAuthStore((s) => s.b2bDiscountRate);
+  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+  const hasOrdered = useAuthStore((s) => s.hasOrdered);
 
   const image = product.node.images.edges[0]?.node;
   const price = product.node.priceRange.minVariantPrice;
   const originalAmt = parseFloat(price.amount);
+
+  // 재방문 고객(주문 1건 이상)에게는 "First Order" 할인 미표시
+  const isReturningCustomer = isLoggedIn && hasOrdered === true;
+  const showDiscount = isB2B || !isReturningCustomer;
 
   const saleAmt = isB2B
     ? (originalAmt * (1 - b2bDiscountRate)).toFixed(2)
@@ -107,16 +113,24 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
         </h3>
 
         <div className="flex items-center justify-between gap-1">
-          <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 min-w-0">
-            <span className="text-[11px] text-muted-foreground line-through leading-none" translate="no">
-              {formatPrice(price.amount, price.currencyCode)}
-            </span>
-            <span className="text-sm font-bold text-orange-500 leading-none" translate="no">
-              {formatPrice(saleAmt, price.currencyCode)}
-            </span>
-            <span className="text-[9px] font-semibold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-sm leading-none whitespace-nowrap">
-              {discountLabel}
-            </span>
+          <div className={`flex flex-wrap items-baseline gap-x-1 gap-y-0.5 min-w-0 ${isSoldOut ? "opacity-40" : ""}`}>
+            {showDiscount ? (
+              <>
+                <span className="text-[11px] text-muted-foreground line-through leading-none" translate="no">
+                  {formatPrice(price.amount, price.currencyCode)}
+                </span>
+                <span className="text-sm font-bold text-orange-500 leading-none" translate="no">
+                  {formatPrice(saleAmt, price.currencyCode)}
+                </span>
+                <span className="text-[9px] font-semibold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-sm leading-none whitespace-nowrap">
+                  {discountLabel}
+                </span>
+              </>
+            ) : (
+              <span className="text-sm font-bold text-foreground leading-none" translate="no">
+                {formatPrice(price.amount, price.currencyCode)}
+              </span>
+            )}
           </div>
           <Button
             size="sm"
