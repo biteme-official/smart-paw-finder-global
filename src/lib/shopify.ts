@@ -528,6 +528,87 @@ export async function fetchCollectionIntersectionCount(handles: string[]): Promi
   return count;
 }
 
+// Curated Reels (Metaobjects)
+export interface ShopifyCuratedReel {
+  id: string;
+  shortcode: string;   // optional — only needed if Instagram embed is used
+  thumbnailUrl: string | null;
+  videoUrl: string | null;
+  productHandle: string;
+  sortOrder: number;
+}
+
+const GET_CURATED_REELS_QUERY = `
+  query GetCuratedReels($first: Int!) {
+    metaobjects(type: "curated_reel", first: $first) {
+      edges {
+        node {
+          id
+          fields {
+            key
+            value
+          }
+        }
+      }
+    }
+  }
+`;
+
+function extractReelShortcode(url: string): string | null {
+  const match = url.match(/instagram\.com\/(?:reel|p)\/([A-Za-z0-9_-]+)/);
+  return match?.[1] ?? null;
+}
+
+export async function fetchCuratedReels(first: number = 20): Promise<ShopifyCuratedReel[]> {
+  const data = await adminApiRequest(GET_CURATED_REELS_QUERY, { first });
+  if (!data) return [];
+
+  const reels: ShopifyCuratedReel[] = (data.data?.metaobjects?.edges || []).map((edge: { node: { id: string; fields: { key: string; value: string }[] } }) => {
+    const fields: Record<string, string> = {};
+    for (const f of edge.node.fields) {
+      if (f.value) fields[f.key] = f.value;
+    }
+    // shortcode: 직접 입력 값 우선, 없으면 reel_url에서 Instagram shortcode 추출
+    const shortcode = fields.shortcode?.trim()
+      || (fields.reel_url ? extractReelShortcode(fields.reel_url) : null)
+      || '';
+
+    // reel_url이 재생 불가능한 URL이면 null 처리
+    const rawReelUrl = fields.reel_url?.trim() || '';
+    const isInstagramUrl = rawReelUrl.includes('instagram.com');
+    const isImageUrl = /\.(jpe?g|png|gif|webp|avif|svg)(\?|$)/i.test(rawReelUrl);
+    const videoUrl = rawReelUrl && !isInstagramUrl && !isImageUrl ? rawReelUrl : null;
+
+    if (rawReelUrl && (isInstagramUrl || isImageUrl)) {
+      console.warn(
+        `[curated_reel] product_handle="${fields.product_handle}" 의 reel_url이 재생 불가능한 URL입니다.\n` +
+        `→ 이미지/Instagram URL이 아닌 MP4 파일 URL을 입력해야 영상이 재생됩니다.\n` +
+        `→ 현재 값: ${rawReelUrl}`
+      );
+    } else if (!rawReelUrl) {
+      console.warn(
+        `[curated_reel] product_handle="${fields.product_handle}" 의 reel_url이 비어 있습니다.\n` +
+        `→ Shopify Admin에서 reel_url에 MP4 파일 URL을 입력해야 영상이 재생됩니다.`
+      );
+    }
+
+    return {
+      id: edge.node.id,
+      shortcode,
+      thumbnailUrl: fields.thumbnail_url || null,
+      videoUrl,
+      productHandle: fields.product_handle?.trim() || '',
+      sortOrder: Number(fields.sort_order) || 0,
+    };
+  });
+
+  return reels
+    // productHandle만 필수 — shortcode는 video 재생에 불필요
+    .filter(r => r.productHandle.trim())
+    // sort_order 미입력(0) 항목은 맨 뒤로
+    .sort((a, b) => (a.sortOrder || Infinity) - (b.sortOrder || Infinity));
+}
+
 // Banners (Metaobjects)
 export interface ShopifyBanner {
   id: string;
@@ -905,6 +986,50 @@ export async function fetchProductByHandle(handle: string): Promise<ShopifyProdu
   const data = await storefrontApiRequest(GET_PRODUCT_BY_HANDLE_QUERY, { handle });
   if (!data) return null;
   return data.data?.productByHandle || null;
+}
+
+const GET_PRODUCTS_BY_HANDLES_QUERY = `
+  query GetProductsByHandles($query: String!, $first: Int!) {
+    products(first: $first, query: $query) {
+      edges {
+        node {
+          id
+          title
+          handle
+          availableForSale
+          productType
+          tags
+          vendor
+          priceRange { minVariantPrice { amount currencyCode } }
+          images(first: 20) { edges { node { url altText } } }
+          variants(first: 50) {
+            edges {
+              node {
+                id
+                title
+                price { amount currencyCode }
+                availableForSale
+                image { url altText }
+                selectedOptions { name value }
+              }
+            }
+          }
+          options { name values }
+        }
+      }
+    }
+  }
+`;
+
+// Batch product fetch by handle — avoids N individual fetchProductByHandle waterfalls
+export async function fetchProductsByHandles(handles: string[]): Promise<Record<string, ShopifyProduct['node']>> {
+  const uniqueHandles = Array.from(new Set(handles));
+  if (!uniqueHandles.length) return {};
+  const query = uniqueHandles.map(h => `handle:${h}`).join(' OR ');
+  const data = await storefrontApiRequest(GET_PRODUCTS_BY_HANDLES_QUERY, { query, first: uniqueHandles.length });
+  if (!data) return {};
+  const nodes: ShopifyProduct['node'][] = (data.data?.products?.edges ?? []).map((e: { node: ShopifyProduct['node'] }) => e.node);
+  return Object.fromEntries(nodes.map(node => [node.handle, node]));
 }
 
 export async function fetchCollections(first: number = 20): Promise<ShopifyCollection[]> {

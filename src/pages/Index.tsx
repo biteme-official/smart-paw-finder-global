@@ -156,8 +156,8 @@ const Index = () => {
                 animationDelay="0.5s"
               />
             </div>
+            <InstagramReels />
           </div>
-          <InstagramReels />
         </>
       )}
       <main className="max-w-7xl mx-auto pb-20">
