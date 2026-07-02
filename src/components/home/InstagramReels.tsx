@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Volume2, VolumeX } from "lucide-react";
 import { CURATED_REELS } from "@/data/curated-reels";
-import { fetchCuratedReels, fetchProductByHandle, ShopifyProduct, formatPrice } from "@/lib/shopify";
+import { fetchCuratedReels, fetchProductsByHandles, ShopifyProduct, formatPrice } from "@/lib/shopify";
 import { useCartStore } from "@/stores/cartStore";
 import { Button } from "@/components/ui/button";
 import { ProductOptionDialog } from "@/components/shop/ProductOptionDialog";
@@ -86,11 +86,9 @@ export function InstagramReels() {
 
   const initProducts = useCallback((list: ReelItem[]) => {
     setProducts(Array(list.length).fill(null));
-    list.forEach(({ productHandle }, i) => {
-      fetchProductByHandle(productHandle)
-        .then(p => setProducts(prev => { const next = [...prev]; next[i] = p; return next; }))
-        .catch(() => {});
-    });
+    fetchProductsByHandles(list.map(r => r.productHandle))
+      .then(byHandle => setProducts(list.map(r => byHandle[r.productHandle] ?? null)))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -131,7 +129,7 @@ export function InstagramReels() {
   // Navigate to a virtual index (arrow clicks, card clicks).
   // No modulo — let normalizeAfterScroll handle boundary wrapping.
   const goTo = useCallback((index: number) => {
-    if (n === 0) return;
+    if (n <= 1) return; // single reel — nothing to advance to, avoid the copy-jump flicker
     setActiveIndex(index);
   }, [n]);
 
@@ -169,28 +167,64 @@ export function InstagramReels() {
       normalizeAfterScroll(closest);
     };
 
-    let t: ReturnType<typeof setTimeout>;
-    const onTouchEnd = () => { t = setTimeout(detectCenter, 350); };
+    let touchTimer: ReturnType<typeof setTimeout>;
+    const onTouchEnd = () => { touchTimer = setTimeout(detectCenter, 350); };
+    // scrollend fires after the snap animation settles — cancel the pending
+    // touchend read so it doesn't detectCenter mid-animation and double-jump.
+    const onScrollEnd = () => { clearTimeout(touchTimer); detectCenter(); };
+
+    // Safari (desktop trackpad/wheel) doesn't support `scrollend` — fall back
+    // to a debounced `scroll` listener so activeIndex still updates.
+    const supportsScrollEnd = 'onscrollend' in window;
+    let scrollTimer: ReturnType<typeof setTimeout>;
+    const onScroll = () => {
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(detectCenter, 150);
+    };
 
     container.addEventListener('touchend', onTouchEnd, { passive: true });
-    container.addEventListener('scrollend', detectCenter);
+    if (supportsScrollEnd) {
+      container.addEventListener('scrollend', onScrollEnd);
+    } else {
+      container.addEventListener('scroll', onScroll, { passive: true });
+    }
 
     return () => {
       container.removeEventListener('touchend', onTouchEnd);
-      container.removeEventListener('scrollend', detectCenter);
-      clearTimeout(t);
+      if (supportsScrollEnd) {
+        container.removeEventListener('scrollend', onScrollEnd);
+      } else {
+        container.removeEventListener('scroll', onScroll);
+      }
+      clearTimeout(touchTimer);
+      clearTimeout(scrollTimer);
     };
   }, [n, normalizeAfterScroll]);
 
-  // Fallback timer: auto-advance when there's no video
+  // Fallback timer: auto-advance when there's no video. Paused while the tab
+  // is hidden so background tabs don't burn battery or lose autoplay permission.
   useEffect(() => {
     if (n === 0) return;
     const hasVideo = !!reels[realActiveIndex]?.videoUrl && !videoFailed;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (!hasVideo) {
-      timerRef.current = setTimeout(() => goTo(activeIndex + 1), FALLBACK_ADVANCE_MS);
-    }
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+
+    const start = () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (!hasVideo && !document.hidden) {
+        timerRef.current = setTimeout(() => goTo(activeIndex + 1), FALLBACK_ADVANCE_MS);
+      }
+    };
+    const stop = () => {
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    };
+
+    start();
+    const onVisibilityChange = () => { if (document.hidden) stop(); else start(); };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [realActiveIndex, reels, goTo, videoFailed, activeIndex, n]);
 
   // Reset video failure and muted state when the real card changes

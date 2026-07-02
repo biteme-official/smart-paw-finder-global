@@ -853,54 +853,9 @@ export async function fetchBestSellingProductsPaginated(first: number = 12, afte
   };
 }
 
-const GET_PRODUCTS_BY_IDS_QUERY = `
-  query GetProductsByIds($ids: [ID!]!) {
-    nodes(ids: $ids) {
-      ... on Product {
-        id
-        title
-        handle
-        availableForSale
-        productType
-        tags
-        vendor
-        priceRange {
-          minVariantPrice { amount currencyCode }
-        }
-        images(first: 5) {
-          edges { node { url altText } }
-        }
-        variants(first: 50) {
-          edges {
-            node {
-              id
-              title
-              price { amount currencyCode }
-              availableForSale
-              quantityAvailable
-              image { url altText }
-              selectedOptions { name value }
-            }
-          }
-        }
-        options { name values }
-      }
-    }
-  }
-`;
-
-export async function fetchProductsByNumericIds(numericIds: string[]): Promise<ShopifyProduct[]> {
-  if (!numericIds.length) return [];
-  const ids = numericIds.map(id => `gid://shopify/Product/${id}`);
-  const data = await storefrontApiRequest(GET_PRODUCTS_BY_IDS_QUERY, { ids });
-  if (!data) return [];
-  const nodes = (data.data?.nodes ?? []).filter(Boolean);
-  return nodes.map((node: ShopifyProduct['node']) => ({ node }));
-}
-
 const GET_NEW_PRODUCTS_QUERY = `
-  query GetNewProducts($first: Int!) {
-    products(first: $first, sortKey: CREATED_AT, reverse: true) {
+  query GetNewProducts($first: Int!, $query: String) {
+    products(first: $first, sortKey: CREATED_AT, reverse: true, query: $query) {
       edges {
         node {
           id
@@ -924,6 +879,7 @@ const GET_NEW_PRODUCTS_QUERY = `
                 price { amount currencyCode }
                 compareAtPrice { amount currencyCode }
                 availableForSale
+                quantityAvailable
                 image { url altText }
                 selectedOptions { name value }
               }
@@ -936,8 +892,14 @@ const GET_NEW_PRODUCTS_QUERY = `
   }
 `;
 
-export async function fetchNewProducts(first: number = 12): Promise<ShopifyProduct[]> {
-  const data = await storefrontApiRequest(GET_NEW_PRODUCTS_QUERY, { first });
+export async function fetchNewProducts(first: number = 12, filterDays?: number): Promise<ShopifyProduct[]> {
+  const variables: Record<string, unknown> = { first };
+  if (filterDays) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - filterDays);
+    variables.query = `created_at:>${cutoff.toISOString().split('T')[0]}`;
+  }
+  const data = await storefrontApiRequest(GET_NEW_PRODUCTS_QUERY, variables);
   if (!data) return [];
   return data.data?.products?.edges || [];
 }
@@ -1024,6 +986,50 @@ export async function fetchProductByHandle(handle: string): Promise<ShopifyProdu
   const data = await storefrontApiRequest(GET_PRODUCT_BY_HANDLE_QUERY, { handle });
   if (!data) return null;
   return data.data?.productByHandle || null;
+}
+
+const GET_PRODUCTS_BY_HANDLES_QUERY = `
+  query GetProductsByHandles($query: String!, $first: Int!) {
+    products(first: $first, query: $query) {
+      edges {
+        node {
+          id
+          title
+          handle
+          availableForSale
+          productType
+          tags
+          vendor
+          priceRange { minVariantPrice { amount currencyCode } }
+          images(first: 20) { edges { node { url altText } } }
+          variants(first: 50) {
+            edges {
+              node {
+                id
+                title
+                price { amount currencyCode }
+                availableForSale
+                image { url altText }
+                selectedOptions { name value }
+              }
+            }
+          }
+          options { name values }
+        }
+      }
+    }
+  }
+`;
+
+// Batch product fetch by handle — avoids N individual fetchProductByHandle waterfalls
+export async function fetchProductsByHandles(handles: string[]): Promise<Record<string, ShopifyProduct['node']>> {
+  const uniqueHandles = Array.from(new Set(handles));
+  if (!uniqueHandles.length) return {};
+  const query = uniqueHandles.map(h => `handle:${h}`).join(' OR ');
+  const data = await storefrontApiRequest(GET_PRODUCTS_BY_HANDLES_QUERY, { query, first: uniqueHandles.length });
+  if (!data) return {};
+  const nodes: ShopifyProduct['node'][] = (data.data?.products?.edges ?? []).map((e: { node: ShopifyProduct['node'] }) => e.node);
+  return Object.fromEntries(nodes.map(node => [node.handle, node]));
 }
 
 export async function fetchCollections(first: number = 20): Promise<ShopifyCollection[]> {
