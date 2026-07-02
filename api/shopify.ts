@@ -339,6 +339,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (isAdmin) {
+      const queryBody = typeof req.body?.query === 'string' ? req.body.query : '';
+      if (/mutation/i.test(queryBody) || !queryBody.includes('metaobjects')) {
+        return res.status(403).json({ error: 'Admin query not allowed' });
+      }
       headers['X-Shopify-Access-Token'] = await getAccessToken();
     } else {
       headers['Shopify-Storefront-Private-Token'] = await getAccessToken();
