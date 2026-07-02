@@ -8,7 +8,6 @@ import { trackPageView } from "@/lib/ga4-pageview";
 import { saveUtmParams } from "@/lib/browser-utils";
 import { useAuthStore, fetchB2BDiscountRate } from "@/stores/authStore";
 import { isLoggedIn as isCustomerSessionValid } from "@/lib/customer-auth";
-import { fetchCustomerHasOrdered } from "@/lib/customer-account";
 import Index from "./pages/Index";
 import ProductDetail from "./pages/ProductDetail";
 import CheckoutReturn from "./pages/CheckoutReturn";
@@ -95,18 +94,6 @@ function B2BDiscountSync() {
   return null;
 }
 
-function CustomerOrderSync() {
-  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
-  const hasOrdered = useAuthStore((s) => s.hasOrdered);
-  useEffect(() => {
-    if (!isLoggedIn || hasOrdered !== null) return;
-    fetchCustomerHasOrdered()
-      .then(v => useAuthStore.getState().setHasOrdered(v))
-      .catch(() => {});
-  }, [isLoggedIn, hasOrdered]);
-  return null;
-}
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -114,7 +101,6 @@ const App = () => (
         <GA4PageViewTracker />
         <UtmCapture />
         <B2BDiscountSync />
-        <CustomerOrderSync />
         <Toaster />
         <Sonner closeButton />
         <AnnouncementBar />
