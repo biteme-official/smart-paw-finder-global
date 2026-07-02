@@ -41,23 +41,16 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
   const { avgRating, count } = useProductReviewSummary(numericId);
   const isB2B = useAuthStore((s) => s.isB2B);
   const b2bDiscountRate = useAuthStore((s) => s.b2bDiscountRate);
-  const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
-  const hasOrdered = useAuthStore((s) => s.hasOrdered);
 
   const image = product.node.images.edges[0]?.node;
   const price = product.node.priceRange.minVariantPrice;
   const originalAmt = parseFloat(price.amount);
 
-  // 재방문 고객(주문 1건 이상)에게는 "First Order" 할인 미표시
-  const isReturningCustomer = isLoggedIn && hasOrdered === true;
-  const showDiscount = isB2B || !isReturningCustomer;
-
-  const saleAmt = isB2B
-    ? (originalAmt * (1 - b2bDiscountRate)).toFixed(2)
-    : (originalAmt * 0.9).toFixed(2);
-  const discountLabel = isB2B
-    ? `${Math.round(b2bDiscountRate * 100)}% OFF`
-    : "First Order 10% OFF";
+  // B2B 할인가는 계정별 실제 가격 정책을 반영 (체크아웃가와 일치).
+  // 일반 고객에게는 원가만 표시 — 클라이언트 계산 할인가는 체크아웃가와 어긋날 수 있음.
+  const showDiscount = isB2B && !isSoldOut;
+  const saleAmt = (originalAmt * (1 - b2bDiscountRate)).toFixed(2);
+  const discountLabel = `${Math.round(b2bDiscountRate * 100)}% OFF`;
 
   return (
     <div

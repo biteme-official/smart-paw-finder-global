@@ -38,7 +38,8 @@ async function fetchReviewSummary(numericId: string): Promise<ReviewSummary> {
   const promise: Promise<ReviewSummary> = acquire().then(async () => {
     try {
       const r = await fetch(`/api/kr-reviews?shopify_product_id=${numericId}`);
-      const data = r.ok ? await r.json() : { reviews: [] };
+      if (!r.ok) throw new Error(`kr-reviews fetch failed: ${r.status}`);
+      const data = await r.json();
       const reviews: { rating: number }[] = data.reviews ?? [];
       const result: ReviewSummary = reviews.length
         ? { avgRating: reviews.reduce((sum, rv) => sum + rv.rating, 0) / reviews.length, count: reviews.length }

@@ -20,7 +20,7 @@ const NewProductsPage = () => {
   const { toggleFavorite, checkFavorite } = useFavoriteAction();
 
   useEffect(() => {
-    fetchNewProducts(250, 90)
+    fetchNewProducts(50, 90)
       .then((result) => {
         const available = result.filter(p =>
           p.node.variants.edges.some(e =>
