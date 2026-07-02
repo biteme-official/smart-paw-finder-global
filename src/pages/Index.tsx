@@ -13,19 +13,23 @@ import { ScrollToTop } from "@/components/ui/ScrollToTop";
 import { ShopifyProduct, fetchCollectionProducts, fetchNewProducts } from "@/lib/shopify";
 import { fetchBatchReviewSummary } from "@/hooks/useProductReview";
 
-// Generic lazy-fetch hook: fetches when the section enters the viewport
+// Fetch only when the section's wrapper div enters the viewport (rootMargin: 200px ahead).
+// Uses callback ref so the observer re-attaches correctly after showHeroBanner toggles.
 function useLazySection(fetcher: () => Promise<ShopifyProduct[]>) {
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewMap, setReviewMap] = useState<Record<string, { avgRating: number; count: number }>>({});
-  const sectionRef = useRef<HTMLDivElement>(null);
   const fetchedRef = useRef(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
 
-  useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
+  const sectionRef = useCallback((el: HTMLDivElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+    if (!el || fetchedRef.current) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -40,13 +44,14 @@ function useLazySection(fetcher: () => Promise<ShopifyProduct[]>) {
             .catch(() => setProducts([]))
             .finally(() => setLoading(false));
           observer.disconnect();
+          observerRef.current = null;
         }
       },
       { rootMargin: '200px', threshold: 0 }
     );
 
     observer.observe(el);
-    return () => observer.disconnect();
+    observerRef.current = observer;
   }, []);
 
   return { products, loading, reviewMap, sectionRef };

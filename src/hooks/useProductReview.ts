@@ -66,12 +66,16 @@ async function fetchReviewSummary(numericId: string): Promise<ReviewSummary> {
   const promise: Promise<ReviewSummary> = acquire().then(async () => {
     try {
       const r = await fetch(`/api/kr-reviews?shopify_product_id=${numericId}`);
-      const data = r.ok ? await r.json() : { reviews: [] };
+      if (!r.ok) throw new Error(`kr-reviews fetch failed: ${r.status}`);
+      const data = await r.json();
       const reviews: { rating: number }[] = data.reviews ?? [];
-      if (!reviews.length) return { avgRating: 0, count: 0 };
-      const avg = reviews.reduce((sum, rv) => sum + rv.rating, 0) / reviews.length;
-      return { avgRating: avg, count: reviews.length };
+      const result: ReviewSummary = reviews.length
+        ? { avgRating: reviews.reduce((sum, rv) => sum + rv.rating, 0) / reviews.length, count: reviews.length }
+        : { avgRating: 0, count: 0 };
+      cache.set(numericId, result);
+      return result;
     } catch {
+      // 에러 시 캐시하지 않아 다음 렌더에서 재시도 가능
       return { avgRating: 0, count: 0 };
     } finally {
       pending.delete(numericId);
@@ -80,9 +84,7 @@ async function fetchReviewSummary(numericId: string): Promise<ReviewSummary> {
   });
 
   pending.set(numericId, promise);
-  const result = await promise;
-  cache.set(numericId, result);
-  return result;
+  return promise;
 }
 
 export function useProductReviewSummary(numericId: string): ReviewSummary & { loading: boolean } {
