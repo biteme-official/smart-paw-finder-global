@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { HeroBanner } from "@/components/home/HeroBanner";
-import { NewProducts } from "@/components/home/NewProducts";
 import { PopularProducts } from "@/components/home/PopularProducts";
 import { CurationSection } from "@/components/home/CurationSection";
 import { InstagramReels } from "@/components/home/InstagramReels";
@@ -123,7 +122,6 @@ const Index = () => {
         <>
           <div className="max-w-7xl mx-auto">
             <HeroBanner />
-            <NewProducts />
             <PopularProducts />
             <div ref={summer.sectionRef}>
               <CurationSection
