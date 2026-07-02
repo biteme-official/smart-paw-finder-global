@@ -1,12 +1,11 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ShopifyProduct, fetchProducts, fetchCollectionProducts, fetchCollectionIntersection, fetchProductCount, fetchCollectionProductCount } from '@/lib/shopify';
-import { PriceTag } from '@/components/ui/PriceTag';
+import { ShopifyProduct, fetchProducts, fetchBestSellingProductsPaginated, fetchCollectionProducts, fetchCollectionIntersection, fetchProductCount, fetchCollectionProductCount } from '@/lib/shopify';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ShoppingCart, Loader2, Heart } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { ProductCard } from '@/components/shop/ProductCard';
 import { saveScrollPosition } from '@/hooks/useScrollRestoration';
-import { useFavoriteAction } from '@/hooks/useFavoriteAction';
 import { ProductFilters, SortOption, FilterState } from './ProductFilters';
 import { ProductOptionDialog } from './ProductOptionDialog';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -32,17 +31,20 @@ interface ProductGridProps {
   collectionHandle?: string | null;
   multiCollections?: string[] | null;  // e.g. ["ssfw", "toy"] → intersection
   overrideTitle?: string | null;
+  defaultBestSelling?: boolean;
 }
 
 const PRODUCTS_PER_PAGE = 12;
+const BEST_SELLING_INITIAL = 12;
 const DEFAULT_MAX_PRICE = 100;
 
-export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCollections = null, overrideTitle = null }: ProductGridProps) => {
+export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCollections = null, overrideTitle = null, defaultBestSelling = false }: ProductGridProps) => {
   const [allProducts, setAllProducts] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasNextPage, setHasNextPage] = useState(false);
-  const { toggleFavorite, checkFavorite } = useFavoriteAction();
   const [endCursor, setEndCursor] = useState<string | null>(null);
   const [totalProductCount, setTotalProductCount] = useState<number | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -167,6 +169,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   useEffect(() => {
     const loadProducts = async () => {
       setLoading(true);
+      setLoadError(false);
       setAllProducts([]);
       setEndCursor(null);
       setHasNextPage(false);
@@ -186,6 +189,9 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
           const collectionResponse = await fetchCollectionProducts(collectionHandle, PRODUCTS_PER_PAGE);
           response = collectionResponse;
           setCollectionTitle(collectionResponse.collectionTitle);
+        } else if (defaultBestSelling && !searchQuery) {
+          countPromise = fetchProductCount(undefined);
+          response = await fetchBestSellingProductsPaginated(BEST_SELLING_INITIAL);
         } else {
           const query = getQuery();
           countPromise = fetchProductCount(query);
@@ -198,12 +204,13 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
         countPromise.then(c => setTotalProductCount(c));
       } catch (error) {
         console.error('Failed to fetch products:', error);
+        setLoadError(true);
       } finally {
         setLoading(false);
       }
     };
     loadProducts();
-  }, [searchQuery, collectionHandle, multiCollections, overrideTitle, getQuery]);
+  }, [searchQuery, collectionHandle, multiCollections, overrideTitle, getQuery, retryKey]);
 
   // Load more products
   const loadMore = useCallback(async () => {
@@ -217,6 +224,8 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
         return;
       } else if (collectionHandle) {
         response = await fetchCollectionProducts(collectionHandle, PRODUCTS_PER_PAGE, endCursor);
+      } else if (defaultBestSelling && !searchQuery) {
+        response = await fetchBestSellingProductsPaginated(PRODUCTS_PER_PAGE, endCursor);
       } else {
         const query = getQuery();
         response = await fetchProducts(PRODUCTS_PER_PAGE, query, endCursor);
@@ -229,7 +238,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, hasNextPage, endCursor, multiCollections, collectionHandle, getQuery]);
+  }, [loadingMore, hasNextPage, endCursor, multiCollections, collectionHandle, defaultBestSelling, searchQuery, getQuery]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -279,6 +288,20 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   }, [collectionHandle]);
 
   const displayTitle = searchQuery ? getSearchText() : overrideTitle || collectionTitle || "ALL";
+
+  if (loadError) {
+    return (
+      <section className="py-8 px-4">
+        <h2 className="text-2xl font-bold mb-6">{displayTitle}</h2>
+        <div className="bg-muted/50 rounded-xl p-12 text-center">
+          <p className="text-muted-foreground text-lg mb-4">Failed to load products.</p>
+          <Button variant="outline" onClick={() => setRetryKey(k => k + 1)}>
+            Retry
+          </Button>
+        </div>
+      </section>
+    );
+  }
 
   if (loading) {
     return (
@@ -351,75 +374,15 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredAndSortedProducts.map((product) => {
-              const image = product.node.images.edges[0]?.node;
-              const price = product.node.priceRange.minVariantPrice;
               const isCompletelyOutOfStock = isProductSoldOut(product);
-
               return (
-                <div
+                <ProductCard
                   key={product.node.id}
-                  className="bg-card rounded-xl overflow-hidden border border-border hover:shadow-lg transition-shadow cursor-pointer group"
+                  product={product}
+                  isSoldOut={isCompletelyOutOfStock}
                   onClick={() => handleProductClick(product.node.handle)}
-                >
-                  <div className="aspect-square bg-muted relative overflow-hidden">
-                    {image ? (
-                      <img
-                        src={image.url}
-                        alt={image.altText || product.node.title}
-                        className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ${isCompletelyOutOfStock ? 'opacity-50' : ''}`}
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                        No Image
-                      </div>
-                    )}
-                    {/* Favorite Button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavorite(product.node.handle);
-                      }}
-                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-background/70 backdrop-blur-sm flex items-center justify-center hover:bg-background/90 transition-colors z-10"
-                    >
-                      <Heart
-                        className={`h-4 w-4 ${checkFavorite(product.node.handle) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`}
-                      />
-                    </button>
-                    {/* Sold Out Overlay */}
-                    {isCompletelyOutOfStock && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-background/60">
-                        <span className="bg-foreground text-background px-4 py-2 text-sm font-bold uppercase tracking-wider">
-                          Sold Out
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-medium text-sm line-clamp-2 mb-2 group-hover:text-primary transition-colors">
-                      {product.node.title}
-                    </h3>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <PriceTag
-                          amount={price.amount}
-                          currencyCode={price.currencyCode}
-                          className={`font-bold text-sm ${isCompletelyOutOfStock ? 'text-muted-foreground' : 'text-primary'}`}
-                          originalClassName="text-xs"
-                        />
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={(e) => handleAddToCart(e, product)}
-                        className="h-8 w-8 p-0 flex-shrink-0"
-                        disabled={isCompletelyOutOfStock}
-                      >
-                        <ShoppingCart className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                  onAddToCart={(e) => handleAddToCart(e, product)}
+                />
               );
             })}
           </div>

@@ -1,27 +1,43 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { ShopifyProduct, fetchBestSellingProducts } from "@/lib/shopify";
+import { ShopifyProduct } from "@/lib/shopify";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductOptionDialog } from "@/components/shop/ProductOptionDialog";
 import { ProductCard, ProductCardBadge } from "@/components/shop/ProductCard";
 
-const BADGES: ProductCardBadge[] = [
+interface CurationSectionProps {
+  title: string;
+  viewAllHref: string;
+  products: ShopifyProduct[];
+  loading: boolean;
+  badge?: string;
+  badgeClassName?: string;
+  animationDelay?: string;
+}
+
+const DEFAULT_BADGES: ProductCardBadge[] = [
   { label: "BEST", className: "bg-red-500 text-white" },
   { label: "HOT",  className: "bg-orange-500 text-white" },
+  { label: "NEW",  className: "bg-emerald-500 text-white" },
   { label: "PICK", className: "bg-primary text-primary-foreground" },
-  { label: "TOP",  className: "bg-amber-500 text-white" },
 ];
 
-export function PopularProducts() {
+export function CurationSection({
+  title,
+  viewAllHref,
+  products,
+  loading,
+  badge,
+  badgeClassName = "bg-primary text-primary-foreground",
+  animationDelay = "0s",
+}: CurationSectionProps) {
   const navigate = useNavigate();
-  const [products, setProducts] = useState<ShopifyProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [optionDialogOpen, setOptionDialogOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [optionDialogOpen, setOptionDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
 
   const updateScrollButtons = useCallback(() => {
     const el = scrollRef.current;
@@ -42,18 +58,11 @@ export function PopularProducts() {
     };
   }, [products, updateScrollButtons]);
 
-  const scroll = (direction: "left" | "right") => {
+  const scroll = (dir: "left" | "right") => {
     const el = scrollRef.current;
     if (!el) return;
-    el.scrollBy({ left: direction === "left" ? -el.clientWidth * 0.8 : el.clientWidth * 0.8, behavior: "smooth" });
+    el.scrollBy({ left: dir === "left" ? -el.clientWidth * 0.8 : el.clientWidth * 0.8, behavior: "smooth" });
   };
-
-  useEffect(() => {
-    fetchBestSellingProducts(12)
-      .then((result) => setProducts(result.filter(p => p.node.variants.edges.some(v => v.node.availableForSale))))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
 
   if (loading) {
     return (
@@ -78,14 +87,14 @@ export function PopularProducts() {
     );
   }
 
-  if (products.length === 0) return null;
+  if (!products.length) return null;
 
   return (
-    <section className="mt-6 pb-4 animate-fade-up" style={{ animationDelay: "0.3s" }}>
+    <section className="mt-6 pb-4 animate-fade-up" style={{ animationDelay }}>
       <div className="flex items-center justify-between px-4 mb-3">
-        <h2 className="text-base font-bold text-foreground">Popular Products</h2>
+        <h2 className="text-base font-bold text-foreground">{title}</h2>
         <button
-          onClick={() => { document.getElementById("product-grid")?.scrollIntoView({ behavior: "smooth" }); }}
+          onClick={() => navigate(viewAllHref)}
           className="flex items-center gap-0.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           View All
@@ -95,16 +104,21 @@ export function PopularProducts() {
 
       <div className="relative group">
         <div ref={scrollRef} className="flex gap-3 md:gap-4 px-4 overflow-x-auto pb-2 scrollbar-hide">
-          {products.map((product, index) => (
-            <div key={product.node.id} className="flex-shrink-0 w-40 md:w-52">
-              <ProductCard
-                product={product}
-                badge={BADGES[index % BADGES.length]}
-                onClick={() => navigate(`/product/${product.node.handle}`)}
-                onAddToCart={() => { setSelectedProduct(product); setOptionDialogOpen(true); }}
-              />
-            </div>
-          ))}
+          {products.map((product, index) => {
+            const badgeDef: ProductCardBadge = badge
+              ? { label: badge, className: badgeClassName }
+              : DEFAULT_BADGES[index % DEFAULT_BADGES.length];
+            return (
+              <div key={product.node.id} className="flex-shrink-0 w-40 md:w-52">
+                <ProductCard
+                  product={product}
+                  badge={badgeDef}
+                  onClick={() => navigate(`/product/${product.node.handle}`)}
+                  onAddToCart={() => { setSelectedProduct(product); setOptionDialogOpen(true); }}
+                />
+              </div>
+            );
+          })}
         </div>
 
         {canScrollLeft && (

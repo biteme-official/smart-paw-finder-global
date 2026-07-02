@@ -719,9 +719,62 @@ export async function fetchBestSellingProducts(first: number = 8): Promise<Shopi
   return data.data?.products?.edges || [];
 }
 
+const GET_BEST_SELLING_PRODUCTS_PAGINATED_QUERY = `
+  query GetBestSellingProductsPaginated($first: Int!, $after: String) {
+    products(first: $first, after: $after, sortKey: BEST_SELLING) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      edges {
+        node {
+          id
+          title
+          description
+          handle
+          availableForSale
+          productType
+          tags
+          vendor
+          priceRange {
+            minVariantPrice { amount currencyCode }
+          }
+          images(first: 5) {
+            edges { node { url altText } }
+          }
+          variants(first: 50) {
+            edges {
+              node {
+                id
+                title
+                price { amount currencyCode }
+                availableForSale
+                quantityAvailable
+                image { url altText }
+                selectedOptions { name value }
+              }
+            }
+          }
+          options { name values }
+        }
+      }
+    }
+  }
+`;
+
+export async function fetchBestSellingProductsPaginated(first: number = 12, after?: string): Promise<ProductsResponse> {
+  const data = await storefrontApiRequest(GET_BEST_SELLING_PRODUCTS_PAGINATED_QUERY, { first, after });
+  if (!data) return { products: [], pageInfo: { hasNextPage: false, endCursor: null } };
+  const productsData = data.data?.products;
+  return {
+    products: productsData?.edges || [],
+    pageInfo: productsData?.pageInfo || { hasNextPage: false, endCursor: null },
+  };
+}
+
 const GET_NEW_PRODUCTS_QUERY = `
-  query GetNewProducts($first: Int!) {
-    products(first: $first, sortKey: CREATED_AT, reverse: true) {
+  query GetNewProducts($first: Int!, $query: String) {
+    products(first: $first, sortKey: CREATED_AT, reverse: true, query: $query) {
       edges {
         node {
           id
@@ -745,6 +798,7 @@ const GET_NEW_PRODUCTS_QUERY = `
                 price { amount currencyCode }
                 compareAtPrice { amount currencyCode }
                 availableForSale
+                quantityAvailable
                 image { url altText }
                 selectedOptions { name value }
               }
@@ -757,8 +811,14 @@ const GET_NEW_PRODUCTS_QUERY = `
   }
 `;
 
-export async function fetchNewProducts(first: number = 12): Promise<ShopifyProduct[]> {
-  const data = await storefrontApiRequest(GET_NEW_PRODUCTS_QUERY, { first });
+export async function fetchNewProducts(first: number = 12, filterDays?: number): Promise<ShopifyProduct[]> {
+  const variables: Record<string, unknown> = { first };
+  if (filterDays) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - filterDays);
+    variables.query = `created_at:>${cutoff.toISOString().split('T')[0]}`;
+  }
+  const data = await storefrontApiRequest(GET_NEW_PRODUCTS_QUERY, variables);
   if (!data) return [];
   return data.data?.products?.edges || [];
 }
