@@ -988,48 +988,37 @@ export async function fetchProductByHandle(handle: string): Promise<ShopifyProdu
   return data.data?.productByHandle || null;
 }
 
-const GET_PRODUCTS_BY_HANDLES_QUERY = `
-  query GetProductsByHandles($query: String!, $first: Int!) {
-    products(first: $first, query: $query) {
-      edges {
-        node {
-          id
-          title
-          handle
-          availableForSale
-          productType
-          tags
-          vendor
-          priceRange { minVariantPrice { amount currencyCode } }
-          images(first: 20) { edges { node { url altText } } }
-          variants(first: 50) {
-            edges {
-              node {
-                id
-                title
-                price { amount currencyCode }
-                availableForSale
-                image { url altText }
-                selectedOptions { name value }
-              }
-            }
-          }
-          options { name values }
-        }
+const PRODUCT_BY_HANDLE_FRAGMENT = `
+  id title handle availableForSale productType tags vendor
+  priceRange { minVariantPrice { amount currencyCode } }
+  images(first: 20) { edges { node { url altText } } }
+  variants(first: 50) {
+    edges {
+      node {
+        id title
+        price { amount currencyCode }
+        availableForSale
+        image { url altText }
+        selectedOptions { name value }
       }
     }
   }
+  options { name values }
 `;
 
-// Batch product fetch by handle — avoids N individual fetchProductByHandle waterfalls
+// Batch product fetch by handle — GraphQL aliases for exact match (1 request)
 export async function fetchProductsByHandles(handles: string[]): Promise<Record<string, ShopifyProduct['node']>> {
   const uniqueHandles = Array.from(new Set(handles));
   if (!uniqueHandles.length) return {};
-  const query = uniqueHandles.map(h => `handle:${h}`).join(' OR ');
-  const data = await storefrontApiRequest(GET_PRODUCTS_BY_HANDLES_QUERY, { query, first: uniqueHandles.length });
+  const aliases = uniqueHandles.map((h, i) => `p${i}: productByHandle(handle: "${h}") { ${PRODUCT_BY_HANDLE_FRAGMENT} }`).join('\n');
+  const data = await storefrontApiRequest(`query { ${aliases} }`, {});
   if (!data) return {};
-  const nodes: ShopifyProduct['node'][] = (data.data?.products?.edges ?? []).map((e: { node: ShopifyProduct['node'] }) => e.node);
-  return Object.fromEntries(nodes.map(node => [node.handle, node]));
+  const result: Record<string, ShopifyProduct['node']> = {};
+  for (let i = 0; i < uniqueHandles.length; i++) {
+    const node = data.data?.[`p${i}`];
+    if (node) result[uniqueHandles[i]] = node;
+  }
+  return result;
 }
 
 export async function fetchCollections(first: number = 20): Promise<ShopifyCollection[]> {
