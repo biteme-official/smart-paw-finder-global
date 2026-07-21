@@ -434,7 +434,7 @@ async function sendHealthAlert(results: CheckResult[]) {
 }
 
 async function sendDailyHealthSummary(history: HistoryEntry[]) {
-  if (!SLACK_WEBHOOK_URL) return;
+  if (!SLACK_ALERT_WEBHOOK_URL) return;
   const kstDate = new Date().toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
   const total = history.length;
   const allOk = history.filter(h => h.allOk).length;
@@ -498,7 +498,7 @@ async function sendDailyHealthSummary(history: HistoryEntry[]) {
     { type: 'section', text: { type: 'mrkdwn', text: `*평균 응답속도:*\n${latencyText}` } },
     { type: 'section', text: { type: 'mrkdwn', text: `*장애 현황:*\n${incidentSummary}` } },
   ];
-  await fetch(SLACK_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blocks }) });
+  await fetch(SLACK_ALERT_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ blocks }) });
 }
 
 async function handleHealthCheck(res: VercelResponse, forceDailySummary = false) {
