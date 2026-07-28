@@ -4,7 +4,7 @@ import { Header } from '@/components/layout/Header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronLeft, Plus, Minus, Wallet } from 'lucide-react';
 import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
-import { fetchCustomerAccount, StoreCreditTransaction } from '@/lib/customer-account';
+import { fetchCustomerAccount, fetchStoreCredit, StoreCreditTransaction } from '@/lib/customer-account';
 import { formatPrice } from '@/lib/shopify';
 import { toast } from 'sonner';
 
@@ -64,8 +64,12 @@ export default function StoreCreditHistory() {
           navigate('/mypage');
           return;
         }
-        setBalance(data.storeCredit?.balance || null);
-        setTransactions(data.storeCredit?.transactions || []);
+        if (data.emailAddress) {
+          return fetchStoreCredit(data.emailAddress).then((credit) => {
+            setBalance(credit?.balance || null);
+            setTransactions(credit?.transactions || []);
+          });
+        }
       })
       .catch(() => {
         toast.error('Failed to load store credit.', { position: 'top-center' });

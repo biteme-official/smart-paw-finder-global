@@ -98,20 +98,6 @@ const GET_CUSTOMER_QUERY = `
         address1 address2 city province zip
         territoryCode
       }
-      storeCredit {
-        balance { amount currencyCode }
-        transactions(first: 50, reverse: true) {
-          edges {
-            node {
-              id
-              amount { amount currencyCode }
-              balanceAfterTransaction { amount currencyCode }
-              createdAt
-              type
-            }
-          }
-        }
-      }
       orders(first: 20, sortKey: PROCESSED_AT, reverse: true) {
         edges {
           node {
@@ -166,16 +152,7 @@ export async function fetchCustomerAccount(): Promise<CustomerAccountProfile | n
       zip: c.defaultAddress.zip,
       country: c.defaultAddress.territoryCode,
     } : null,
-    storeCredit: c.storeCredit ? {
-      balance: c.storeCredit.balance,
-      transactions: (c.storeCredit.transactions?.edges || []).map((edge: any) => ({
-        id: edge.node.id,
-        amount: edge.node.amount,
-        balanceAfterTransaction: edge.node.balanceAfterTransaction,
-        createdAt: edge.node.createdAt,
-        type: edge.node.type,
-      })),
-    } : null,
+    storeCredit: null,
     orders: (c.orders?.edges || []).map((edge: any) => {
       const node = edge.node;
       const fulfillments = (node.fulfillments?.edges || []).map((fe: any) => {
@@ -208,6 +185,26 @@ export async function fetchCustomerAccount(): Promise<CustomerAccountProfile | n
       };
     }),
   };
+}
+
+export interface StoreCreditData {
+  balance: { amount: string; currencyCode: string };
+  transactions: StoreCreditTransaction[];
+}
+
+export async function fetchStoreCredit(email: string): Promise<StoreCreditData | null> {
+  try {
+    const response = await fetch('/api/store-credit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.balance ? data : null;
+  } catch {
+    return null;
+  }
 }
 
 const STOREFRONT_TOKEN_MUTATION = `

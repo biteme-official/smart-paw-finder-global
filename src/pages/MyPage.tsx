@@ -8,7 +8,7 @@ import {
   MapPin, Loader2, Search, Building2, Wallet,
 } from 'lucide-react';
 import { initiateLogin, isLoggedIn as isCustomerLoggedIn, logout as customerLogout } from '@/lib/customer-auth';
-import { fetchCustomerAccount, CustomerAccountProfile } from '@/lib/customer-account';
+import { fetchCustomerAccount, fetchStoreCredit, CustomerAccountProfile, StoreCreditData } from '@/lib/customer-account';
 import { formatPrice } from '@/lib/shopify';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
@@ -87,6 +87,7 @@ export default function MyPage() {
   const navigate = useNavigate();
   const [loggedIn, setLoggedIn] = useState(() => isCustomerLoggedIn());
   const [customerData, setCustomerData] = useState<CustomerAccountProfile | null>(null);
+  const [creditData, setCreditData] = useState<StoreCreditData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const authUser = useAuthStore((s) => s.user);
@@ -106,6 +107,9 @@ export default function MyPage() {
           setCustomerData(null);
         } else {
           setCustomerData(data);
+          if (data.emailAddress) {
+            fetchStoreCredit(data.emailAddress).then(setCreditData);
+          }
         }
       })
       .catch((err) => {
@@ -181,7 +185,7 @@ export default function MyPage() {
             </div>
 
             {(() => {
-              const credit = customerData?.storeCredit;
+              const credit = creditData;
               const hasCredit = credit && parseFloat(credit.balance.amount) > 0;
               return (
                 <button
