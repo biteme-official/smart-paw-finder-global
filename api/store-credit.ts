@@ -64,11 +64,9 @@ const STORE_CREDIT_QUERY = `
                 transactions(first: 50, reverse: true) {
                   edges {
                     node {
-                      id
                       amount { amount currencyCode }
                       balanceAfterTransaction { amount currencyCode }
                       createdAt
-                      type
                     }
                   }
                 }
@@ -122,13 +120,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const data = await response.json();
-    const account = data.data?.customers?.edges?.[0]?.node?.storeCreditAccounts?.edges?.[0]?.node;
+
+    if (data.errors) {
+      console.error('[Store Credit] GraphQL errors:', JSON.stringify(data.errors));
+      return res.status(200).json({ balance: null, transactions: [] });
+    }
+
+    const customerNode = data.data?.customers?.edges?.[0]?.node;
+    const account = customerNode?.storeCreditAccounts?.edges?.[0]?.node;
 
     if (!account) {
       return res.status(200).json({ balance: { amount: '0.0', currencyCode: 'USD' }, transactions: [] });
     }
 
-    const transactions = (account.transactions?.edges || []).map((edge: any) => edge.node);
+    const transactions = (account.transactions?.edges || []).map((edge: any, i: number) => {
+      const node = edge.node;
+      const amt = parseFloat(node.amount?.amount || '0');
+      return {
+        id: `tx-${i}`,
+        amount: node.amount,
+        balanceAfterTransaction: node.balanceAfterTransaction,
+        createdAt: node.createdAt,
+        type: amt >= 0 ? 'CREDIT' : 'DEBIT',
+      };
+    });
 
     return res.status(200).json({
       balance: account.balance,
