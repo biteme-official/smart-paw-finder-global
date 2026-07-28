@@ -6,6 +6,7 @@ import { shopifyProxyMiddleware } from "./server/shopify-proxy";
 import { b2bProxyMiddleware } from "./server/b2b-proxy";
 import { krReviewsMiddleware } from "./server/kr-reviews";
 import { instagramProxyMiddleware } from "./server/instagram-proxy";
+import { customerProxyMiddleware } from "./server/customer-proxy";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -24,6 +25,7 @@ export default defineConfig(({ mode }) => {
       {
         name: 'shopify-proxy',
         configureServer(server) {
+          server.middlewares.use(customerProxyMiddleware());
           server.middlewares.use(shopifyProxyMiddleware());
           server.middlewares.use(b2bProxyMiddleware());
           server.middlewares.use(krReviewsMiddleware());

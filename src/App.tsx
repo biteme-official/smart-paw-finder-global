@@ -17,6 +17,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
 import MyPage from "./pages/MyPage";
 import OrderHistory from "./pages/OrderHistory";
+import StoreCreditHistory from "./pages/StoreCreditHistory";
 import FavoritesPage from "./pages/FavoritesPage";
 import WishlistPage from "./pages/WishlistPage";
 import Checkout from "./pages/Checkout";
@@ -116,6 +117,7 @@ const App = () => (
           <Route path="/refund-policy" element={<RefundPolicy />} />
           <Route path="/mypage" element={<MyPage />} />
           <Route path="/mypage/order-history" element={<OrderHistory />} />
+          <Route path="/mypage/store-credit" element={<StoreCreditHistory />} />
           <Route path="/mypage/favorites" element={<FavoritesPage />} />
           <Route path="/favorites" element={<FavoritesPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />

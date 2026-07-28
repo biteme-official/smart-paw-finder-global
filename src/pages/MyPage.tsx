@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   LogOut, User, ShoppingBag, Heart, HelpCircle, ChevronRight,
-  MapPin, Loader2, Search, Building2,
+  MapPin, Loader2, Search, Building2, Wallet,
 } from 'lucide-react';
 import { initiateLogin, isLoggedIn as isCustomerLoggedIn, logout as customerLogout } from '@/lib/customer-auth';
 import { fetchCustomerAccount, CustomerAccountProfile } from '@/lib/customer-account';
+import { formatPrice } from '@/lib/shopify';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
 import { useFavoritesStore, GUEST_FAVORITES_KEY } from '@/stores/favoritesStore';
@@ -178,6 +179,30 @@ export default function MyPage() {
                 </div>
               )}
             </div>
+
+            {(() => {
+              const credit = customerData?.storeCredit;
+              const hasCredit = credit && parseFloat(credit.balance.amount) > 0;
+              return (
+                <button
+                  onClick={() => navigate('/mypage/store-credit')}
+                  className="w-full bg-card rounded-xl border border-border p-4 flex items-center justify-between hover:bg-secondary/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Wallet className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs text-muted-foreground">Store Credit</p>
+                      <p className={`text-lg font-bold ${hasCredit ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        {credit ? formatPrice(credit.balance.amount, credit.balance.currencyCode) : '$0.00'}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </button>
+              );
+            })()}
 
             <div className="bg-card rounded-xl border border-border divide-y divide-border px-4">
               <MenuLink
