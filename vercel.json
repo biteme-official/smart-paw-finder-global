@@ -79,6 +79,7 @@
     { "source": "/api/analytics", "destination": "/api/analytics" },
     { "source": "/api/shopify-analytics", "destination": "/api/analytics?type=shopify" },
     { "source": "/api/customer-analytics", "destination": "/api/analytics?type=customer" },
+    { "source": "/product-feed.xml", "destination": "/api/product-feed" },
     {
       "source": "/:path*",
       "has": [
