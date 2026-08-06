@@ -20,7 +20,7 @@ const ALLOWED_ORIGINS = [
 
 function isAllowedOrigin(origin: string): boolean {
   if (ALLOWED_ORIGINS.includes(origin)) return true;
-  if (/^https:\/\/smart-paw-finder[a-z0-9-]*\.vercel\.app$/.test(origin)) return true;
+  if (/^https:\/\/smart-paw-finder-global-[a-z0-9-]+\.vercel\.app$/.test(origin)) return true;
   return false;
 }
 
@@ -52,6 +52,8 @@ interface MetaCapiRequestBody {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const corsOrigin = getCorsOrigin(req);
 
+  res.setHeader('Vary', 'Origin');
+
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', corsOrigin);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -77,6 +79,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   if (!Array.isArray(body.content_ids) || body.content_ids.length === 0) {
     return res.status(400).json({ error: 'content_ids is required' });
+  }
+  if (!body.content_ids.every((id) => typeof id === 'string' && id.length > 0 && id.length < 50)) {
+    return res.status(400).json({ error: 'Invalid content_ids' });
+  }
+  if (body.event_source_url && !body.event_source_url.startsWith('https://www.biteme.one')) {
+    return res.status(400).json({ error: 'Invalid event_source_url' });
   }
 
   const payload = {
