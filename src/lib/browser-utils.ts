@@ -63,6 +63,44 @@ export function appendUtmToUrl(url: string): string {
   }
 }
 
+const FBCLID_STORAGE_KEY = 'bm_fbc';
+
+// Save Meta ad click id (fbclid) from current URL to sessionStorage (call once on app init).
+// Stored as Meta's fbc format (fb.1.<capture_time_ms>.<fbclid>) so it can be forwarded to
+// the Conversions API as-is. Only the first fbclid seen in a session is kept.
+export function saveFbclid(): void {
+  try {
+    if (sessionStorage.getItem(FBCLID_STORAGE_KEY)) return;
+    const fbclid = new URLSearchParams(window.location.search).get('fbclid');
+    if (!fbclid) return;
+    sessionStorage.setItem(FBCLID_STORAGE_KEY, `fb.1.${Date.now()}.${fbclid}`);
+  } catch {
+    // silent
+  }
+}
+
+// Read the fbc value saved by saveFbclid(), falling back to the _fbc cookie if one exists
+export function getFbc(): string | undefined {
+  try {
+    const stored = sessionStorage.getItem(FBCLID_STORAGE_KEY);
+    if (stored) return stored;
+    const cookie = document.cookie.split('; ').find((c) => c.startsWith('_fbc='));
+    return cookie?.split('=')[1];
+  } catch {
+    return undefined;
+  }
+}
+
+// Read the _fbp cookie (Meta browser id), if a client-side pixel has ever set one
+export function getFbp(): string | undefined {
+  try {
+    const cookie = document.cookie.split('; ').find((c) => c.startsWith('_fbp='));
+    return cookie?.split('=')[1];
+  } catch {
+    return undefined;
+  }
+}
+
 // Manually decorate a URL with GA4 cross-domain linker (_gl parameter)
 // GA4 auto-decorates <a> clicks but NOT programmatic navigations (window.location.href).
 // We create a hidden <a>, let GA4 decorate it, then extract the _gl param.

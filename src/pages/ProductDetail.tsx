@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { fetchProductByHandle, formatPrice, createStorefrontCheckout, ShopifyProduct } from "@/lib/shopify";
 import { PriceTag } from "@/components/ui/PriceTag";
 import { trackViewItem, trackAddToCart, shopifyToGA4Item } from "@/lib/ga4-ecommerce";
+import { trackViewContentCapi } from "@/lib/meta-capi";
 import { useCartStore } from "@/stores/cartStore";
 import { useFavoriteAction } from "@/hooks/useFavoriteAction";
 import { toast } from "sonner";
@@ -159,6 +160,17 @@ export default function ProductDetail() {
         if (data) {
           const variant = data.variants.edges[0]?.node;
           trackViewItem(shopifyToGA4Item(data, variant));
+
+          // Meta CAPI: ViewContent — 커스텀 프론트엔드라 Shopify 자동 픽셀이
+          // 닿지 않는 페이지라 서버사이드로 직접 전송 (content_id는 상품 피드의 g:id와 동일한 variant 숫자 id)
+          if (variant) {
+            trackViewContentCapi({
+              contentId: variant.id.split('/').pop() || variant.id,
+              contentName: data.title,
+              value: variant.price ? parseFloat(variant.price.amount) : undefined,
+              currency: variant.price?.currencyCode,
+            });
+          }
         }
         if (data?.options) {
           const defaults: Record<string, string> = {};

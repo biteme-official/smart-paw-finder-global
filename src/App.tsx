@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { trackPageView } from "@/lib/ga4-pageview";
-import { saveUtmParams } from "@/lib/browser-utils";
+import { saveUtmParams, saveFbclid } from "@/lib/browser-utils";
 import { useAuthStore, fetchB2BDiscountRate } from "@/stores/authStore";
 import { isLoggedIn as isCustomerSessionValid } from "@/lib/customer-auth";
 import Index from "./pages/Index";
@@ -59,6 +59,7 @@ function GA4PageViewTracker() {
 function UtmCapture() {
   useEffect(() => {
     saveUtmParams();
+    saveFbclid();
   }, []);
   return null;
 }
