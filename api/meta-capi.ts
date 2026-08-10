@@ -10,7 +10,7 @@ const PIXEL_ID = process.env.META_PIXEL_ID;
 const ACCESS_TOKEN = process.env.META_CAPI_ACCESS_TOKEN;
 const GRAPH_API_VERSION = 'v21.0';
 
-const ALLOWED_EVENTS = new Set(['ViewContent']);
+const ALLOWED_EVENTS = new Set(['ViewContent', 'AddToCart']);
 
 const ALLOWED_ORIGINS = [
   'https://biteme.one',

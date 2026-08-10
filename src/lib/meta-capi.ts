@@ -10,20 +10,20 @@ function generateEventId(): string {
   return `evt_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 }
 
-interface ViewContentParams {
+interface ProductEventParams {
   contentId: string;
   contentName: string;
   value?: number;
   currency?: string;
 }
 
-export function trackViewContentCapi({ contentId, contentName, value, currency }: ViewContentParams): void {
+function sendCapiEvent(eventName: 'ViewContent' | 'AddToCart', { contentId, contentName, value, currency }: ProductEventParams): void {
   try {
     fetch('/api/meta-capi', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        event_name: 'ViewContent',
+        event_name: eventName,
         event_id: generateEventId(),
         event_source_url: window.location.href,
         content_ids: [contentId],
@@ -40,4 +40,12 @@ export function trackViewContentCapi({ contentId, contentName, value, currency }
   } catch {
     // silent
   }
+}
+
+export function trackViewContentCapi(params: ProductEventParams): void {
+  sendCapiEvent('ViewContent', params);
+}
+
+export function trackAddToCartCapi(params: ProductEventParams): void {
+  sendCapiEvent('AddToCart', params);
 }

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { ShopifyProduct, createStorefrontCheckout } from '@/lib/shopify';
+import { trackAddToCartCapi } from '@/lib/meta-capi';
 
 export interface CartItem {
   product: ShopifyProduct;
@@ -68,6 +69,14 @@ export const useCartStore = create<CartStore>()(
           const finalQuantity = Math.min(item.quantity, maxQuantity);
           set({ items: [...items, { ...item, quantity: finalQuantity }] });
         }
+
+        // Meta CAPI: AddToCart — content_id는 상품 피드(g:id)/ViewContent와 동일한 variant 숫자 id 사용
+        trackAddToCartCapi({
+          contentId: item.variantId.split('/').pop() || item.variantId,
+          contentName: item.product.node.title,
+          value: parseFloat(item.price.amount) * item.quantity,
+          currency: item.price.currencyCode,
+        });
       },
 
       updateQuantity: (variantId, quantity) => {
