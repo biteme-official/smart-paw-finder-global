@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { ShopifyProduct, createStorefrontCheckout } from '@/lib/shopify';
+import { trackAddToCartCapi } from '@/lib/meta-capi';
 
 export interface CartItem {
   product: ShopifyProduct;
@@ -48,13 +49,12 @@ export const useCartStore = create<CartStore>()(
       addItem: (item) => {
         const { items } = get();
         const existingItem = items.find(i => i.variantId === item.variantId);
+        const prevQuantity = existingItem ? existingItem.quantity : 0;
+        const maxQuantity = item.quantityAvailable ?? Infinity;
+        const finalQuantity = Math.min(prevQuantity + item.quantity, maxQuantity);
 
         if (existingItem) {
           // Check stock limit when adding to existing item
-          const newQuantity = existingItem.quantity + item.quantity;
-          const maxQuantity = item.quantityAvailable ?? Infinity;
-          const finalQuantity = Math.min(newQuantity, maxQuantity);
-
           set({
             items: items.map(i =>
               i.variantId === item.variantId
@@ -64,9 +64,18 @@ export const useCartStore = create<CartStore>()(
           });
         } else {
           // Check stock limit for new item
-          const maxQuantity = item.quantityAvailable ?? Infinity;
-          const finalQuantity = Math.min(item.quantity, maxQuantity);
           set({ items: [...items, { ...item, quantity: finalQuantity }] });
+        }
+
+        // Meta CAPI: AddToCart — 재고 한도로 클램핑될 수 있으므로 실제로 추가된 수량 기준으로 전송, 0이면 스킵
+        const actualAdded = finalQuantity - prevQuantity;
+        if (actualAdded > 0) {
+          trackAddToCartCapi({
+            contentId: item.variantId.split('/').pop() || item.variantId,
+            contentName: item.product.node.title,
+            value: parseFloat(item.price.amount) * actualAdded,
+            currency: item.price.currencyCode,
+          });
         }
       },
 
