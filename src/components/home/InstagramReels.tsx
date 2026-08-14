@@ -18,6 +18,14 @@ interface ReelItem {
 
 const FALLBACK_ADVANCE_MS = 20_000;
 
+// Default landing reel on first load (per design request) — falls back to the first reel if not found.
+const DEFAULT_START_HANDLE = "biteme-jumping-boogie-auto-ball-toy";
+
+function getDefaultStartOffset(list: ReelItem[]): number {
+  const idx = list.findIndex(item => item.productHandle === DEFAULT_START_HANDLE);
+  return idx >= 0 ? idx : 0;
+}
+
 const getThumbSrc = (url: string) => {
   if (!url.includes("cdn.shopify.com")) return url;
   const sep = url.includes("?") ? "&" : "?";
@@ -97,13 +105,13 @@ export function InstagramReels() {
         const list = buildReelList(r);
         setReels(list);
         initProducts(list);
-        setActiveIndex(list.length); // Start at first card of copy1 (real index 0)
+        setActiveIndex(list.length + getDefaultStartOffset(list)); // Start at first card of copy1, offset to the default reel
       })
       .catch(() => {
         const list = buildReelList([]);
         setReels(list);
         initProducts(list);
-        setActiveIndex(list.length);
+        setActiveIndex(list.length + getDefaultStartOffset(list));
       });
   }, [initProducts]);
 
@@ -287,7 +295,7 @@ export function InstagramReels() {
   return (
     <section className="mt-6 pb-4">
       <div className="px-4 mb-4">
-        <h2 className="text-base font-bold text-foreground">Loved by the Community 🐾</h2>
+        <h2 className="text-base font-bold text-foreground md:text-xl md:text-center">Loved by the Community 🐾</h2>
       </div>
 
       <div className="relative">
@@ -309,7 +317,7 @@ export function InstagramReels() {
               <div
                 key={`${realIdx}-${Math.floor(i / n)}`}
                 ref={el => { cardRefs.current[i] = el; }}
-                className={`flex-shrink-0 flex flex-col w-[52vw] md:w-[175px] rounded-2xl overflow-hidden bg-secondary shadow-sm transition-[opacity,transform] duration-300 ${
+                className={`flex-shrink-0 flex flex-col w-[52vw] md:w-[calc((100%-3rem)/5)] rounded-2xl overflow-hidden bg-secondary shadow-sm transition-[opacity,transform] duration-300 ${
                   isActive ? "opacity-100" : "opacity-60 cursor-pointer"
                 }`}
                 style={{

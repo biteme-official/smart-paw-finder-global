@@ -15,7 +15,7 @@ export const PROMO_DEFS: PromoDef[] = [
     subtitle: "Sign up and get 15% off your first order",
     ctaLabel: "Shop Now",
     href: "/mypage",
-    bgClass: "bg-orange-50",
+    bgClass: "bg-orange-200",
   },
   {
     eyebrow: "PERK",
@@ -23,7 +23,7 @@ export const PROMO_DEFS: PromoDef[] = [
     subtitle: "Free worldwide shipping on orders over $75",
     ctaLabel: "Shop Now",
     href: "/refund-policy",
-    bgClass: "bg-sky-50",
+    bgClass: "bg-sky-200",
   },
   {
     eyebrow: "PERK",
@@ -31,6 +31,6 @@ export const PROMO_DEFS: PromoDef[] = [
     subtitle: "Share your content and earn commission",
     ctaLabel: "Apply Now",
     href: "/contact",
-    bgClass: "bg-emerald-50",
+    bgClass: "bg-emerald-200",
   },
 ];

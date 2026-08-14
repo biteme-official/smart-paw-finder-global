@@ -43,12 +43,15 @@ export function WhatYouMightLikeDesktop() {
             {CURATED_PANELS.map((panel) => (
               <div
                 key={panel.title}
-                className={`flex-shrink-0 w-[calc((100%-2rem)/3)] flex flex-col items-start justify-end gap-3 rounded-xl ${panel.bgClass} aspect-square p-6`}
+                className={`relative flex-shrink-0 w-[calc((100%-2rem)/3)] flex flex-col items-start justify-end gap-3 overflow-hidden rounded-xl ${panel.bgClass} aspect-square p-6`}
               >
-                <p className="text-lg font-bold text-foreground">{panel.title}</p>
+                {panel.imageUrl && (
+                  <img src={panel.imageUrl} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
+                )}
+                <p className="relative z-10 text-lg font-bold text-foreground">{panel.title}</p>
                 <Link
                   to={curatedPanelHref(panel)}
-                  className="inline-flex items-center rounded-lg bg-background px-4 py-2 text-sm font-semibold text-foreground shadow-sm hover:bg-background/80 transition-colors"
+                  className="relative z-10 inline-flex items-center rounded-lg bg-background px-4 py-2 text-sm font-semibold text-foreground shadow-sm hover:bg-background/80 transition-colors"
                 >
                   Shop the Edit
                 </Link>

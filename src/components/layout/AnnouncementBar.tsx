@@ -6,6 +6,8 @@ const DISMISSED_KEY = "announcement-bar-dismissed";
 const MESSAGES = [
   { text: "🎁 First Order 10% OFF – Use Code: WELCOME10", bg: "#f85a24", textClass: "text-white", closeHover: "hover:bg-white/20" },
   { text: "🚚 Free Worldwide Shipping on Orders Over $75", bg: "#FFD600", textClass: "text-[#f85a24]", closeHover: "hover:bg-black/10" },
+  { text: "💬 Chat with Us on WhatsApp for 10% Off", bg: "#25D366", textClass: "text-white", closeHover: "hover:bg-white/20" },
+  { text: "🐾 Join & Save — Sign Up for 15% Off", bg: "#f85a24", textClass: "text-white", closeHover: "hover:bg-white/20" },
 ];
 
 export function AnnouncementBar() {
@@ -22,7 +24,7 @@ export function AnnouncementBar() {
         setIndex((prev) => (prev + 1) % MESSAGES.length);
         setVisible(true);
       }, 300);
-    }, 2000);
+    }, 4000);
     return () => { clearInterval(timer); clearTimeout(fadeTimer); };
   }, [dismissed]);
 

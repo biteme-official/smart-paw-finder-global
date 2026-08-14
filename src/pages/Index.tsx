@@ -47,17 +47,17 @@ const Index = () => {
       {showHeroBanner && (
         <>
           <HeroPlaceholder />
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-[1600px] mx-auto">
             <CategoryIcons onSelect={handleCollectionSelect} />
             <PopularProducts />
           </div>
           <PromoBanner />
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-[1600px] mx-auto">
             <InstagramReels />
             <WhatYouMightLike />
             <HowItWorks />
-            <BrandShowcase />
           </div>
+          <BrandShowcase />
         </>
       )}
       {!showHeroBanner && (
