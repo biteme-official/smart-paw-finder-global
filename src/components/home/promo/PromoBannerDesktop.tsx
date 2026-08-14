@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Gift } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PROMO_DEFS } from "./promoData";
 
@@ -31,22 +31,22 @@ export function PromoBannerDesktop() {
 
   return (
     <section className="hidden md:block mt-24">
-      <div className={cn("relative w-full max-w-[1600px] mx-auto aspect-[21/9] md:aspect-[3/1] overflow-hidden transition-colors", promo.bgClass)}>
+      <div className={cn("relative w-full max-w-[1600px] mx-auto aspect-[5/1] overflow-hidden transition-colors", promo.bgClass)}>
+        {promo.imageUrl && (
+          <img src={promo.imageUrl} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
+        )}
+
         <div className="relative h-full max-w-7xl mx-auto px-6 md:px-12 flex items-center">
-          <div key={index} className="flex flex-col items-start text-left gap-2 md:gap-3 z-10 w-full md:w-1/2 animate-fade-up">
-            <p className="text-xs md:text-sm font-semibold text-primary tracking-wide">{promo.eyebrow}</p>
-            <p className="text-xl md:text-4xl font-bold text-foreground tracking-tight">{promo.title}</p>
-            <p className="text-sm md:text-base text-muted-foreground">{promo.subtitle}</p>
+          <div key={index} className="flex flex-col items-start text-left gap-1 md:gap-1.5 z-10 w-full md:w-1/2 animate-fade-up">
+            <p className="text-xs font-semibold text-primary tracking-wide">{promo.eyebrow}</p>
+            <p className="text-lg md:text-2xl font-bold text-foreground tracking-tight">{promo.title}</p>
+            <p className="hidden md:block text-sm text-muted-foreground">{promo.subtitle}</p>
             <Link
               to={promo.href}
-              className="mt-2 md:mt-4 inline-flex items-center justify-center rounded-lg bg-primary px-6 py-3 text-sm md:text-base font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              className="mt-1.5 md:mt-2 inline-flex items-center justify-center rounded-lg bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               {promo.ctaLabel}
             </Link>
-          </div>
-
-          <div className="hidden md:flex absolute right-12 top-1/2 -translate-y-1/2 w-2/5 aspect-square rounded-2xl bg-background/60 items-center justify-center">
-            <Gift className="h-10 w-10 text-muted-foreground/50" strokeWidth={1.5} />
           </div>
         </div>
 

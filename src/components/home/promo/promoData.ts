@@ -5,6 +5,7 @@ export interface PromoDef {
   ctaLabel: string;
   href: string;
   bgClass: string;
+  imageUrl?: string;
 }
 
 export const PROMO_DEFS: PromoDef[] = [

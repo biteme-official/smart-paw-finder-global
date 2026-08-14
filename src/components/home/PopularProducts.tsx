@@ -86,11 +86,11 @@ export function PopularProducts() {
         <h2 className="text-base font-bold text-foreground md:text-xl md:text-center">Popular Products</h2>
       </div>
 
-      <div className="relative group">
+      <div className="relative group px-4">
         <div className="overflow-hidden">
           <div
             ref={scrollRef}
-            className="flex gap-3 md:gap-4 px-4 overflow-x-auto pb-2 scrollbar-hide"
+            className="flex gap-3 md:gap-4 overflow-x-auto pb-2 scrollbar-hide"
           >
             {products.map((product, index) => (
               <div key={product.node.id} className="flex-shrink-0 w-40 md:w-[calc((100%-4rem)/5)]">

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import heroWelcome from "@/assets/hero/hero-welcome.jpg";
 import heroBestSeller from "@/assets/hero/hero-best-seller.jpg";
 import heroNewArrival from "@/assets/hero/hero-new-arrival.jpg";
 
@@ -23,7 +24,7 @@ interface SlideDef {
 
 // Temporary clean placeholder for the campaign hero banner — swap back to <HeroBanner /> once
 // high-resolution campaign images are ready (the real Shopify banner images look pixelated full-bleed).
-// Layout follows abib.global: full-bleed photo behind a left-aligned text block, faded via a scrim for legibility.
+// Layout follows abib.global: full-bleed photo shown as-is, with a left-aligned text block over its empty negative space.
 const SLIDES: SlideDef[] = [
   {
     eyebrow: "WELCOME",
@@ -32,7 +33,8 @@ const SLIDES: SlideDef[] = [
     ctaLabel: "Join & Save",
     href: "/mypage",
     bgClass: "bg-orange-50",
-    hasImage: false,
+    hasImage: true,
+    imageUrl: heroWelcome,
   },
   {
     eyebrow: "BEST SELLER",
@@ -84,17 +86,13 @@ export function HeroPlaceholder() {
   return (
     <div className={cn("relative w-full max-w-[1600px] mx-auto aspect-[21/9] md:aspect-[3/1] overflow-hidden transition-colors", slide.bgClass)}>
       {slide.hasImage && (
-        <>
-          {slide.imageUrl ? (
-            <img src={slide.imageUrl} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <ImageIcon className="h-10 w-10 text-muted-foreground/40" strokeWidth={1.5} />
-            </div>
-          )}
-          {/* Left-to-right scrim so the text block stays legible over the photo */}
-          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/70 md:via-40% to-white/0" />
-        </>
+        slide.imageUrl ? (
+          <img src={slide.imageUrl} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <ImageIcon className="h-10 w-10 text-muted-foreground/40" strokeWidth={1.5} />
+          </div>
+        )
       )}
 
       <div className="relative h-full max-w-7xl mx-auto px-6 md:px-12 flex items-center">
