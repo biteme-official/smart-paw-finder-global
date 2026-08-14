@@ -1,58 +1,36 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
 
-function MastercardIcon() {
-  return (
-    <svg viewBox="0 0 38 24" className="h-4 w-auto" aria-label="Mastercard">
-      <circle cx="14" cy="12" r="9" fill="#555" />
-      <circle cx="24" cy="12" r="9" fill="#888" />
-      <path d="M19 5.3a9 9 0 0 1 0 13.4A9 9 0 0 1 19 5.3z" fill="#666" />
-    </svg>
-  );
-}
+const WHATSAPP_URL = "https://wa.me/15559433437";
 
-function PayPalIcon() {
-  return (
-    <svg viewBox="0 0 40 16" className="h-4 w-auto" aria-label="PayPal">
-      <text x="1" y="13" fontSize="12" fontStyle="italic" fontWeight="700" fill="#444" fontFamily="Arial, sans-serif">PayPal</text>
-    </svg>
-  );
-}
+const SHOP_LINKS = [
+  { label: "Shop All", to: "/" },
+  { label: "Best Sellers", to: "/" },
+  { label: "New Arrivals", to: "/new-products" },
+];
 
-const BRAND_LINKS = [
+const SUPPORT_LINKS = [
+  { label: "Shipping", to: "/refund-policy" },
+  { label: "Returns", to: "/refund-policy" },
+  { label: "FAQ", to: "/contact" },
+];
+
+const COMPANY_LINKS = [
   { label: "About Us", to: "/about" },
-  { label: "Popup Stores", to: "/popup-offline-stores" },
-  { label: "Blog", to: "/blog" },
+  { label: "Affiliate", to: "/contact" },
+  { label: "Contact", to: "/contact" },
 ];
-
-const POLICY_LINKS = [
-  { label: "Terms of Use", to: "/terms" },
-  { label: "Shipping & Returns", to: "/refund-policy" },
-  { label: "Privacy Policy", to: "/privacy" },
-];
-
-const HELP_LINKS = [
-  { label: "Contact Us", to: "/contact" },
-  { label: "B2B Inquiry", to: "/mypage/b2b-apply" },
-];
-
-const TEXT_PAYMENT_METHODS = [
-  { name: "VISA",      style: "font-black italic tracking-widest text-sm"  },
-  { name: "AMEX",      style: "font-bold text-xs tracking-wide"            },
-  { name: "JCB",       style: "font-bold text-xs"                          },
-  { name: "UnionPay",  style: "font-semibold text-xs"                      },
-  { name: "Discover",  style: "font-semibold text-xs"                      },
-  { name: "Bank Transfer", style: "font-semibold text-xs"                  },
-];
-
 
 function NavColumn({ title, links }: { title: string; links: { label: string; to: string }[] }) {
   return (
-    <div className="space-y-3">
-      <p className="text-sm font-semibold text-foreground">{title}</p>
-      <ul className="space-y-2">
-        {links.map(({ label, to }) => (
-          <li key={to}>
-            <Link to={to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+    <div className="space-y-2.5">
+      <p className="text-xs font-semibold text-white uppercase tracking-wide">{title}</p>
+      <ul className="space-y-1.5">
+        {links.map(({ label, to }, i) => (
+          <li key={`${to}-${i}`}>
+            <Link to={to} className="text-xs text-zinc-500 hover:text-white transition-colors">
               {label}
             </Link>
           </li>
@@ -62,85 +40,90 @@ function NavColumn({ title, links }: { title: string; links: { label: string; to
   );
 }
 
+function AboutContactColumn() {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <p className="text-xs font-semibold text-white uppercase tracking-wide">About us</p>
+        <p className="text-xs text-zinc-500 leading-relaxed">
+          © BITE ME Co., Ltd.
+          <br />
+          8F, 10 Teheran-ro 20-gil, Gangnam-gu,
+          <br />
+          Seoul, Korea
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        <p className="text-xs font-semibold text-white uppercase tracking-wide">Contact us</p>
+        <p className="text-xs text-zinc-500 leading-relaxed">
+          Business Inquiry: mates@biteme.co.kr
+          <br />
+          Consumer Inquiry:{" "}
+          <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">
+            Chat with us on Whatsapp
+          </a>
+          <br />
+          We're here M–F 10am – 7pm KST
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function NewsletterSignup() {
+  const [email, setEmail] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    toast.success("Thanks for subscribing! Stay tuned for updates.");
+    setEmail("");
+  };
+
+  return (
+    <div className="rounded-xl bg-zinc-800 p-4 md:w-64 shrink-0">
+      <p className="text-xs font-semibold text-white mb-2.5">Sign up for 15% off your first order</p>
+      <form onSubmit={handleSubmit} className="flex items-center gap-2 rounded-lg bg-zinc-900 pr-1">
+        <Input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Enter your email"
+          className="h-9 text-xs border-0 bg-transparent text-white placeholder:text-zinc-500 focus-visible:ring-0 focus-visible:ring-offset-0"
+        />
+        <button
+          type="submit"
+          aria-label="Sign up"
+          className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+        >
+          Sign Up
+        </button>
+      </form>
+    </div>
+  );
+}
+
 export function Footer() {
   return (
-    <footer className="bg-zinc-100 text-foreground mt-auto">
-
-      {/* Main nav section */}
+    <footer className="bg-zinc-900 text-white mt-auto">
       <div className="w-full max-w-6xl mx-auto px-6 pt-10 pb-8">
-        <div className="grid grid-cols-3 gap-8">
-
-          {/* Brand column */}
-          <div className="space-y-3">
-            <p className="text-sm font-bold tracking-wide text-foreground">BITE ME</p>
-            <ul className="space-y-2">
-              {BRAND_LINKS.map(({ label, to }) => (
-                <li key={to}>
-                  <Link to={to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[repeat(4,auto)_1fr] gap-8">
+          <NavColumn title="Shop" links={SHOP_LINKS} />
+          <NavColumn title="Support" links={SUPPORT_LINKS} />
+          <NavColumn title="Company" links={COMPANY_LINKS} />
+          <AboutContactColumn />
+          <div className="lg:justify-self-end">
+            <NewsletterSignup />
           </div>
-
-          <NavColumn title="Terms & Policies" links={POLICY_LINKS} />
-          <NavColumn title="Help" links={HELP_LINKS} />
         </div>
       </div>
 
-      {/* Company info section */}
-      <div className="w-full max-w-6xl mx-auto px-6 py-6 border-t border-border">
-        <p className="text-sm font-semibold text-foreground mb-2">BITE ME</p>
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          CEO: Jaeeun Kwak{" "}
-          <span className="mx-1 text-zinc-300">|</span>
-          Business Registration No.: 210-87-00613{" "}
-          <span className="mx-1 text-zinc-300">|</span>
-          Mail-order Business Report No.: 2019-SeoulGangnam-05372
-        </p>
-        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-          Tel: +82 70-4888-6191{" "}
-          <span className="mx-1 text-zinc-300">|</span>
-          E-mail: mates@biteme.co.kr{" "}
-          <span className="mx-1 text-zinc-300">|</span>
-          Mon – Fri: 10:00 am – 7:00 pm KST
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          8F, 10 Teheran-ro 20-gil, Gangnam-gu, Seoul, Republic of Korea
-        </p>
-      </div>
-
-      {/* Payment methods + Copyright */}
-      <div className="border-t border-border bg-zinc-200/50">
-        <div className="w-full max-w-6xl mx-auto px-6 py-4">
-          <div className="flex flex-wrap items-center gap-2.5 mb-3">
-            <span className="text-xs font-medium text-muted-foreground mr-2 shrink-0">Payment Method</span>
-
-            {/* PayPal */}
-            <span className="inline-flex items-center h-5">
-              <PayPalIcon />
-            </span>
-
-            {/* Mastercard */}
-            <span className="inline-flex items-center h-5">
-              <MastercardIcon />
-            </span>
-
-            {/* Text-based logos */}
-            {TEXT_PAYMENT_METHODS.map(({ name, style }) => (
-              <span
-                key={name}
-                className={`inline-flex items-center justify-center text-zinc-600 ${style}`}
-              >
-                {name}
-              </span>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground">© 2026 BITE ME. All rights reserved.</p>
+      <div className="border-t border-zinc-800">
+        <div className="w-full max-w-6xl mx-auto px-6 py-4 text-center">
+          <p className="text-xs text-zinc-500">© 2026 BITE ME. All rights reserved.</p>
         </div>
       </div>
-
     </footer>
   );
 }
