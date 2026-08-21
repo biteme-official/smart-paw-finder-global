@@ -261,7 +261,10 @@ export default function Affiliate() {
 
           {/* How it works */}
           <section className="mt-14 md:mt-20">
-            <h2 className="text-lg md:text-2xl font-bold text-foreground text-center mb-6 md:mb-8">How it works</h2>
+            <h2 className="text-lg md:text-2xl font-bold text-foreground text-center mb-2">How it works</h2>
+            <p className="text-sm text-muted-foreground text-center mb-6 md:mb-8">
+              Join in just a few simple steps!
+            </p>
 
             {/* Desktop: row with connecting arrows */}
             <div className="hidden md:flex items-stretch gap-4">
@@ -300,7 +303,7 @@ export default function Affiliate() {
           <section className="mt-14 md:mt-20">
             <h2 className="text-lg md:text-2xl font-bold text-foreground text-center mb-2">Earn More with BITE ME</h2>
             <p className="text-sm text-muted-foreground text-center mb-6 md:mb-8">
-              Exclusive perks designed to help you earn and grow.
+              The more you share, the more you can earn!
             </p>
 
             {/* Desktop: same card size as How it works, filled with the benefit's accent color */}
