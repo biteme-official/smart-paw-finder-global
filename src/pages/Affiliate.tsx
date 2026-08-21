@@ -136,10 +136,8 @@ const schema = z.object({
     .string()
     .min(1, "Pet's name is required")
     .regex(/^[a-zA-Z0-9\s-]+$/, "Enter a valid name"),
-  country: z.enum(COUNTRIES, { required_error: "Please select your country." }),
-  acquisitionSource: z.enum(ACQUISITION_SOURCES, {
-    required_error: "Please select how you heard about us.",
-  }),
+  country: z.enum(COUNTRIES).optional().or(z.literal("")),
+  acquisitionSource: z.enum(ACQUISITION_SOURCES).optional().or(z.literal("")),
   acquisitionOther: z.string().optional(),
   confirmed: z.boolean().refine((v) => v === true, {
     message: "Please confirm the discount and commission terms",

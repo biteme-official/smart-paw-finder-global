@@ -1,25 +1,10 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { kv } from '@vercel/kv';
+import type { Connect } from 'vite';
 import { createSign } from 'crypto';
-
-const ALLOWED_ORIGINS = ['https://biteme.one', 'https://www.biteme.one', 'http://localhost:5173'];
-function getCorsOrigin(req: VercelRequest): string {
-  const origin = req.headers.origin || '';
-  if (ALLOWED_ORIGINS.includes(origin)) return origin;
-  if (/^https:\/\/smart-paw-finder[a-z0-9-]*\.vercel\.app$/.test(origin)) return origin;
-  return ALLOWED_ORIGINS[0];
-}
-
-function checkAdmin(req: VercelRequest): boolean {
-  return (req.headers['x-admin-key'] as string) === process.env.B2B_ADMIN_PASSWORD;
-}
+import { addApplication, getApplicationByEmail, getAllApplications, type AffiliateApplication } from './affiliate-store';
 
 const SOCIAL_PLATFORMS = ['Instagram', 'TikTok'];
 
-// ─── Google Sheets logging ───
-// Reuses the same service account as GA4 (api/analytics.ts). Share the target
-// spreadsheet with that service account's client_email as an Editor for this to work.
-const GOOGLE_SERVICE_ACCOUNT_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '';
+// ─── Google Sheets logging — mirrors api/affiliate.ts so local dev writes to the same sheet ───
 const AFFILIATE_SHEET_ID = process.env.AFFILIATE_SHEET_ID || '1hIKdC_afPFTp1CkPzEwBwx4rtDpRZJD3LXpoeRd_HRM';
 const AFFILIATE_SHEET_GID = process.env.AFFILIATE_SHEET_GID || '0';
 
@@ -30,7 +15,9 @@ async function getSheetsAccessToken(): Promise<string> {
   const now = Date.now();
   if (sheetsToken && now < sheetsTokenExpiresAt - 60_000) return sheetsToken;
 
-  const sa = JSON.parse(GOOGLE_SERVICE_ACCOUNT_JSON);
+  const saJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '';
+  if (!saJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is not set locally (.env.local)');
+  const sa = JSON.parse(saJson);
   const iat = Math.floor(now / 1000);
   const exp = iat + 3600;
 
@@ -157,18 +144,39 @@ async function appendApplicationRow(row: {
   ]]);
 }
 
-async function handleApply(req: VercelRequest, res: VercelResponse) {
-  const { socialAccounts, email, petName, country, acquisitionSource } = req.body || {};
+function readBody(req: Connect.IncomingMessage): Promise<string> {
+  const chunks: Buffer[] = [];
+  return new Promise((resolve, reject) => {
+    req.on('data', (c: Buffer) => chunks.push(c));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+    req.on('error', reject);
+  });
+}
+
+function json(res: any, status: number, body: unknown) {
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+  res.end(JSON.stringify(body));
+}
+
+function checkAdminAuth(req: Connect.IncomingMessage): boolean {
+  const key = (req.headers['x-admin-key'] as string) || '';
+  return key === (process.env.B2B_ADMIN_PASSWORD || '');
+}
+
+async function handleApply(req: Connect.IncomingMessage, res: any) {
+  const body = JSON.parse(await readBody(req));
+  const { socialAccounts, email, petName, country, acquisitionSource } = body || {};
+
   if (!Array.isArray(socialAccounts) || socialAccounts.length === 0 || !email || !petName) {
-    return res.status(400).json({ error: 'At least one social account, email, and pet name are required.' });
+    return json(res, 400, { error: 'At least one social account, email, and pet name are required.' });
   }
 
-  const normalizedAccounts = [];
+  const normalizedAccounts: { platform: string; account: string }[] = [];
   for (const entry of socialAccounts) {
     const platform = String(entry?.platform || '');
     const account = String(entry?.account || '').replace(/^@/, '').trim();
     if (!SOCIAL_PLATFORMS.includes(platform) || !account) {
-      return res.status(400).json({ error: 'Each social account needs a valid platform and account name.' });
+      return json(res, 400, { error: 'Each social account needs a valid platform and account name.' });
     }
     normalizedAccounts.push({ platform, account });
   }
@@ -176,34 +184,32 @@ async function handleApply(req: VercelRequest, res: VercelResponse) {
   const normalizedEmail = String(email).toLowerCase().trim();
   const normalizedPetName = String(petName).trim();
   if (!normalizedEmail || !normalizedPetName) {
-    return res.status(400).json({ error: 'At least one social account, email, and pet name are required.' });
+    return json(res, 400, { error: 'At least one social account, email, and pet name are required.' });
   }
 
-  const existingId = await kv.get<string>(`affiliate:email:${normalizedEmail}`);
-  if (existingId) return res.status(409).json({ error: 'An application with this email already exists.' });
+  if (getApplicationByEmail(normalizedEmail)) {
+    return json(res, 409, { error: 'An application with this email already exists.' });
+  }
 
   const normalizedCountry = country ? String(country).trim() : '';
   const normalizedAcquisitionSource = acquisitionSource ? String(acquisitionSource).trim() : '';
 
   const id = `aff_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const createdAt = new Date();
-  const now = createdAt.toISOString();
   const couponCode = `${normalizedPetName.toUpperCase().replace(/[^A-Z0-9]/g, '')}15`;
-  await Promise.all([
-    kv.set(`affiliate:app:${id}`, {
-      id,
-      socialAccounts: normalizedAccounts,
-      email: normalizedEmail,
-      petName: normalizedPetName,
-      country: normalizedCountry,
-      acquisitionSource: normalizedAcquisitionSource,
-      couponCode,
-      status: 'pending',
-      createdAt: now,
-    }),
-    kv.set(`affiliate:email:${normalizedEmail}`, id),
-    kv.sadd('affiliate:ids', id),
-  ]);
+
+  const app: AffiliateApplication = {
+    id,
+    email: normalizedEmail,
+    petName: normalizedPetName,
+    socialAccounts: normalizedAccounts,
+    country: normalizedCountry,
+    acquisitionSource: normalizedAcquisitionSource,
+    couponCode,
+    status: 'pending',
+    createdAt: createdAt.toISOString(),
+  };
+  addApplication(app);
 
   try {
     await appendApplicationRow({
@@ -214,42 +220,43 @@ async function handleApply(req: VercelRequest, res: VercelResponse) {
       country: normalizedCountry,
       acquisitionSource: normalizedAcquisitionSource,
     });
+    console.log(`[Affiliate] Sheets row appended for ${normalizedEmail}`);
   } catch (e) {
-    // Application is already saved in KV; don't fail the request if the sheet log fails.
-    console.error('[Affiliate] Sheets append failed:', e);
+    // Application is already saved locally; don't fail the request if the sheet log fails —
+    // mirrors production behavior in api/affiliate.ts.
+    console.error('[Affiliate] Sheets append failed (submission still succeeds):', e);
   }
 
-  return res.status(200).json({ success: true, id, couponCode });
+  console.log(`[Affiliate] New application: ${normalizedPetName} (${normalizedEmail}) coupon=${couponCode}`);
+  return json(res, 200, { success: true, id, couponCode });
 }
 
-async function handleList(req: VercelRequest, res: VercelResponse) {
-  if (!checkAdmin(req)) return res.status(401).json({ error: 'Unauthorized' });
-  const ids = await kv.smembers('affiliate:ids');
-  const apps = await Promise.all(ids.map((id) => kv.get(`affiliate:app:${id}`)));
-  return res.status(200).json({ applications: apps.filter(Boolean) });
+async function handleList(req: Connect.IncomingMessage, res: any) {
+  if (!checkAdminAuth(req)) return json(res, 401, { error: 'Unauthorized' });
+  return json(res, 200, { applications: getAllApplications() });
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const cors = getCorsOrigin(req);
-  res.setHeader('Access-Control-Allow-Origin', cors);
-  if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-key');
-    return res.status(200).end();
-  }
+export function affiliateProxyMiddleware(): Connect.NextHandleFunction {
+  return async (req, res, next) => {
+    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
-  const action = req.query.action as string;
-  try {
-    switch (action) {
-      case 'apply':
-        return handleApply(req, res);
-      case 'list':
-        return handleList(req, res);
-      default:
-        return res.status(400).json({ error: 'Invalid action' });
+    if (req.method === 'OPTIONS' && url.pathname.startsWith('/api/affiliate')) {
+      res.writeHead(200, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, x-admin-key',
+      });
+      return res.end();
     }
-  } catch (e) {
-    console.error('[Affiliate] Error:', e);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
+
+    try {
+      if (req.method === 'POST' && url.pathname === '/api/affiliate-apply') return handleApply(req, res);
+      if (req.method === 'GET' && url.pathname === '/api/affiliate-list') return handleList(req, res);
+    } catch (e) {
+      console.error('[Affiliate Proxy] Error:', e);
+      return json(res, 500, { error: 'Internal server error' });
+    }
+
+    return next();
+  };
 }
