@@ -482,17 +482,25 @@ export default function Affiliate() {
                     {errors.confirmed && <p className="text-xs text-destructive">{errors.confirmed.message}</p>}
                   </div>
 
+                  <div className="flex items-start gap-3 rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-100">
+                      <Mail className="h-4 w-4 text-orange-600" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-bold text-foreground">What happens next?</p>
+                      <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
+                        You'll receive an affiliate invitation email the following day. Follow the
+                        instructions in the email to join and create your unique affiliate link.
+                      </p>
+                    </div>
+                  </div>
+
                   <div className="flex justify-end">
                     <Button type="submit" disabled={submitting} size="sm" className="font-semibold px-6">
                       {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                       Join the Program
                     </Button>
                   </div>
-
-                  <p className="text-xs text-muted-foreground text-center leading-relaxed">
-                    After submitting, you'll be redirected to the Affiliate Guide. Please review it before
-                    getting started.
-                  </p>
                 </form>
               </div>
             )}
