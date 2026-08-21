@@ -256,11 +256,6 @@ export default function Affiliate() {
                   <br />
                   earn together
                 </h1>
-                <p className="text-xs text-stone-700 leading-snug">
-                  Share your BITE ME favorites
-                  <br />
-                  and earn with every sale!
-                </p>
                 <p className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-orange-600 [text-shadow:none]">
                   <ArrowDown className="h-3 w-3 shrink-0" />
                   Scroll down to join!
