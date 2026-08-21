@@ -14,14 +14,15 @@ function checkAdmin(req: VercelRequest): boolean {
 }
 
 async function handleApply(req: VercelRequest, res: VercelResponse) {
-  const { instagramHandle, email } = req.body || {};
-  if (!instagramHandle || !email) {
-    return res.status(400).json({ error: 'Instagram account and email are required.' });
+  const { instagramHandle, email, dogName } = req.body || {};
+  if (!instagramHandle || !email || !dogName) {
+    return res.status(400).json({ error: 'Instagram account, email, and dog name are required.' });
   }
   const handle = String(instagramHandle).replace(/^@/, '').trim();
   const normalizedEmail = String(email).toLowerCase().trim();
-  if (!handle || !normalizedEmail) {
-    return res.status(400).json({ error: 'Instagram account and email are required.' });
+  const normalizedDogName = String(dogName).trim();
+  if (!handle || !normalizedEmail || !normalizedDogName) {
+    return res.status(400).json({ error: 'Instagram account, email, and dog name are required.' });
   }
 
   const existingId = await kv.get<string>(`affiliate:email:${normalizedEmail}`);
@@ -29,11 +30,14 @@ async function handleApply(req: VercelRequest, res: VercelResponse) {
 
   const id = `aff_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const now = new Date().toISOString();
+  const couponCode = `${normalizedDogName.toUpperCase().replace(/[^A-Z0-9]/g, '')}15`;
   await Promise.all([
     kv.set(`affiliate:app:${id}`, {
       id,
       instagramHandle: handle,
       email: normalizedEmail,
+      dogName: normalizedDogName,
+      couponCode,
       status: 'pending',
       createdAt: now,
     }),
@@ -41,7 +45,7 @@ async function handleApply(req: VercelRequest, res: VercelResponse) {
     kv.sadd('affiliate:ids', id),
   ]);
 
-  return res.status(200).json({ success: true, id });
+  return res.status(200).json({ success: true, id, couponCode });
 }
 
 async function handleList(req: VercelRequest, res: VercelResponse) {
