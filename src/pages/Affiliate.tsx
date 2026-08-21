@@ -251,7 +251,7 @@ export default function Affiliate() {
                   <Sparkles className="h-3 w-3" strokeWidth={2} />
                   Affiliate Collab
                 </span>
-                <h1 className="mt-1.5 text-2xl font-bold text-stone-800 leading-[1.15]">
+                <h1 className="mt-1.5 text-4xl font-bold text-stone-800 leading-[1.15]">
                   Share Bite Me
                   <br />
                   earn together
