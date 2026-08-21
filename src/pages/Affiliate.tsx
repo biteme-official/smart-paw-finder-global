@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { z } from "zod";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import {
@@ -14,6 +14,8 @@ import {
   Users,
   TrendingUp,
   Loader2,
+  Plus,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
@@ -22,6 +24,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const SOCIAL_PLATFORMS = ["Instagram", "TikTok"] as const;
 
 interface StepDef {
   icon: LucideIcon;
@@ -30,7 +35,7 @@ interface StepDef {
 }
 
 const STEPS: StepDef[] = [
-  { icon: MousePointerClick, title: "Apply", desc: "Instagram, email, dog's name" },
+  { icon: MousePointerClick, title: "Apply", desc: "Social accounts, email, pet's name" },
   { icon: Clock, title: "Review", desc: "Handled in order received" },
   { icon: Mail, title: "Get invited", desc: "Receive invitation by email" },
   { icon: Gift, title: "Earn", desc: "Upload content and earn commission" },
@@ -53,14 +58,21 @@ const BENEFITS: BenefitDef[] = [
 ];
 
 const schema = z.object({
-  instagramHandle: z
-    .string()
-    .min(1, "Instagram account is required")
-    .regex(/^[a-zA-Z0-9._]+$/, "Enter a valid Instagram handle"),
+  socialAccounts: z
+    .array(
+      z.object({
+        platform: z.enum(SOCIAL_PLATFORMS),
+        account: z
+          .string()
+          .min(1, "Account is required")
+          .regex(/^[a-zA-Z0-9._@\s-]+$/, "Enter a valid account name"),
+      }),
+    )
+    .min(1),
   email: z.string().min(1, "Email is required").email("Enter a valid email address"),
-  dogName: z
+  petName: z
     .string()
-    .min(1, "Dog's name is required")
+    .min(1, "Pet's name is required")
     .regex(/^[a-zA-Z0-9\s-]+$/, "Enter a valid name"),
   confirmed: z.boolean().refine((v) => v === true, {
     message: "Please confirm the discount and commission terms",
@@ -79,7 +91,12 @@ export default function Affiliate() {
     handleSubmit,
     control,
     formState: { errors },
-  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { confirmed: false } });
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { socialAccounts: [{ platform: "Instagram", account: "" }], confirmed: false },
+  });
+
+  const { fields, append, remove } = useFieldArray({ control, name: "socialAccounts" });
 
   const handleSearch = (query: string) => {
     navigate(query ? `/?q=${encodeURIComponent(query)}` : "/");
@@ -92,9 +109,9 @@ export default function Affiliate() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          instagramHandle: formData.instagramHandle,
+          socialAccounts: formData.socialAccounts,
           email: formData.email,
-          dogName: formData.dogName,
+          petName: formData.petName,
         }),
       });
       const data = await res.json();
@@ -222,34 +239,90 @@ export default function Affiliate() {
               <div className="rounded-3xl bg-muted px-6 py-8 md:px-10 md:py-10">
                 <h2 className="text-lg md:text-2xl font-bold text-foreground mb-1">Apply now</h2>
                 <p className="text-sm text-muted-foreground mb-6">
-                  Enter your Instagram account, email, and dog's name.
+                  Enter your social accounts, email, and pet's name.
                 </p>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label className="font-semibold">Instagram account</Label>
-                      <Input placeholder="@your_account" {...register("instagramHandle")} />
-                      {errors.instagramHandle && (
-                        <p className="text-xs text-destructive">{errors.instagramHandle.message}</p>
-                      )}
+                  <div className="space-y-3">
+                    <div className="hidden md:grid md:grid-cols-[200px_1fr] gap-4">
+                      <Label className="font-semibold">Social Media Platform</Label>
+                      <Label className="font-semibold">Account</Label>
                     </div>
 
+                    {fields.map((field, index) => (
+                      <div key={field.id} className="flex flex-col md:flex-row gap-2 md:gap-4 md:items-start">
+                        <div className="md:w-[200px] shrink-0 space-y-2">
+                          <Label className="font-semibold md:hidden">Social Media Platform</Label>
+                          <Controller
+                            name={`socialAccounts.${index}.platform`}
+                            control={control}
+                            render={({ field: platformField }) => (
+                              <Select value={platformField.value} onValueChange={platformField.onChange}>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {SOCIAL_PLATFORMS.map((platform) => (
+                                    <SelectItem key={platform} value={platform}>
+                                      {platform}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          />
+                        </div>
+
+                        <div className="flex-1 flex items-start gap-2">
+                          <div className="flex-1 space-y-2">
+                            <Label className="font-semibold md:hidden">Account</Label>
+                            <Input
+                              placeholder="@your_account"
+                              {...register(`socialAccounts.${index}.account`)}
+                            />
+                            {errors.socialAccounts?.[index]?.account && (
+                              <p className="text-xs text-destructive">
+                                {errors.socialAccounts[index]?.account?.message}
+                              </p>
+                            )}
+                          </div>
+                          {fields.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => remove(index)}
+                              className="h-10 mt-0 md:mt-8 px-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                            >
+                              <X className="h-3.5 w-3.5" /> Remove
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={() => append({ platform: "Instagram", account: "" })}
+                      className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+                    >
+                      <Plus className="h-4 w-4" /> Add another account
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label className="font-semibold">Email address</Label>
                       <Input placeholder="example@email.com" {...register("email")} />
                       {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label className="font-semibold">Dog's name</Label>
-                    <Input placeholder="coco" className="w-full" {...register("dogName")} />
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      This will be used to generate your coupon code (e.g. dog's name "coco" → coupon code
-                      "COCO15").
-                    </p>
-                    {errors.dogName && <p className="text-xs text-destructive">{errors.dogName.message}</p>}
+                    <div className="space-y-2">
+                      <Label className="font-semibold">Pet's Name</Label>
+                      <Input placeholder="coco" {...register("petName")} />
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Your pet's name will be used to create your unique discount code (e.g. COCO15).
+                      </p>
+                      {errors.petName && <p className="text-xs text-destructive">{errors.petName.message}</p>}
+                    </div>
                   </div>
 
                   <div className="space-y-1">
@@ -267,7 +340,8 @@ export default function Affiliate() {
                         )}
                       />
                       <Label htmlFor="confirmed" className="font-normal text-sm text-foreground leading-snug">
-                        I confirm the 15% discount and 10% commission.
+                        I understand that my followers will receive 15% off with my code, and I will earn a
+                        10% commission on eligible sales.
                       </Label>
                     </div>
                     {errors.confirmed && <p className="text-xs text-destructive">{errors.confirmed.message}</p>}
@@ -276,12 +350,13 @@ export default function Affiliate() {
                   <div className="flex justify-end">
                     <Button type="submit" disabled={submitting} size="sm" className="font-semibold px-6">
                       {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                      Apply
+                      Join the Program
                     </Button>
                   </div>
 
                   <p className="text-xs text-muted-foreground text-center leading-relaxed">
-                    After submitting, you'll be redirected to a guide page — please review it.
+                    After submitting, you'll be redirected to the Affiliate Guide. Please review it before
+                    getting started.
                   </p>
                 </form>
               </div>

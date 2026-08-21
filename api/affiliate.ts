@@ -13,16 +13,28 @@ function checkAdmin(req: VercelRequest): boolean {
   return (req.headers['x-admin-key'] as string) === process.env.B2B_ADMIN_PASSWORD;
 }
 
+const SOCIAL_PLATFORMS = ['Instagram', 'TikTok'];
+
 async function handleApply(req: VercelRequest, res: VercelResponse) {
-  const { instagramHandle, email, dogName } = req.body || {};
-  if (!instagramHandle || !email || !dogName) {
-    return res.status(400).json({ error: 'Instagram account, email, and dog name are required.' });
+  const { socialAccounts, email, petName } = req.body || {};
+  if (!Array.isArray(socialAccounts) || socialAccounts.length === 0 || !email || !petName) {
+    return res.status(400).json({ error: 'At least one social account, email, and pet name are required.' });
   }
-  const handle = String(instagramHandle).replace(/^@/, '').trim();
+
+  const normalizedAccounts = [];
+  for (const entry of socialAccounts) {
+    const platform = String(entry?.platform || '');
+    const account = String(entry?.account || '').replace(/^@/, '').trim();
+    if (!SOCIAL_PLATFORMS.includes(platform) || !account) {
+      return res.status(400).json({ error: 'Each social account needs a valid platform and account name.' });
+    }
+    normalizedAccounts.push({ platform, account });
+  }
+
   const normalizedEmail = String(email).toLowerCase().trim();
-  const normalizedDogName = String(dogName).trim();
-  if (!handle || !normalizedEmail || !normalizedDogName) {
-    return res.status(400).json({ error: 'Instagram account, email, and dog name are required.' });
+  const normalizedPetName = String(petName).trim();
+  if (!normalizedEmail || !normalizedPetName) {
+    return res.status(400).json({ error: 'At least one social account, email, and pet name are required.' });
   }
 
   const existingId = await kv.get<string>(`affiliate:email:${normalizedEmail}`);
@@ -30,13 +42,13 @@ async function handleApply(req: VercelRequest, res: VercelResponse) {
 
   const id = `aff_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const now = new Date().toISOString();
-  const couponCode = `${normalizedDogName.toUpperCase().replace(/[^A-Z0-9]/g, '')}15`;
+  const couponCode = `${normalizedPetName.toUpperCase().replace(/[^A-Z0-9]/g, '')}15`;
   await Promise.all([
     kv.set(`affiliate:app:${id}`, {
       id,
-      instagramHandle: handle,
+      socialAccounts: normalizedAccounts,
       email: normalizedEmail,
-      dogName: normalizedDogName,
+      petName: normalizedPetName,
       couponCode,
       status: 'pending',
       createdAt: now,
