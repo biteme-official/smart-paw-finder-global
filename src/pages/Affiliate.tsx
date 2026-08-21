@@ -77,42 +77,39 @@ const STEPS: StepDef[] = [
 interface BenefitDef {
   icon?: LucideIcon;
   value?: string;
-  headline?: string;
   bgClass: string;
   accentClass: string;
-  tagline: string;
+  title: string;
   desc: string;
 }
 
 const BENEFITS: BenefitDef[] = [
   {
-    value: "15% OFF",
+    value: "15%",
     bgClass: "bg-amber-100",
     accentClass: "text-amber-600",
-    tagline: "for Your Followers",
+    title: "OFF for Your Followers",
     desc: "Give your community an exclusive discount",
   },
   {
-    value: "10% Commission",
+    value: "10%",
     bgClass: "bg-red-100",
     accentClass: "text-red-600",
-    tagline: "Earn on Every Sale",
+    title: "Commission",
     desc: "Get rewarded for every eligible sale",
   },
   {
     icon: Users,
-    headline: "Exclusive Collabs",
     bgClass: "bg-blue-100",
     accentClass: "text-blue-600",
-    tagline: "More Ways to Work Together",
+    title: "Exclusive Collabs",
     desc: "Top creators get more opportunities",
   },
   {
     icon: TrendingUp,
-    headline: "Higher Rates",
     bgClass: "bg-purple-100",
     accentClass: "text-purple-600",
-    tagline: "Earn More as You Grow",
+    title: "Higher Rates",
     desc: "Unlock higher rates as your sales grow",
   },
 ];
@@ -266,42 +263,40 @@ export default function Affiliate() {
 
             {/* Desktop: same card size as How it works, filled with the benefit's accent color */}
             <div className="hidden md:flex items-stretch gap-4">
-              {BENEFITS.map(({ icon: Icon, value, headline, bgClass, accentClass, tagline, desc }) => (
+              {BENEFITS.map(({ icon: Icon, value, bgClass, accentClass, title, desc }) => (
                 <div
-                  key={tagline}
-                  className={`flex flex-col items-center text-center gap-2 flex-1 rounded-2xl py-10 px-4 ${bgClass}`}
+                  key={title}
+                  className={`flex flex-col items-center text-center flex-1 rounded-2xl py-10 px-4 ${bgClass}`}
                 >
-                  {value ? (
-                    <p className={`text-[28px] font-extrabold leading-tight ${accentClass}`}>{value}</p>
-                  ) : (
-                    <>
-                      {Icon && <Icon className={`h-8 w-8 ${accentClass}`} strokeWidth={1.75} />}
-                      <p className={`text-xl font-extrabold leading-tight ${accentClass}`}>{headline}</p>
-                    </>
-                  )}
-                  <p className="text-base font-bold text-foreground">{tagline}</p>
-                  <p className="text-sm text-muted-foreground leading-snug">{desc}</p>
+                  <div className="h-12 flex items-center justify-center">
+                    {value ? (
+                      <p className={`text-[34px] font-extrabold leading-none ${accentClass}`}>{value}</p>
+                    ) : (
+                      Icon && <Icon className={`h-9 w-9 ${accentClass}`} strokeWidth={1.75} />
+                    )}
+                  </div>
+                  <p className="mt-3 text-base font-bold text-foreground">{title}</p>
+                  <p className="mt-1 text-sm text-muted-foreground leading-snug">{desc}</p>
                 </div>
               ))}
             </div>
 
             {/* Mobile: 2-column grid, same filled-card style at a smaller size */}
             <div className="grid grid-cols-2 gap-4 md:hidden">
-              {BENEFITS.map(({ icon: Icon, value, headline, bgClass, accentClass, tagline, desc }) => (
+              {BENEFITS.map(({ icon: Icon, value, bgClass, accentClass, title, desc }) => (
                 <div
-                  key={tagline}
-                  className={`flex flex-col items-center text-center gap-1.5 rounded-xl py-5 px-4 ${bgClass}`}
+                  key={title}
+                  className={`flex flex-col items-center text-center rounded-xl py-5 px-4 ${bgClass}`}
                 >
-                  {value ? (
-                    <p className={`text-xl font-extrabold leading-tight ${accentClass}`}>{value}</p>
-                  ) : (
-                    <>
-                      {Icon && <Icon className={`h-6 w-6 ${accentClass}`} strokeWidth={1.75} />}
-                      <p className={`text-base font-extrabold leading-tight ${accentClass}`}>{headline}</p>
-                    </>
-                  )}
-                  <p className="text-sm font-bold text-foreground">{tagline}</p>
-                  <p className="text-xs text-muted-foreground leading-snug">{desc}</p>
+                  <div className="h-9 flex items-center justify-center">
+                    {value ? (
+                      <p className={`text-2xl font-extrabold leading-none ${accentClass}`}>{value}</p>
+                    ) : (
+                      Icon && <Icon className={`h-6 w-6 ${accentClass}`} strokeWidth={1.75} />
+                    )}
+                  </div>
+                  <p className="mt-2 text-sm font-bold text-foreground">{title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground leading-snug">{desc}</p>
                 </div>
               ))}
             </div>
