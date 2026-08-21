@@ -219,20 +219,20 @@ export default function Affiliate() {
 
           {/* How it works */}
           <section className="mt-14 md:mt-20">
-            <div className="rounded-3xl bg-orange-500 px-4 py-8 md:px-8 md:py-10">
-              <h2 className="text-lg md:text-2xl font-bold text-white text-center mb-6 md:mb-8">How it works</h2>
+            <div className="rounded-3xl bg-white px-4 py-8 md:px-8 md:py-10">
+              <h2 className="text-lg md:text-2xl font-bold text-foreground text-center mb-6 md:mb-8">How it works</h2>
 
               {/* Desktop: row with connecting arrows */}
               <div className="hidden md:flex items-stretch gap-4">
                 {STEPS.map(({ icon: Icon, title, desc }, index) => (
                   <div key={title} className="flex items-stretch flex-1 gap-4">
-                    <div className="flex flex-col items-center text-center gap-3 flex-1 rounded-2xl bg-white border border-border shadow-sm py-10 px-4">
-                      <Icon className="h-9 w-9 text-orange-500" strokeWidth={1.75} />
-                      <p className="text-base font-extrabold text-foreground">{title}</p>
-                      <p className="text-sm text-foreground/70 leading-snug">{desc}</p>
+                    <div className="flex flex-col items-center text-center gap-3 flex-1 rounded-2xl bg-orange-500 shadow-sm py-10 px-4">
+                      <Icon className="h-9 w-9 text-white" strokeWidth={1.75} />
+                      <p className="text-base font-extrabold text-white">{title}</p>
+                      <p className="text-sm text-white/85 leading-snug">{desc}</p>
                     </div>
                     {index < STEPS.length - 1 && (
-                      <ArrowRight className="h-6 w-6 text-white self-center shrink-0" strokeWidth={2} />
+                      <ArrowRight className="h-6 w-6 text-orange-500 self-center shrink-0" strokeWidth={2} />
                     )}
                   </div>
                 ))}
@@ -242,13 +242,13 @@ export default function Affiliate() {
               <div className="md:hidden flex flex-col items-center gap-2">
                 {STEPS.map(({ icon: Icon, title, desc }, index) => (
                   <div key={title} className="w-full flex flex-col items-center">
-                    <div className="w-full flex flex-col items-center text-center gap-2 rounded-xl bg-white border border-border shadow-sm py-5 px-4">
-                      <Icon className="h-6 w-6 text-orange-500" strokeWidth={1.75} />
-                      <p className="text-sm font-extrabold text-foreground">{title}</p>
-                      <p className="text-xs text-foreground/70 leading-snug">{desc}</p>
+                    <div className="w-full flex flex-col items-center text-center gap-2 rounded-xl bg-orange-500 shadow-sm py-5 px-4">
+                      <Icon className="h-6 w-6 text-white" strokeWidth={1.75} />
+                      <p className="text-sm font-extrabold text-white">{title}</p>
+                      <p className="text-xs text-white/85 leading-snug">{desc}</p>
                     </div>
                     {index < STEPS.length - 1 && (
-                      <ArrowDown className="h-5 w-5 text-white my-1 shrink-0" strokeWidth={2} />
+                      <ArrowDown className="h-5 w-5 text-orange-500 my-1 shrink-0" strokeWidth={2} />
                     )}
                   </div>
                 ))}
