@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
@@ -31,7 +31,13 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import heroBanner from "@/assets/affiliate-hero-banner.jpg";
+import heroBanner2 from "@/assets/affiliate-hero-banner-2.jpg";
 import heroBannerMobile from "@/assets/affiliate-hero-banner-mobile.jpg";
+import heroBannerMobile2 from "@/assets/affiliate-hero-banner-mobile-2.jpg";
+
+const HERO_IMAGES_DESKTOP = [heroBanner, heroBanner2];
+const HERO_IMAGES_MOBILE = [heroBannerMobile, heroBannerMobile2];
+const HERO_SLIDE_MS = 4500;
 
 const SOCIAL_PLATFORMS = ["Instagram", "TikTok"] as const;
 
@@ -152,6 +158,14 @@ export default function Affiliate() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [heroIndex, setHeroIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setHeroIndex((i) => (i + 1) % HERO_IMAGES_DESKTOP.length);
+    }, HERO_SLIDE_MS);
+    return () => clearInterval(timer);
+  }, []);
 
   const {
     register,
@@ -214,11 +228,16 @@ export default function Affiliate() {
           <section className="relative rounded-3xl overflow-hidden">
             {/* Desktop crop */}
             <div className="relative hidden md:block aspect-[21/9]">
-              <img
-                src={heroBanner}
-                alt="BITE ME plush toys and accessories"
-                className="absolute inset-0 h-full w-full object-cover object-[70%_center]"
-              />
+              {HERO_IMAGES_DESKTOP.map((src, i) => (
+                <img
+                  key={src}
+                  src={src}
+                  alt="BITE ME plush toys and accessories"
+                  className={`absolute inset-0 h-full w-full object-cover object-[70%_center] transition-opacity duration-[900ms] ease-in-out ${
+                    i === heroIndex ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+              ))}
               <div className="relative h-full flex flex-col items-start justify-center gap-3 px-16 max-w-2xl">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-1.5 text-sm font-semibold text-orange-600">
                   <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
@@ -241,11 +260,16 @@ export default function Affiliate() {
 
             {/* Mobile crop */}
             <div className="relative md:hidden aspect-[4/5]">
-              <img
-                src={heroBannerMobile}
-                alt="BITE ME plush toys and accessories"
-                className="absolute inset-0 h-full w-full object-cover"
-              />
+              {HERO_IMAGES_MOBILE.map((src, i) => (
+                <img
+                  key={src}
+                  src={src}
+                  alt="BITE ME plush toys and accessories"
+                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[900ms] ease-in-out ${
+                    i === heroIndex ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+              ))}
               <div className="relative h-full flex flex-col items-start justify-end gap-2 px-5 pb-8">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-4 py-2 text-sm font-bold text-orange-600 shadow-sm">
                   <Sparkles className="h-4 w-4" strokeWidth={2} />
