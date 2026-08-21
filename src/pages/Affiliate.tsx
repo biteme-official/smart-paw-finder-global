@@ -28,6 +28,39 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 const SOCIAL_PLATFORMS = ["Instagram", "TikTok"] as const;
 
+const COUNTRIES = [
+  "United States",
+  "Canada",
+  "United Kingdom",
+  "Australia",
+  "Germany",
+  "France",
+  "Netherlands",
+  "Japan",
+  "South Korea",
+  "Singapore",
+  "Hong Kong",
+  "Macau",
+  "Taiwan",
+  "Malaysia",
+  "Thailand",
+  "Vietnam",
+  "Philippines",
+  "Indonesia",
+  "China",
+  "India",
+  "Other",
+] as const;
+
+const ACQUISITION_SOURCES = [
+  "Instagram",
+  "TikTok",
+  "Google Search",
+  "Friend / Referral",
+  "Offline Event",
+  "Other",
+] as const;
+
 interface StepDef {
   icon: LucideIcon;
   title: string;
@@ -44,17 +77,44 @@ const STEPS: StepDef[] = [
 interface BenefitDef {
   icon?: LucideIcon;
   value?: string;
+  headline?: string;
   bgClass: string;
   accentClass: string;
-  title: string;
+  tagline: string;
   desc: string;
 }
 
 const BENEFITS: BenefitDef[] = [
-  { value: "15%", bgClass: "bg-amber-100", accentClass: "text-amber-600", title: "Off coupon", desc: "Applies to all products" },
-  { value: "10%", bgClass: "bg-red-100", accentClass: "text-red-600", title: "Commission", desc: "Applies to all products" },
-  { icon: Users, bgClass: "bg-blue-100", accentClass: "text-blue-600", title: "Collab opportunities", desc: "Based on content performance" },
-  { icon: TrendingUp, bgClass: "bg-purple-100", accentClass: "text-purple-600", title: "Tiered rates", desc: "Grow with your sales" },
+  {
+    value: "15% OFF",
+    bgClass: "bg-amber-100",
+    accentClass: "text-amber-600",
+    tagline: "for Your Followers",
+    desc: "Give your community an exclusive discount",
+  },
+  {
+    value: "10% Commission",
+    bgClass: "bg-red-100",
+    accentClass: "text-red-600",
+    tagline: "Earn on Every Sale",
+    desc: "Get rewarded for every eligible sale",
+  },
+  {
+    icon: Users,
+    headline: "Exclusive Collabs",
+    bgClass: "bg-blue-100",
+    accentClass: "text-blue-600",
+    tagline: "More Ways to Work Together",
+    desc: "Top creators get more opportunities",
+  },
+  {
+    icon: TrendingUp,
+    headline: "Higher Rates",
+    bgClass: "bg-purple-100",
+    accentClass: "text-purple-600",
+    tagline: "Earn More as You Grow",
+    desc: "Unlock higher rates as your sales grow",
+  },
 ];
 
 const schema = z.object({
@@ -74,6 +134,9 @@ const schema = z.object({
     .string()
     .min(1, "Pet's name is required")
     .regex(/^[a-zA-Z0-9\s-]+$/, "Enter a valid name"),
+  country: z.enum(COUNTRIES).optional(),
+  acquisitionSource: z.enum(ACQUISITION_SOURCES).optional(),
+  acquisitionOther: z.string().optional(),
   confirmed: z.boolean().refine((v) => v === true, {
     message: "Please confirm the discount and commission terms",
   }),
@@ -90,6 +153,7 @@ export default function Affiliate() {
     register,
     handleSubmit,
     control,
+    watch,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -97,6 +161,7 @@ export default function Affiliate() {
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: "socialAccounts" });
+  const acquisitionSource = watch("acquisitionSource");
 
   const handleSearch = (query: string) => {
     navigate(query ? `/?q=${encodeURIComponent(query)}` : "/");
@@ -105,6 +170,11 @@ export default function Affiliate() {
   const onSubmit = async (formData: FormData) => {
     setSubmitting(true);
     try {
+      const resolvedAcquisitionSource =
+        formData.acquisitionSource === "Other"
+          ? formData.acquisitionOther?.trim() || "Other"
+          : formData.acquisitionSource;
+
       const res = await fetch("/api/affiliate-apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -112,6 +182,8 @@ export default function Affiliate() {
           socialAccounts: formData.socialAccounts,
           email: formData.email,
           petName: formData.petName,
+          country: formData.country,
+          acquisitionSource: resolvedAcquisitionSource,
         }),
       });
       const data = await res.json();
@@ -187,21 +259,27 @@ export default function Affiliate() {
 
           {/* Partner benefits */}
           <section className="mt-14 md:mt-20">
-            <h2 className="text-lg md:text-2xl font-bold text-foreground text-center mb-6 md:mb-8">Partner benefits</h2>
+            <h2 className="text-lg md:text-2xl font-bold text-foreground text-center mb-2">Earn More with BITE ME</h2>
+            <p className="text-sm text-muted-foreground text-center mb-6 md:mb-8">
+              Exclusive perks designed to help you earn and grow.
+            </p>
 
             {/* Desktop: same card size as How it works, filled with the benefit's accent color */}
             <div className="hidden md:flex items-stretch gap-4">
-              {BENEFITS.map(({ icon: Icon, value, bgClass, accentClass, title, desc }) => (
+              {BENEFITS.map(({ icon: Icon, value, headline, bgClass, accentClass, tagline, desc }) => (
                 <div
-                  key={title}
-                  className={`flex flex-col items-center text-center gap-3 flex-1 rounded-2xl py-10 px-4 ${bgClass}`}
+                  key={tagline}
+                  className={`flex flex-col items-center text-center gap-2 flex-1 rounded-2xl py-10 px-4 ${bgClass}`}
                 >
                   {value ? (
-                    <p className={`text-[34px] font-bold leading-none ${accentClass}`}>{value}</p>
+                    <p className={`text-[28px] font-extrabold leading-tight ${accentClass}`}>{value}</p>
                   ) : (
-                    Icon && <Icon className={`h-9 w-9 ${accentClass}`} strokeWidth={1.75} />
+                    <>
+                      {Icon && <Icon className={`h-8 w-8 ${accentClass}`} strokeWidth={1.75} />}
+                      <p className={`text-xl font-extrabold leading-tight ${accentClass}`}>{headline}</p>
+                    </>
                   )}
-                  <p className="text-base font-bold text-foreground">{title}</p>
+                  <p className="text-base font-bold text-foreground">{tagline}</p>
                   <p className="text-sm text-muted-foreground leading-snug">{desc}</p>
                 </div>
               ))}
@@ -209,17 +287,20 @@ export default function Affiliate() {
 
             {/* Mobile: 2-column grid, same filled-card style at a smaller size */}
             <div className="grid grid-cols-2 gap-4 md:hidden">
-              {BENEFITS.map(({ icon: Icon, value, bgClass, accentClass, title, desc }) => (
+              {BENEFITS.map(({ icon: Icon, value, headline, bgClass, accentClass, tagline, desc }) => (
                 <div
-                  key={title}
-                  className={`flex flex-col items-center text-center gap-2 rounded-xl py-5 px-4 ${bgClass}`}
+                  key={tagline}
+                  className={`flex flex-col items-center text-center gap-1.5 rounded-xl py-5 px-4 ${bgClass}`}
                 >
                   {value ? (
-                    <p className={`text-2xl font-bold leading-none ${accentClass}`}>{value}</p>
+                    <p className={`text-xl font-extrabold leading-tight ${accentClass}`}>{value}</p>
                   ) : (
-                    Icon && <Icon className={`h-6 w-6 ${accentClass}`} strokeWidth={1.75} />
+                    <>
+                      {Icon && <Icon className={`h-6 w-6 ${accentClass}`} strokeWidth={1.75} />}
+                      <p className={`text-base font-extrabold leading-tight ${accentClass}`}>{headline}</p>
+                    </>
                   )}
-                  <p className="text-sm font-bold text-foreground">{title}</p>
+                  <p className="text-sm font-bold text-foreground">{tagline}</p>
                   <p className="text-xs text-muted-foreground leading-snug">{desc}</p>
                 </div>
               ))}
@@ -322,6 +403,60 @@ export default function Affiliate() {
                         Your pet's name will be used to create your unique discount code (e.g. COCO15).
                       </p>
                       {errors.petName && <p className="text-xs text-destructive">{errors.petName.message}</p>}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label className="font-semibold">
+                        Country / Region <span className="font-normal text-muted-foreground">(Optional)</span>
+                      </Label>
+                      <Controller
+                        name="country"
+                        control={control}
+                        render={({ field }) => (
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select country" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {COUNTRIES.map((country) => (
+                                <SelectItem key={country} value={country}>
+                                  {country}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="font-semibold">
+                        How did you hear about us?{" "}
+                        <span className="font-normal text-muted-foreground">(Optional)</span>
+                      </Label>
+                      <Controller
+                        name="acquisitionSource"
+                        control={control}
+                        render={({ field }) => (
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select an option" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ACQUISITION_SOURCES.map((source) => (
+                                <SelectItem key={source} value={source}>
+                                  {source}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      {acquisitionSource === "Other" && (
+                        <Input placeholder="Tell us how you heard about us" {...register("acquisitionOther")} />
+                      )}
                     </div>
                   </div>
 

@@ -92,6 +92,8 @@ async function appendApplicationRow(row: {
   email: string;
   petName: string;
   accounts: { platform: string; account: string }[];
+  country: string;
+  acquisitionSource: string;
 }) {
   const instagram = row.accounts
     .filter((a) => a.platform === 'Instagram')
@@ -104,7 +106,7 @@ async function appendApplicationRow(row: {
 
   const token = await getSheetsAccessToken();
   const title = await getSheetTitle(token);
-  const range = encodeURIComponent(`${title}!A:E`);
+  const range = encodeURIComponent(`${title}!A:G`);
 
   const res = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${AFFILIATE_SHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED`,
@@ -112,7 +114,15 @@ async function appendApplicationRow(row: {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        values: [[formatTimestamp(row.submittedAt), row.email, row.petName, instagram, tiktok]],
+        values: [[
+          formatTimestamp(row.submittedAt),
+          row.email,
+          row.petName,
+          instagram,
+          tiktok,
+          row.country,
+          row.acquisitionSource,
+        ]],
       }),
     },
   );
@@ -120,7 +130,7 @@ async function appendApplicationRow(row: {
 }
 
 async function handleApply(req: VercelRequest, res: VercelResponse) {
-  const { socialAccounts, email, petName } = req.body || {};
+  const { socialAccounts, email, petName, country, acquisitionSource } = req.body || {};
   if (!Array.isArray(socialAccounts) || socialAccounts.length === 0 || !email || !petName) {
     return res.status(400).json({ error: 'At least one social account, email, and pet name are required.' });
   }
@@ -144,6 +154,9 @@ async function handleApply(req: VercelRequest, res: VercelResponse) {
   const existingId = await kv.get<string>(`affiliate:email:${normalizedEmail}`);
   if (existingId) return res.status(409).json({ error: 'An application with this email already exists.' });
 
+  const normalizedCountry = country ? String(country).trim() : '';
+  const normalizedAcquisitionSource = acquisitionSource ? String(acquisitionSource).trim() : '';
+
   const id = `aff_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const createdAt = new Date();
   const now = createdAt.toISOString();
@@ -154,6 +167,8 @@ async function handleApply(req: VercelRequest, res: VercelResponse) {
       socialAccounts: normalizedAccounts,
       email: normalizedEmail,
       petName: normalizedPetName,
+      country: normalizedCountry,
+      acquisitionSource: normalizedAcquisitionSource,
       couponCode,
       status: 'pending',
       createdAt: now,
@@ -168,6 +183,8 @@ async function handleApply(req: VercelRequest, res: VercelResponse) {
       email: normalizedEmail,
       petName: normalizedPetName,
       accounts: normalizedAccounts,
+      country: normalizedCountry,
+      acquisitionSource: normalizedAcquisitionSource,
     });
   } catch (e) {
     // Application is already saved in KV; don't fail the request if the sheet log fails.
