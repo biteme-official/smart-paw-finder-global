@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
@@ -21,6 +21,7 @@ import {
   AtSign,
   PawPrint,
   Globe,
+  PartyPopper,
   type LucideIcon,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
@@ -30,14 +31,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import heroBanner from "@/assets/affiliate-hero-banner.jpg";
-import heroBanner2 from "@/assets/affiliate-hero-banner-2.jpg";
 import heroBannerMobile from "@/assets/affiliate-hero-banner-mobile.jpg";
-import heroBannerMobile2 from "@/assets/affiliate-hero-banner-mobile-2.jpg";
-
-const HERO_IMAGES_DESKTOP = [heroBanner, heroBanner2];
-const HERO_IMAGES_MOBILE = [heroBannerMobile, heroBannerMobile2];
-const HERO_SLIDE_MS = 4500;
 
 const SOCIAL_PLATFORMS = ["Instagram", "TikTok"] as const;
 
@@ -54,13 +50,9 @@ const COUNTRIES = [
   "Singapore",
   "Hong Kong",
   "Macau",
-  "Taiwan",
-  "Malaysia",
   "Thailand",
   "Vietnam",
-  "Philippines",
   "Indonesia",
-  "China",
   "India",
   "Other",
 ] as const;
@@ -144,8 +136,10 @@ const schema = z.object({
     .string()
     .min(1, "Pet's name is required")
     .regex(/^[a-zA-Z0-9\s-]+$/, "Enter a valid name"),
-  country: z.enum(COUNTRIES).optional(),
-  acquisitionSource: z.enum(ACQUISITION_SOURCES).optional(),
+  country: z.enum(COUNTRIES, { required_error: "Please select your country." }),
+  acquisitionSource: z.enum(ACQUISITION_SOURCES, {
+    required_error: "Please select how you heard about us.",
+  }),
   acquisitionOther: z.string().optional(),
   confirmed: z.boolean().refine((v) => v === true, {
     message: "Please confirm the discount and commission terms",
@@ -158,14 +152,6 @@ export default function Affiliate() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [heroIndex, setHeroIndex] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setHeroIndex((i) => (i + 1) % HERO_IMAGES_DESKTOP.length);
-    }, HERO_SLIDE_MS);
-    return () => clearInterval(timer);
-  }, []);
 
   const {
     register,
@@ -228,16 +214,11 @@ export default function Affiliate() {
           <section className="relative rounded-3xl overflow-hidden">
             {/* Desktop crop */}
             <div className="relative hidden md:block aspect-[21/9]">
-              {HERO_IMAGES_DESKTOP.map((src, i) => (
-                <img
-                  key={src}
-                  src={src}
-                  alt="BITE ME plush toys and accessories"
-                  className={`absolute inset-0 h-full w-full object-cover object-[70%_center] transition-opacity duration-[900ms] ease-in-out ${
-                    i === heroIndex ? "opacity-100" : "opacity-0"
-                  }`}
-                />
-              ))}
+              <img
+                src={heroBanner}
+                alt="BITE ME plush toys and accessories"
+                className="absolute inset-0 h-full w-full object-cover object-[70%_center]"
+              />
               <div className="relative h-full flex flex-col items-start justify-center gap-3 px-16 max-w-2xl">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-4 py-1.5 text-sm font-semibold text-orange-600">
                   <Sparkles className="h-3.5 w-3.5" strokeWidth={2} />
@@ -260,16 +241,11 @@ export default function Affiliate() {
 
             {/* Mobile crop */}
             <div className="relative md:hidden aspect-[4/5]">
-              {HERO_IMAGES_MOBILE.map((src, i) => (
-                <img
-                  key={src}
-                  src={src}
-                  alt="BITE ME plush toys and accessories"
-                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[900ms] ease-in-out ${
-                    i === heroIndex ? "opacity-100" : "opacity-0"
-                  }`}
-                />
-              ))}
+              <img
+                src={heroBannerMobile}
+                alt="BITE ME plush toys and accessories"
+                className="absolute inset-0 h-full w-full object-cover"
+              />
               <div className="relative h-full flex flex-col items-start justify-end gap-2 px-5 pb-8">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-4 py-2 text-sm font-bold text-orange-600 shadow-sm">
                   <Sparkles className="h-4 w-4" strokeWidth={2} />
@@ -378,220 +354,243 @@ export default function Affiliate() {
 
           {/* Apply now */}
           <section className="mt-14 md:mt-20 mb-16">
-            {submitted ? (
-              <div className="rounded-3xl bg-muted text-center px-6 py-10 md:px-10 md:py-14">
-                <p className="text-base font-semibold text-foreground">Thanks for applying!</p>
-                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                  We'll review your application and email you if you're invited to the program.
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-3xl bg-muted px-6 py-8 md:px-10 md:py-10">
-                <h2 className="text-lg md:text-2xl font-bold text-foreground mb-1">Apply now</h2>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Enter your social accounts, email, and pet's name.
-                </p>
+            <div className="rounded-3xl bg-muted px-6 py-8 md:px-10 md:py-10">
+              <h2 className="text-lg md:text-2xl font-bold text-foreground mb-1">Apply now</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Enter your social accounts, email, and pet's name.
+              </p>
 
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                  <div className="space-y-3">
-                    <div className="hidden md:grid md:grid-cols-[200px_1fr] gap-4">
-                      <Label className="font-semibold">Social Media Platform</Label>
-                      <Label className="font-semibold">Account</Label>
-                    </div>
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <div className="space-y-3">
+                  <div className="hidden md:grid md:grid-cols-[200px_1fr] gap-4">
+                    <Label className="font-semibold">Social Media Platform</Label>
+                    <Label className="font-semibold">Account</Label>
+                  </div>
 
-                    {fields.map((field, index) => (
-                      <div key={field.id} className="flex flex-col md:flex-row gap-2 md:gap-4 md:items-start">
-                        <div className="md:w-[200px] shrink-0 space-y-2">
-                          <Label className="font-semibold md:hidden inline-flex items-center gap-1">
-                            <Smartphone className="h-3.5 w-3.5 text-orange-500" strokeWidth={2} />
-                            Social Media Platform
-                          </Label>
-                          <Controller
-                            name={`socialAccounts.${index}.platform`}
-                            control={control}
-                            render={({ field: platformField }) => (
-                              <Select value={platformField.value} onValueChange={platformField.onChange}>
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {SOCIAL_PLATFORMS.map((platform) => (
-                                    <SelectItem key={platform} value={platform}>
-                                      {platform}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            )}
-                          />
-                        </div>
-
-                        <div className="flex-1 flex items-start gap-2">
-                          <div className="flex-1 space-y-2">
-                            <Label className="font-semibold md:hidden inline-flex items-center gap-1">
-                              <AtSign className="h-3.5 w-3.5 text-orange-500" strokeWidth={2} />
-                              Account
-                            </Label>
-                            <Input
-                              placeholder="@your_account"
-                              {...register(`socialAccounts.${index}.account`)}
-                            />
-                            {errors.socialAccounts?.[index]?.account && (
-                              <p className="text-xs text-destructive">
-                                {errors.socialAccounts[index]?.account?.message}
-                              </p>
-                            )}
-                          </div>
-                          {fields.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => remove(index)}
-                              className="h-10 mt-0 md:mt-8 px-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                            >
-                              <X className="h-3.5 w-3.5" /> Remove
-                            </button>
+                  {fields.map((field, index) => (
+                    <div key={field.id} className="flex flex-col md:flex-row gap-2 md:gap-4 md:items-start">
+                      <div className="md:w-[200px] shrink-0 space-y-2">
+                        <Label className="font-semibold md:hidden inline-flex items-center gap-1">
+                          <Smartphone className="h-3.5 w-3.5 text-orange-500" strokeWidth={2} />
+                          Social Media Platform
+                        </Label>
+                        <Controller
+                          name={`socialAccounts.${index}.platform`}
+                          control={control}
+                          render={({ field: platformField }) => (
+                            <Select value={platformField.value} onValueChange={platformField.onChange}>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {SOCIAL_PLATFORMS.map((platform) => (
+                                  <SelectItem key={platform} value={platform}>
+                                    {platform}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           )}
-                        </div>
+                        />
                       </div>
-                    ))}
 
-                    <button
-                      type="button"
-                      onClick={() => append({ platform: "Instagram", account: "" })}
-                      className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
-                    >
-                      <Plus className="h-4 w-4" /> Add another account
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label className="font-semibold inline-flex items-center gap-1">
-                        <Mail className="h-3.5 w-3.5 text-orange-500 md:hidden" strokeWidth={2} />
-                        Email address
-                      </Label>
-                      <Input placeholder="example@email.com" {...register("email")} />
-                      {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="font-semibold inline-flex items-center gap-1">
-                        <PawPrint className="h-3.5 w-3.5 text-orange-500 md:hidden" strokeWidth={2} />
-                        Pet's Name
-                      </Label>
-                      <Input placeholder="coco" {...register("petName")} />
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Your pet's name will be used to create your unique discount code (e.g. COCO15).
-                      </p>
-                      {errors.petName && <p className="text-xs text-destructive">{errors.petName.message}</p>}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label className="font-semibold inline-flex items-center gap-1">
-                        <Globe className="h-3.5 w-3.5 text-orange-500 md:hidden" strokeWidth={2} />
-                        Country / Region <span className="font-normal text-muted-foreground">(Optional)</span>
-                      </Label>
-                      <Controller
-                        name="country"
-                        control={control}
-                        render={({ field }) => (
-                          <Select value={field.value} onValueChange={field.onChange}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select country" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {COUNTRIES.map((country) => (
-                                <SelectItem key={country} value={country}>
-                                  {country}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="font-semibold inline-flex items-center gap-1">
-                        <Sparkles className="h-3.5 w-3.5 text-orange-500 md:hidden" strokeWidth={2} />
-                        How did you hear about us?{" "}
-                        <span className="font-normal text-muted-foreground">(Optional)</span>
-                      </Label>
-                      <Controller
-                        name="acquisitionSource"
-                        control={control}
-                        render={({ field }) => (
-                          <Select value={field.value} onValueChange={field.onChange}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select an option" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {ACQUISITION_SOURCES.map((source) => (
-                                <SelectItem key={source} value={source}>
-                                  {source}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                      {acquisitionSource === "Other" && (
-                        <Input placeholder="Tell us how you heard about us" {...register("acquisitionOther")} />
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex items-start gap-2">
-                      <Controller
-                        name="confirmed"
-                        control={control}
-                        render={({ field }) => (
-                          <Checkbox
-                            id="confirmed"
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            className="mt-0.5"
+                      <div className="flex-1 flex items-start gap-2">
+                        <div className="flex-1 space-y-2">
+                          <Label className="font-semibold md:hidden inline-flex items-center gap-1">
+                            <AtSign className="h-3.5 w-3.5 text-orange-500" strokeWidth={2} />
+                            Account
+                          </Label>
+                          <Input
+                            placeholder="@your_account"
+                            className={errors.socialAccounts?.[index]?.account ? "border-destructive" : undefined}
+                            {...register(`socialAccounts.${index}.account`)}
                           />
+                        </div>
+                        {fields.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => remove(index)}
+                            className="h-10 mt-0 md:mt-8 px-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                          >
+                            <X className="h-3.5 w-3.5" /> Remove
+                          </button>
                         )}
-                      />
-                      <Label htmlFor="confirmed" className="font-normal text-sm text-foreground leading-snug">
-                        I understand that my followers will receive 15% off with my code, and I will earn a
-                        10% commission on eligible sales.
-                      </Label>
+                      </div>
                     </div>
-                    {errors.confirmed && <p className="text-xs text-destructive">{errors.confirmed.message}</p>}
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => append({ platform: "Instagram", account: "" })}
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+                  >
+                    <Plus className="h-4 w-4" /> Add another account
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="font-semibold inline-flex items-center gap-1">
+                      <Mail className="h-3.5 w-3.5 text-orange-500 md:hidden" strokeWidth={2} />
+                      Email address
+                    </Label>
+                    <Input
+                      placeholder="example@email.com"
+                      className={errors.email ? "border-destructive" : undefined}
+                      {...register("email")}
+                    />
                   </div>
 
-                  <div className="flex items-start gap-3 rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-100">
-                      <Mail className="h-4 w-4 text-orange-600" />
-                    </span>
-                    <div>
-                      <p className="text-sm font-bold text-foreground">What happens next?</p>
-                      <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-                        You'll receive an affiliate invitation email the following day. Follow the
-                        instructions in the email to join and create your unique affiliate link.
-                      </p>
-                    </div>
+                  <div className="space-y-2">
+                    <Label className="font-semibold inline-flex items-center gap-1">
+                      <PawPrint className="h-3.5 w-3.5 text-orange-500 md:hidden" strokeWidth={2} />
+                      Pet's Name
+                    </Label>
+                    <Input
+                      placeholder="coco"
+                      className={errors.petName ? "border-destructive" : undefined}
+                      {...register("petName")}
+                    />
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Your pet's name will be used to create your unique discount code (e.g. COCO15).
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="font-semibold inline-flex items-center gap-1">
+                      <Globe className="h-3.5 w-3.5 text-orange-500 md:hidden" strokeWidth={2} />
+                      Country / Region
+                    </Label>
+                    <Controller
+                      name="country"
+                      control={control}
+                      render={({ field }) => (
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger className={errors.country ? "border-destructive" : undefined}>
+                            <SelectValue placeholder="Select country" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {COUNTRIES.map((country) => (
+                              <SelectItem key={country} value={country}>
+                                {country}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Affiliate Program is currently unavailable in China, Taiwan, Malaysia, and the
+                      Philippines due to local distribution partnerships.
+                    </p>
                   </div>
 
-                  <div className="flex justify-end">
-                    <Button type="submit" disabled={submitting} size="sm" className="font-semibold px-6">
-                      {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                      Join the Program
-                    </Button>
+                  <div className="space-y-2">
+                    <Label className="font-semibold inline-flex items-center gap-1">
+                      <Sparkles className="h-3.5 w-3.5 text-orange-500 md:hidden" strokeWidth={2} />
+                      How did you hear about us?
+                    </Label>
+                    <Controller
+                      name="acquisitionSource"
+                      control={control}
+                      render={({ field }) => (
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger className={errors.acquisitionSource ? "border-destructive" : undefined}>
+                            <SelectValue placeholder="Select an option" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ACQUISITION_SOURCES.map((source) => (
+                              <SelectItem key={source} value={source}>
+                                {source}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {acquisitionSource === "Other" && (
+                      <Input placeholder="Tell us how you heard about us" {...register("acquisitionOther")} />
+                    )}
                   </div>
-                </form>
-              </div>
-            )}
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-start gap-2">
+                    <Controller
+                      name="confirmed"
+                      control={control}
+                      render={({ field }) => (
+                        <Checkbox
+                          id="confirmed"
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          className={`mt-0.5 ${errors.confirmed ? "border-destructive" : ""}`}
+                        />
+                      )}
+                    />
+                    <Label htmlFor="confirmed" className="font-normal text-sm text-foreground leading-snug">
+                      I understand that my followers will receive 15% off with my code, and I will earn a
+                      10% commission on eligible sales.
+                    </Label>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-100">
+                    <Mail className="h-4 w-4 text-orange-600" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-foreground">What happens next?</p>
+                    <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
+                      You'll receive an affiliate invitation email the following day. Follow the
+                      instructions in the email to join and create your unique affiliate link.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button type="submit" disabled={submitting} size="sm" className="font-semibold px-6">
+                    {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    Join the Program
+                  </Button>
+                </div>
+              </form>
+            </div>
           </section>
         </div>
       </main>
 
       <Footer />
+
+      <Dialog open={submitted} onOpenChange={(open) => !open && setSubmitted(false)}>
+        <DialogContent className="max-w-[340px] rounded-3xl border-none p-8 text-center sm:max-w-sm">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-orange-100">
+            <PartyPopper className="h-7 w-7 text-orange-600" strokeWidth={1.75} />
+          </div>
+          <DialogTitle className="mt-4 text-center text-lg font-bold text-foreground">
+            Application Submitted! 🎉
+          </DialogTitle>
+          <DialogDescription asChild>
+            <div className="mt-2 space-y-2 text-center text-sm text-muted-foreground leading-relaxed">
+              <p>
+                You'll receive your affiliate invitation
+                <br />
+                email by tomorrow.
+              </p>
+              <p>
+                Follow the instructions in the email
+                <br />
+                to get started!
+              </p>
+            </div>
+          </DialogDescription>
+          <Button onClick={() => navigate("/")} className="mt-6 w-full font-semibold">
+            Continue Shopping
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
