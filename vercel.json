@@ -75,6 +75,8 @@
     { "source": "/api/b2b-status", "destination": "/api/b2b?action=status" },
     { "source": "/api/b2b-shopify", "destination": "/api/b2b?action=shopify-b2b" },
     { "source": "/api/b2b-update-country", "destination": "/api/b2b?action=update-country" },
+    { "source": "/api/affiliate-apply", "destination": "/api/affiliate?action=apply" },
+    { "source": "/api/affiliate-list", "destination": "/api/affiliate?action=list" },
     { "source": "/api/instagram-reels", "destination": "/api/instagram-reels" },
     { "source": "/api/analytics", "destination": "/api/analytics" },
     { "source": "/api/shopify-analytics", "destination": "/api/analytics?type=shopify" },
