@@ -17,6 +17,10 @@ import {
   Plus,
   X,
   Sparkles,
+  Smartphone,
+  AtSign,
+  PawPrint,
+  Globe,
   type LucideIcon,
 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
@@ -379,7 +383,10 @@ export default function Affiliate() {
                     {fields.map((field, index) => (
                       <div key={field.id} className="flex flex-col md:flex-row gap-2 md:gap-4 md:items-start">
                         <div className="md:w-[200px] shrink-0 space-y-2">
-                          <Label className="font-semibold md:hidden">Social Media Platform</Label>
+                          <Label className="font-semibold md:hidden inline-flex items-center gap-1">
+                            <Smartphone className="h-3.5 w-3.5 text-orange-500" strokeWidth={2} />
+                            Social Media Platform
+                          </Label>
                           <Controller
                             name={`socialAccounts.${index}.platform`}
                             control={control}
@@ -402,7 +409,10 @@ export default function Affiliate() {
 
                         <div className="flex-1 flex items-start gap-2">
                           <div className="flex-1 space-y-2">
-                            <Label className="font-semibold md:hidden">Account</Label>
+                            <Label className="font-semibold md:hidden inline-flex items-center gap-1">
+                              <AtSign className="h-3.5 w-3.5 text-orange-500" strokeWidth={2} />
+                              Account
+                            </Label>
                             <Input
                               placeholder="@your_account"
                               {...register(`socialAccounts.${index}.account`)}
@@ -437,13 +447,19 @@ export default function Affiliate() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label className="font-semibold">Email address</Label>
+                      <Label className="font-semibold inline-flex items-center gap-1">
+                        <Mail className="h-3.5 w-3.5 text-orange-500 md:hidden" strokeWidth={2} />
+                        Email address
+                      </Label>
                       <Input placeholder="example@email.com" {...register("email")} />
                       {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="font-semibold">Pet's Name</Label>
+                      <Label className="font-semibold inline-flex items-center gap-1">
+                        <PawPrint className="h-3.5 w-3.5 text-orange-500 md:hidden" strokeWidth={2} />
+                        Pet's Name
+                      </Label>
                       <Input placeholder="coco" {...register("petName")} />
                       <p className="text-xs text-muted-foreground leading-relaxed">
                         Your pet's name will be used to create your unique discount code (e.g. COCO15).
@@ -454,7 +470,8 @@ export default function Affiliate() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label className="font-semibold">
+                      <Label className="font-semibold inline-flex items-center gap-1">
+                        <Globe className="h-3.5 w-3.5 text-orange-500 md:hidden" strokeWidth={2} />
                         Country / Region <span className="font-normal text-muted-foreground">(Optional)</span>
                       </Label>
                       <Controller
@@ -478,7 +495,8 @@ export default function Affiliate() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="font-semibold">
+                      <Label className="font-semibold inline-flex items-center gap-1">
+                        <Sparkles className="h-3.5 w-3.5 text-orange-500 md:hidden" strokeWidth={2} />
                         How did you hear about us?{" "}
                         <span className="font-normal text-muted-foreground">(Optional)</span>
                       </Label>
