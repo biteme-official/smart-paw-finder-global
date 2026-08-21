@@ -215,7 +215,7 @@ export default function Affiliate() {
               />
               <div className="relative h-full flex flex-col items-start justify-center gap-3 px-16 max-w-2xl">
                 <span className="inline-flex items-center rounded-full bg-white/90 px-4 py-1.5 text-sm font-semibold text-orange-600">
-                  🐾 Affiliate Collab
+                  🪙 Affiliate Collab
                 </span>
                 <h1 className="text-5xl font-bold text-stone-800 leading-tight">
                   Share Bite Me
@@ -241,7 +241,7 @@ export default function Affiliate() {
               />
               <div className="relative h-full flex flex-col items-start justify-end gap-2 px-6 pb-8">
                 <span className="inline-flex items-center rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-orange-600">
-                  🐾 Affiliate Collab
+                  🪙 Affiliate Collab
                 </span>
                 <h1 className="text-3xl font-bold text-stone-800 leading-tight">
                   Share Bite Me
