@@ -8,8 +8,8 @@ import {
   ArrowRight,
   ArrowDown,
   MousePointerClick,
-  Clock,
   Mail,
+  Link2,
   Gift,
   Users,
   TrendingUp,
@@ -25,11 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// TODO: swap these for the real affiliate campaign banner once delivered.
-// Desktop crop: 21:9 (recommended 2400x1029px, min 1920x823px).
-// Mobile crop: 4:5 (recommended 1080x1350px) so the subject isn't cropped out on narrow screens.
-import heroDesktopPlaceholder from "@/assets/contact-dog.jpg";
-import heroMobilePlaceholder from "@/assets/contact-dog.jpg";
+import heroBanner from "@/assets/affiliate-hero-banner.jpg";
 
 const SOCIAL_PLATFORMS = ["Instagram", "TikTok"] as const;
 
@@ -73,10 +69,10 @@ interface StepDef {
 }
 
 const STEPS: StepDef[] = [
-  { icon: MousePointerClick, title: "Apply", desc: "Social accounts, email, pet's name" },
-  { icon: Clock, title: "Review", desc: "Handled in order received" },
-  { icon: Mail, title: "Get invited", desc: "Receive invitation by email" },
-  { icon: Gift, title: "Earn", desc: "Upload content and earn commission" },
+  { icon: MousePointerClick, title: "Apply", desc: "Submit your application" },
+  { icon: Mail, title: "Get Invited", desc: "Receive your invitation by email" },
+  { icon: Link2, title: "Share Your Link", desc: "Create and share your unique affiliate link" },
+  { icon: Gift, title: "Earn Commission", desc: "Earn 10% on every eligible sale" },
 ];
 
 interface BenefitDef {
@@ -213,9 +209,9 @@ export default function Affiliate() {
             {/* Desktop crop */}
             <div className="relative hidden md:block aspect-[21/9]">
               <img
-                src={heroDesktopPlaceholder}
-                alt="BITE ME affiliates sharing products with their pets"
-                className="absolute inset-0 h-full w-full object-cover"
+                src={heroBanner}
+                alt="BITE ME plush toys and accessories"
+                className="absolute inset-0 h-full w-full object-cover object-[70%_center]"
               />
               <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/25 to-transparent" />
               <div className="relative h-full flex flex-col items-start justify-center gap-3 px-16 max-w-2xl">
@@ -238,9 +234,9 @@ export default function Affiliate() {
             {/* Mobile crop */}
             <div className="relative md:hidden aspect-[4/5]">
               <img
-                src={heroMobilePlaceholder}
-                alt="BITE ME affiliates sharing products with their pets"
-                className="absolute inset-0 h-full w-full object-cover"
+                src={heroBanner}
+                alt="BITE ME plush toys and accessories"
+                className="absolute inset-0 h-full w-full object-cover object-right"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
               <div className="relative h-full flex flex-col items-start justify-end gap-2 px-6 pb-8">
@@ -270,10 +266,10 @@ export default function Affiliate() {
               <div className="hidden md:flex items-stretch gap-4">
                 {STEPS.map(({ icon: Icon, title, desc }, index) => (
                   <div key={title} className="flex items-stretch flex-1 gap-4">
-                    <div className="flex flex-col items-center text-center gap-3 flex-1 rounded-2xl bg-orange-500 shadow-sm py-10 px-4">
-                      <Icon className="h-9 w-9 text-white" strokeWidth={1.75} />
-                      <p className="text-base font-extrabold text-white">{title}</p>
-                      <p className="text-sm text-white/85 leading-snug">{desc}</p>
+                    <div className="flex flex-col items-center text-center gap-3 flex-1 rounded-2xl bg-orange-100 shadow-sm py-10 px-4">
+                      <Icon className="h-9 w-9 text-orange-500" strokeWidth={1.75} />
+                      <p className="text-base font-extrabold text-foreground">{title}</p>
+                      <p className="text-sm text-gray-600 leading-snug">{desc}</p>
                     </div>
                     {index < STEPS.length - 1 && (
                       <ArrowRight className="h-6 w-6 text-orange-500 self-center shrink-0" strokeWidth={2} />
@@ -286,10 +282,10 @@ export default function Affiliate() {
               <div className="md:hidden flex flex-col items-center gap-2">
                 {STEPS.map(({ icon: Icon, title, desc }, index) => (
                   <div key={title} className="w-full flex flex-col items-center">
-                    <div className="w-full flex flex-col items-center text-center gap-2 rounded-xl bg-orange-500 shadow-sm py-5 px-4">
-                      <Icon className="h-6 w-6 text-white" strokeWidth={1.75} />
-                      <p className="text-sm font-extrabold text-white">{title}</p>
-                      <p className="text-xs text-white/85 leading-snug">{desc}</p>
+                    <div className="w-full flex flex-col items-center text-center gap-2 rounded-xl bg-orange-100 shadow-sm py-5 px-4">
+                      <Icon className="h-6 w-6 text-orange-500" strokeWidth={1.75} />
+                      <p className="text-sm font-extrabold text-foreground">{title}</p>
+                      <p className="text-xs text-gray-600 leading-snug">{desc}</p>
                     </div>
                     {index < STEPS.length - 1 && (
                       <ArrowDown className="h-5 w-5 text-orange-500 my-1 shrink-0" strokeWidth={2} />
