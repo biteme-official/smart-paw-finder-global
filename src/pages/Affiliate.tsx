@@ -219,8 +219,8 @@ export default function Affiliate() {
 
           {/* How it works */}
           <section className="mt-14 md:mt-20">
-            <div className="rounded-3xl bg-orange-50/70 px-4 py-8 md:px-8 md:py-10">
-              <h2 className="text-lg md:text-2xl font-bold text-foreground text-center mb-6 md:mb-8">How it works</h2>
+            <div className="rounded-3xl bg-orange-500 px-4 py-8 md:px-8 md:py-10">
+              <h2 className="text-lg md:text-2xl font-bold text-white text-center mb-6 md:mb-8">How it works</h2>
 
               {/* Desktop: row with connecting arrows */}
               <div className="hidden md:flex items-stretch gap-4">
@@ -232,7 +232,7 @@ export default function Affiliate() {
                       <p className="text-sm text-foreground/70 leading-snug">{desc}</p>
                     </div>
                     {index < STEPS.length - 1 && (
-                      <ArrowRight className="h-6 w-6 text-orange-300 self-center shrink-0" strokeWidth={2} />
+                      <ArrowRight className="h-6 w-6 text-white self-center shrink-0" strokeWidth={2} />
                     )}
                   </div>
                 ))}
@@ -248,7 +248,7 @@ export default function Affiliate() {
                       <p className="text-xs text-foreground/70 leading-snug">{desc}</p>
                     </div>
                     {index < STEPS.length - 1 && (
-                      <ArrowDown className="h-5 w-5 text-orange-300 my-1 shrink-0" strokeWidth={2} />
+                      <ArrowDown className="h-5 w-5 text-white my-1 shrink-0" strokeWidth={2} />
                     )}
                   </div>
                 ))}
