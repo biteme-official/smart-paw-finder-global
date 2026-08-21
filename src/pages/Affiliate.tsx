@@ -246,25 +246,25 @@ export default function Affiliate() {
                 alt="BITE ME plush toys and accessories"
                 className="absolute inset-0 h-full w-full object-cover"
               />
-              <div className="relative h-full flex flex-col justify-end px-4 pb-12">
-                <div className="rounded-2xl bg-white/75 backdrop-blur-[2px] px-4 py-4 flex flex-col items-start gap-1.5 [text-shadow:0_1px_2px_rgba(255,255,255,0.4)]">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-orange-600">
-                    <Sparkles className="h-3 w-3" strokeWidth={2} />
-                    Affiliate Collab
-                  </span>
-                  <h1 className="mt-1 text-[26px] font-bold text-stone-800 leading-[1.15]">
-                    Share Bite Me
-                    <br />
-                    earn together
-                  </h1>
-                  <p className="text-xs text-stone-600 leading-snug">
-                    Share your BITE ME favorites and earn with every sale!
-                  </p>
-                  <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-bold text-orange-600">
-                    <ArrowDown className="h-3 w-3 shrink-0" />
-                    Scroll down and submit your application to join!
-                  </p>
-                </div>
+              <div className="relative h-full flex flex-col items-start justify-end gap-1 px-5 pb-6 [text-shadow:0_1px_4px_rgba(255,255,255,0.55)]">
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-orange-600 [text-shadow:none]">
+                  <Sparkles className="h-3 w-3" strokeWidth={2} />
+                  Affiliate Collab
+                </span>
+                <h1 className="mt-1.5 text-2xl font-bold text-stone-800 leading-[1.15]">
+                  Share Bite Me
+                  <br />
+                  earn together
+                </h1>
+                <p className="text-xs text-stone-700 leading-snug">
+                  Share your BITE ME favorites
+                  <br />
+                  and earn with every sale!
+                </p>
+                <p className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-orange-600 [text-shadow:none]">
+                  <ArrowDown className="h-3 w-3 shrink-0" />
+                  Scroll down to join!
+                </p>
               </div>
             </div>
           </section>
