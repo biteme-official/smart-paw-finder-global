@@ -188,14 +188,14 @@ export default function Affiliate() {
           {/* Apply now */}
           <section className="mt-14 md:mt-20 mb-16">
             {submitted ? (
-              <div className="text-center py-10">
+              <div className="rounded-3xl bg-muted text-center px-6 py-10 md:px-10 md:py-14">
                 <p className="text-base font-semibold text-foreground">Thanks for applying!</p>
                 <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                   We'll review your application and email you if you're invited to the program.
                 </p>
               </div>
             ) : (
-              <>
+              <div className="rounded-3xl bg-muted px-6 py-8 md:px-10 md:py-10">
                 <h2 className="text-lg md:text-2xl font-bold text-foreground mb-1">Apply now</h2>
                 <p className="text-sm text-muted-foreground mb-6">
                   Enter your Instagram account, email, and dog's name.
@@ -220,7 +220,7 @@ export default function Affiliate() {
 
                   <div className="space-y-2">
                     <Label className="font-semibold">Dog's name</Label>
-                    <Input placeholder="coco" className="md:max-w-xl" {...register("dogName")} />
+                    <Input placeholder="coco" className="w-full" {...register("dogName")} />
                     <p className="text-xs text-muted-foreground leading-relaxed">
                       This will be used to generate your coupon code (e.g. dog's name "coco" → coupon code
                       "COCO15").
@@ -260,7 +260,7 @@ export default function Affiliate() {
                     After submitting, you'll be redirected to a guide page — please review it.
                   </p>
                 </form>
-              </>
+              </div>
             )}
           </section>
         </div>
