@@ -11,8 +11,6 @@ import {
   Clock,
   Mail,
   Gift,
-  Ticket,
-  Percent,
   Users,
   TrendingUp,
   Loader2,
@@ -39,18 +37,19 @@ const STEPS: StepDef[] = [
 ];
 
 interface BenefitDef {
-  icon: LucideIcon;
+  icon?: LucideIcon;
+  value?: string;
   bgClass: string;
-  iconClass: string;
+  accentClass: string;
   title: string;
   desc: string;
 }
 
 const BENEFITS: BenefitDef[] = [
-  { icon: Ticket, bgClass: "bg-amber-100", iconClass: "text-amber-600", title: "15% off coupon", desc: "Applies to all products" },
-  { icon: Percent, bgClass: "bg-red-100", iconClass: "text-red-600", title: "10% commission", desc: "Applies to all products" },
-  { icon: Users, bgClass: "bg-blue-100", iconClass: "text-blue-600", title: "Collab opportunities", desc: "Based on content performance" },
-  { icon: TrendingUp, bgClass: "bg-purple-100", iconClass: "text-purple-600", title: "Tiered rates", desc: "Grow with your sales" },
+  { value: "15%", bgClass: "bg-amber-100", accentClass: "text-amber-600", title: "Off coupon", desc: "Applies to all products" },
+  { value: "10%", bgClass: "bg-red-100", accentClass: "text-red-600", title: "Commission", desc: "Applies to all products" },
+  { icon: Users, bgClass: "bg-blue-100", accentClass: "text-blue-600", title: "Collab opportunities", desc: "Based on content performance" },
+  { icon: TrendingUp, bgClass: "bg-purple-100", accentClass: "text-purple-600", title: "Tiered rates", desc: "Grow with your sales" },
 ];
 
 const schema = z.object({
@@ -172,14 +171,39 @@ export default function Affiliate() {
           {/* Partner benefits */}
           <section className="mt-14 md:mt-20">
             <h2 className="text-lg md:text-2xl font-bold text-foreground text-center mb-6 md:mb-8">Partner benefits</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
-              {BENEFITS.map(({ icon: Icon, bgClass, iconClass, title, desc }) => (
-                <div key={title} className="flex flex-col items-center text-center gap-2 md:gap-4">
-                  <span className={`flex h-16 w-16 md:h-36 md:w-36 items-center justify-center rounded-2xl ${bgClass}`}>
-                    <Icon className={`h-7 w-7 md:h-14 md:w-14 ${iconClass}`} strokeWidth={1.75} />
-                  </span>
-                  <p className="text-sm md:text-base font-semibold text-foreground">{title}</p>
-                  <p className="text-xs md:text-sm text-muted-foreground leading-snug">{desc}</p>
+
+            {/* Desktop: same card size as How it works, filled with the benefit's accent color */}
+            <div className="hidden md:flex items-stretch gap-4">
+              {BENEFITS.map(({ icon: Icon, value, bgClass, accentClass, title, desc }) => (
+                <div
+                  key={title}
+                  className={`flex flex-col items-center text-center gap-3 flex-1 rounded-2xl py-10 px-4 ${bgClass}`}
+                >
+                  {value ? (
+                    <p className={`text-[34px] font-bold leading-none ${accentClass}`}>{value}</p>
+                  ) : (
+                    Icon && <Icon className={`h-9 w-9 ${accentClass}`} strokeWidth={1.75} />
+                  )}
+                  <p className="text-base font-bold text-foreground">{title}</p>
+                  <p className="text-sm text-muted-foreground leading-snug">{desc}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Mobile: 2-column grid, same filled-card style at a smaller size */}
+            <div className="grid grid-cols-2 gap-4 md:hidden">
+              {BENEFITS.map(({ icon: Icon, value, bgClass, accentClass, title, desc }) => (
+                <div
+                  key={title}
+                  className={`flex flex-col items-center text-center gap-2 rounded-xl py-5 px-4 ${bgClass}`}
+                >
+                  {value ? (
+                    <p className={`text-2xl font-bold leading-none ${accentClass}`}>{value}</p>
+                  ) : (
+                    Icon && <Icon className={`h-6 w-6 ${accentClass}`} strokeWidth={1.75} />
+                  )}
+                  <p className="text-sm font-bold text-foreground">{title}</p>
+                  <p className="text-xs text-muted-foreground leading-snug">{desc}</p>
                 </div>
               ))}
             </div>
