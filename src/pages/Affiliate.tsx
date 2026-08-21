@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import heroBanner from "@/assets/affiliate-hero-banner.jpg";
+import heroBannerMobile from "@/assets/affiliate-hero-banner-mobile.jpg";
 
 const SOCIAL_PLATFORMS = ["Instagram", "TikTok"] as const;
 
@@ -235,9 +236,9 @@ export default function Affiliate() {
             {/* Mobile crop */}
             <div className="relative md:hidden aspect-[4/5]">
               <img
-                src={heroBanner}
+                src={heroBannerMobile}
                 alt="BITE ME plush toys and accessories"
-                className="absolute inset-0 h-full w-full object-cover object-right"
+                className="absolute inset-0 h-full w-full object-cover"
               />
               <div className="relative h-full flex flex-col items-start justify-end gap-2 px-6 pb-8">
                 <span className="inline-flex items-center rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-orange-600">
