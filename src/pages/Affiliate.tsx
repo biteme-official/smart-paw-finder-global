@@ -25,6 +25,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+// TODO: swap these for the real affiliate campaign banner once delivered.
+// Desktop crop: 21:9 (recommended 2400x1029px, min 1920x823px).
+// Mobile crop: 4:5 (recommended 1080x1350px) so the subject isn't cropped out on narrow screens.
+import heroDesktopPlaceholder from "@/assets/contact-dog.jpg";
+import heroMobilePlaceholder from "@/assets/contact-dog.jpg";
 
 const SOCIAL_PLATFORMS = ["Instagram", "TikTok"] as const;
 
@@ -203,17 +208,56 @@ export default function Affiliate() {
 
       <main className="flex-1">
         <div className="max-w-7xl mx-auto px-4 mt-6">
-          {/* Hero banner */}
-          <section className="relative aspect-[21/9] rounded-3xl overflow-hidden bg-gradient-to-br from-orange-400 to-orange-500">
-            <div className="relative h-full flex flex-col items-start justify-center gap-4 px-8 md:px-16">
-              <span className="inline-flex items-center rounded-full bg-white/90 px-3 py-1 md:px-4 md:py-1.5 text-xs md:text-sm font-semibold text-orange-600">
-                Affiliate Collab
-              </span>
-              <h1 className="text-3xl md:text-6xl font-bold text-white leading-tight">
-                Share Bite Me,
-                <br />
-                earn together
-              </h1>
+          {/* Hero banner — image campaign banner (desktop 21:9, mobile 4:5) */}
+          <section className="relative rounded-3xl overflow-hidden">
+            {/* Desktop crop */}
+            <div className="relative hidden md:block aspect-[21/9]">
+              <img
+                src={heroDesktopPlaceholder}
+                alt="BITE ME affiliates sharing products with their pets"
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/25 to-transparent" />
+              <div className="relative h-full flex flex-col items-start justify-center gap-3 px-16 max-w-2xl">
+                <span className="inline-flex items-center rounded-full bg-white/90 px-4 py-1.5 text-sm font-semibold text-orange-600">
+                  Affiliate Collab
+                </span>
+                <h1 className="text-5xl font-bold text-white leading-tight drop-shadow-sm">
+                  Share Bite Me, earn together
+                </h1>
+                <p className="text-lg text-white/90 drop-shadow-sm">
+                  Share your BITE ME favorites and earn with every sale!
+                </p>
+                <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-white/95">
+                  <ArrowDown className="h-4 w-4" />
+                  Scroll down and submit your application to join!
+                </p>
+              </div>
+            </div>
+
+            {/* Mobile crop */}
+            <div className="relative md:hidden aspect-[4/5]">
+              <img
+                src={heroMobilePlaceholder}
+                alt="BITE ME affiliates sharing products with their pets"
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+              <div className="relative h-full flex flex-col items-start justify-end gap-2 px-6 pb-8">
+                <span className="inline-flex items-center rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-orange-600">
+                  Affiliate Collab
+                </span>
+                <h1 className="text-3xl font-bold text-white leading-tight drop-shadow-sm">
+                  Share Bite Me, earn together
+                </h1>
+                <p className="text-sm text-white/90 drop-shadow-sm">
+                  Share your BITE ME favorites and earn with every sale!
+                </p>
+                <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-white/95">
+                  <ArrowDown className="h-3.5 w-3.5" />
+                  Scroll down and submit your application to join!
+                </p>
+              </div>
             </div>
           </section>
 
