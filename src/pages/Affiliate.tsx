@@ -174,9 +174,9 @@ export default function Affiliate() {
             <h2 className="text-lg md:text-2xl font-bold text-foreground text-center mb-6 md:mb-8">Partner benefits</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
               {BENEFITS.map(({ icon: Icon, bgClass, iconClass, title, desc }) => (
-                <div key={title} className="flex flex-col items-center text-center gap-2 md:gap-3">
-                  <span className={`flex h-16 w-16 md:h-24 md:w-24 items-center justify-center rounded-2xl ${bgClass}`}>
-                    <Icon className={`h-7 w-7 md:h-10 md:w-10 ${iconClass}`} strokeWidth={1.75} />
+                <div key={title} className="flex flex-col items-center text-center gap-2 md:gap-4">
+                  <span className={`flex h-16 w-16 md:h-36 md:w-36 items-center justify-center rounded-2xl ${bgClass}`}>
+                    <Icon className={`h-7 w-7 md:h-14 md:w-14 ${iconClass}`} strokeWidth={1.75} />
                   </span>
                   <p className="text-sm md:text-base font-semibold text-foreground">{title}</p>
                   <p className="text-xs md:text-sm text-muted-foreground leading-snug">{desc}</p>
