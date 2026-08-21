@@ -117,14 +117,14 @@ export default function Affiliate() {
       <Header onSearch={handleSearch} />
 
       <main className="flex-1">
-        <div className="max-w-3xl mx-auto px-4 mt-6">
+        <div className="max-w-7xl mx-auto px-4 mt-6">
           {/* Hero banner */}
           <section className="relative aspect-[21/9] rounded-3xl overflow-hidden bg-gradient-to-br from-orange-400 to-orange-500">
-            <div className="relative h-full flex flex-col items-start justify-center gap-4 px-6 md:px-12">
-              <span className="inline-flex items-center rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-orange-600">
+            <div className="relative h-full flex flex-col items-start justify-center gap-4 px-8 md:px-16">
+              <span className="inline-flex items-center rounded-full bg-white/90 px-3 py-1 md:px-4 md:py-1.5 text-xs md:text-sm font-semibold text-orange-600">
                 Affiliate Collab
               </span>
-              <h1 className="text-2xl md:text-4xl font-bold text-white leading-tight">
+              <h1 className="text-3xl md:text-6xl font-bold text-white leading-tight">
                 Share Bite Me,
                 <br />
                 earn together
@@ -133,20 +133,20 @@ export default function Affiliate() {
           </section>
 
           {/* How it works */}
-          <section className="mt-14">
-            <h2 className="text-lg md:text-xl font-bold text-foreground text-center mb-6">How it works</h2>
+          <section className="mt-14 md:mt-20">
+            <h2 className="text-lg md:text-2xl font-bold text-foreground text-center mb-6 md:mb-8">How it works</h2>
 
             {/* Desktop: row with connecting arrows */}
-            <div className="hidden md:flex items-stretch gap-3">
+            <div className="hidden md:flex items-stretch gap-4">
               {STEPS.map(({ icon: Icon, title, desc }, index) => (
-                <div key={title} className="flex items-stretch flex-1 gap-3">
-                  <div className="flex flex-col items-center text-center gap-2 flex-1 rounded-xl border border-border py-6 px-3">
-                    <Icon className="h-7 w-7 text-orange-500" strokeWidth={1.75} />
-                    <p className="text-sm font-bold text-foreground">{title}</p>
-                    <p className="text-xs text-muted-foreground leading-snug">{desc}</p>
+                <div key={title} className="flex items-stretch flex-1 gap-4">
+                  <div className="flex flex-col items-center text-center gap-3 flex-1 rounded-2xl border border-border py-10 px-4">
+                    <Icon className="h-9 w-9 text-orange-500" strokeWidth={1.75} />
+                    <p className="text-base font-bold text-foreground">{title}</p>
+                    <p className="text-sm text-muted-foreground leading-snug">{desc}</p>
                   </div>
                   {index < STEPS.length - 1 && (
-                    <ArrowRight className="h-4 w-4 text-muted-foreground self-center shrink-0" />
+                    <ArrowRight className="h-5 w-5 text-muted-foreground self-center shrink-0" />
                   )}
                 </div>
               ))}
@@ -170,23 +170,23 @@ export default function Affiliate() {
           </section>
 
           {/* Partner benefits */}
-          <section className="mt-14">
-            <h2 className="text-lg md:text-xl font-bold text-foreground text-center mb-6">Partner benefits</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <section className="mt-14 md:mt-20">
+            <h2 className="text-lg md:text-2xl font-bold text-foreground text-center mb-6 md:mb-8">Partner benefits</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
               {BENEFITS.map(({ icon: Icon, bgClass, iconClass, title, desc }) => (
-                <div key={title} className="flex flex-col items-center text-center gap-2">
-                  <span className={`flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-2xl ${bgClass}`}>
-                    <Icon className={`h-7 w-7 md:h-8 md:w-8 ${iconClass}`} strokeWidth={1.75} />
+                <div key={title} className="flex flex-col items-center text-center gap-2 md:gap-3">
+                  <span className={`flex h-16 w-16 md:h-24 md:w-24 items-center justify-center rounded-2xl ${bgClass}`}>
+                    <Icon className={`h-7 w-7 md:h-10 md:w-10 ${iconClass}`} strokeWidth={1.75} />
                   </span>
-                  <p className="text-sm font-semibold text-foreground">{title}</p>
-                  <p className="text-xs text-muted-foreground leading-snug">{desc}</p>
+                  <p className="text-sm md:text-base font-semibold text-foreground">{title}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground leading-snug">{desc}</p>
                 </div>
               ))}
             </div>
           </section>
 
           {/* Apply now */}
-          <section className="mt-14 mb-16">
+          <section className="mt-14 md:mt-20 mb-16">
             {submitted ? (
               <div className="text-center py-10">
                 <p className="text-base font-semibold text-foreground">Thanks for applying!</p>
@@ -196,29 +196,31 @@ export default function Affiliate() {
               </div>
             ) : (
               <>
-                <h2 className="text-lg md:text-xl font-bold text-foreground mb-1">Apply now</h2>
+                <h2 className="text-lg md:text-2xl font-bold text-foreground mb-1">Apply now</h2>
                 <p className="text-sm text-muted-foreground mb-6">
                   Enter your Instagram account, email, and dog's name.
                 </p>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                  <div className="space-y-2">
-                    <Label className="font-semibold">Instagram account</Label>
-                    <Input placeholder="@your_account" {...register("instagramHandle")} />
-                    {errors.instagramHandle && (
-                      <p className="text-xs text-destructive">{errors.instagramHandle.message}</p>
-                    )}
-                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label className="font-semibold">Instagram account</Label>
+                      <Input placeholder="@your_account" {...register("instagramHandle")} />
+                      {errors.instagramHandle && (
+                        <p className="text-xs text-destructive">{errors.instagramHandle.message}</p>
+                      )}
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label className="font-semibold">Email address</Label>
-                    <Input placeholder="example@email.com" {...register("email")} />
-                    {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+                    <div className="space-y-2">
+                      <Label className="font-semibold">Email address</Label>
+                      <Input placeholder="example@email.com" {...register("email")} />
+                      {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+                    </div>
                   </div>
 
                   <div className="space-y-2">
                     <Label className="font-semibold">Dog's name</Label>
-                    <Input placeholder="coco" {...register("dogName")} />
+                    <Input placeholder="coco" className="md:max-w-xl" {...register("dogName")} />
                     <p className="text-xs text-muted-foreground leading-relaxed">
                       This will be used to generate your coupon code (e.g. dog's name "coco" → coupon code
                       "COCO15").
