@@ -246,17 +246,16 @@ export default function Affiliate() {
                 alt="BITE ME plush toys and accessories"
                 className="absolute inset-0 h-full w-full object-cover"
               />
-              <div className="relative h-full flex flex-col items-start justify-end gap-1 px-5 pb-6 [text-shadow:0_1px_4px_rgba(255,255,255,0.55)]">
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-orange-600 [text-shadow:none]">
-                  <Sparkles className="h-3 w-3" strokeWidth={2} />
-                  Affiliate Collab
-                </span>
-                <h1 className="mt-1.5 text-4xl font-bold text-stone-800 leading-[1.15]">
+              <div className="relative h-full flex flex-col items-start justify-end gap-2 px-5 pb-6 [text-shadow:0_1px_4px_rgba(255,255,255,0.55)]">
+                <h1 className="text-4xl font-bold uppercase text-stone-800 leading-[1.15]">
                   Share Bite Me
                   <br />
-                  earn together
+                  <span className="inline-flex items-center gap-1.5">
+                    Earn Together
+                    <Sparkles className="h-6 w-6 shrink-0 text-orange-500 [text-shadow:none]" strokeWidth={2} />
+                  </span>
                 </h1>
-                <p className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-orange-600 [text-shadow:none]">
+                <p className="inline-flex items-center gap-1 text-xs font-bold text-orange-600 [text-shadow:none]">
                   <ArrowDown className="h-3 w-3 shrink-0" />
                   Scroll down to join!
                 </p>
