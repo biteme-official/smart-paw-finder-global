@@ -135,7 +135,7 @@ const schema = z.object({
   petName: z
     .string()
     .min(1, "Pet's name is required")
-    .regex(/^[a-zA-Z0-9\s-]+$/, "Enter a valid name"),
+    .regex(/^[\p{L}\p{N}\s'-]+$/u, "Enter a valid name"),
   country: z.enum(COUNTRIES).optional().or(z.literal("")),
   acquisitionSource: z.enum(ACQUISITION_SOURCES).optional().or(z.literal("")),
   acquisitionOther: z.string().optional(),
