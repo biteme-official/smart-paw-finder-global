@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { HeroBanner } from "@/components/home/HeroBanner";
-import { AffiliateBanner } from "@/components/home/AffiliateBanner";
+import { AffiliateBanner } from "@/components/home/affiliate-banner/AffiliateBanner";
 import { PopularProducts } from "@/components/home/PopularProducts";
 import { CurationSection } from "@/components/home/CurationSection";
 import { InstagramReels } from "@/components/home/InstagramReels";
