@@ -1,7 +1,6 @@
 import type { Connect } from 'vite';
 import { addApplication, getApplicationByEmail, getAllApplications, type AffiliateApplication } from './affiliate-store';
-import { appendAffiliateApplicationRow } from '../api/_lib/affiliate-sheets';
-import { generateCouponCode } from '../api/_lib/affiliate-coupon';
+import { appendAffiliateApplicationRow, generateCouponCode } from '../api/affiliate';
 
 const SOCIAL_PLATFORMS = ['Instagram', 'TikTok'];
 
