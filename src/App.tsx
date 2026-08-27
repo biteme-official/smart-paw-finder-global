@@ -12,6 +12,7 @@ import Index from "./pages/Index";
 import ProductDetail from "./pages/ProductDetail";
 import CheckoutReturn from "./pages/CheckoutReturn";
 import ContactUs from "./pages/ContactUs";
+import Affiliate from "./pages/Affiliate";
 import NotFound from "./pages/NotFound";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
@@ -112,6 +113,7 @@ const App = () => (
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/checkout-return" element={<CheckoutReturn />} />
           <Route path="/contact" element={<ContactUs />} />
+          <Route path="/affiliate" element={<Affiliate />} />
           <Route path="/about" element={<About />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />

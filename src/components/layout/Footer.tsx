@@ -33,6 +33,7 @@ const POLICY_LINKS = [
 const HELP_LINKS = [
   { label: "Contact Us", to: "/contact" },
   { label: "B2B Inquiry", to: "/mypage/b2b-apply" },
+  { label: "Affiliate Program", to: "/affiliate" },
 ];
 
 const TEXT_PAYMENT_METHODS = [
