@@ -132,6 +132,73 @@
 4. 충돌 가능성 발견 시 항상 보고
 
 
+## 프론트엔드 수정 안전 규칙
+
+### 폴더별 수정 등급
+
+| 등급 | 대상 | 규칙 |
+|------|------|------|
+| ✅ 수정 OK | `src/components/`, `src/pages/`, `src/stores/`, `public/` | 자유롭게 수정 가능 |
+| 🚫 수정 금지 | `api/`, `server/`, `vercel.json` | Maintainer 확인 없이 수정 금지 |
+| ⚠️ 주의 | `src/lib/shopify.ts` | GraphQL 쿼리 변경 시 반드시 Shopify 스토어 필드 존재 여부 확인 |
+
+### Claude 요청 시 범위 명시
+
+프론트 수정 요청 시 아래처럼 범위를 명시한다:
+- ✅ "쿼리 안 건드리고 UI만 수정해줘"
+- ✅ "이 컴포넌트 렌더링만 바꿔줘"
+- ✅ "api/ 폴더는 건드리지 마"
+- ❌ "이 페이지 고쳐줘" (범위 불명확 → API 코드까지 수정될 수 있음)
+
+→ 범위 미지정 시 Claude는 `src/components/` 내 렌더링 코드만 수정하고, `api/`, `server/`, `src/lib/shopify.ts`는 건드리지 않는다.
+
+### bitemejp → Global 코드 복사 규칙
+
+JP와 Global은 **다른 Shopify 스토어, 다른 ENV, 다른 기능 구성**이므로 코드를 그대로 복사하면 API 오류가 발생한다.
+
+**복사 전 필수 체크 3가지:**
+1. **ENV 변수** — 복사한 코드가 참조하는 환경변수가 Global Vercel에 존재하는지
+2. **GraphQL 필드** — JP 스토어 전용 메타필드/커스텀 필드가 Global 스토어에도 있는지
+3. **API 엔드포인트** — 복사한 프론트 코드가 호출하는 `api/` 파일이 Global에도 있는지
+
+**절대 그대로 복사 금지:**
+- LINE 관련 코드 (line-callback, LINE_TOKEN 등)
+- Instagram 분석 (instagram-analytics, follower-cron 등)
+- UTM / Behavior 분석 (utm-analytics, behavior-analytics)
+- Supabase 코드 (JP는 Supabase, Global은 Vercel KV)
+- middleware.ts (JP에만 존재)
+
+**비교적 안전한 복사:**
+- 순수 UI 컴포넌트 (API 호출 없이 props만 받는 컴포넌트)
+- Tailwind 스타일/레이아웃
+- 공통 유틸리티 (날짜/가격 포맷 등 외부 의존 없는 헬퍼)
+- shadcn/ui 컴포넌트 (양쪽 동일 라이브러리)
+
+**복사 후 반드시:** 팀원에게 어떤 파일이 JP에서 복사됐는지 공유한다.
+
+### JP 코드 복사 시 Claude 요청 템플릿
+
+JP 코드를 Global에 반영할 때는 아래 정보를 포함하여 요청한다:
+
+**요청 예시 (한 줄만 추가하면 안전해진다):**
+
+위험한 요청:
+> "https://github.com/bmhayoung/bitemejp 여기서 상품 카드 디자인 Global에도 적용할게~"
+
+안전한 요청 — 한 줄 추가:
+> "...적용할게~ **API 쿼리는 건드리지 말고 스타일만 맞춰줘**"
+
+> "...만들어줘~ **Global에서 안 되는 거 있으면 먼저 알려줘**"
+
+> "...넣고 싶은데 **복사해도 되는지 먼저 확인해줘**"
+
+> "...바꿔줘~ **Shopify 쿼리는 기존 거 쓰고 보여주는 방식만 변경**"
+
+> "...적용해줘~ **데이터 불러오는 건 기존 거 그대로 두고 껍데기만**"
+
+→ Claude는 복사 요청 시 반드시 **ENV/GraphQL 필드/API 엔드포인트 3가지 호환성을 먼저 점검**하고, 불일치 항목을 사용자에게 보고한 후 진행한다.
+
+
 ---
 
 *이 파일이 수정되면 모든 팀원이 git pull로 최신 규칙을 받아야 합니다.*
