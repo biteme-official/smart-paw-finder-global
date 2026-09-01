@@ -22,6 +22,10 @@ function checkAdmin(req: VercelRequest): boolean {
 }
 
 const SOCIAL_PLATFORMS = ['Instagram', 'TikTok'];
+// Client-side Zod already checks this; this is defense-in-depth for direct API calls.
+// Exported so server/affiliate-proxy.ts (local dev, which reimplements handleApply
+// against Connect's req/res types instead of Vercel's) applies the same rule.
+export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ─── Coupon code ───────────────────────────────────────────────────────────────
 
@@ -142,6 +146,25 @@ async function ensureHeaderAndGetNextRow(token: string, title: string): Promise<
   return Math.max(filledRows + 1, 2);
 }
 
+// ensureHeaderAndGetNextRow's read-then-write is racy: two concurrent applications
+// can both read the same column-A length and compute the same next row, so the
+// second write silently overwrites the first in Sheets (KV is still intact — this
+// only affects the Sheets log). A KV counter serializes row numbers atomically;
+// it's seeded once from the sheet's actual row count (also ensuring the header)
+// and every request after that just increments it — no re-read, no race.
+const ROW_COUNTER_KEY = 'affiliate:sheets:rowCounter';
+
+async function claimNextRow(token: string, title: string): Promise<number> {
+  const seeded = await kv.get<number>(ROW_COUNTER_KEY);
+  if (seeded === null || seeded === undefined) {
+    const seedNextRow = await ensureHeaderAndGetNextRow(token, title);
+    // setnx: if two requests race to seed, only the first write sticks — the
+    // loser's incr below still lands on a number after it, never before.
+    await kv.setnx(ROW_COUNTER_KEY, seedNextRow - 1);
+  }
+  return kv.incr(ROW_COUNTER_KEY);
+}
+
 export interface AffiliateSheetRow {
   submittedAt: Date;
   email: string;
@@ -162,7 +185,7 @@ export async function appendAffiliateApplicationRow(row: AffiliateSheetRow): Pro
 
   const token = await getSheetsAccessToken();
   const title = await getSheetTitle(token);
-  const nextRow = await ensureHeaderAndGetNextRow(token, title);
+  const nextRow = await claimNextRow(token, title);
 
   await writeSheetRange(token, title, `A${nextRow}:G${nextRow}`, [[
     formatTimestamp(row.submittedAt),
@@ -197,6 +220,9 @@ async function handleApply(req: VercelRequest, res: VercelResponse) {
   const normalizedPetName = String(petName).trim();
   if (!normalizedEmail || !normalizedPetName) {
     return res.status(400).json({ error: 'At least one social account, email, and pet name are required.' });
+  }
+  if (!EMAIL_RE.test(normalizedEmail)) {
+    return res.status(400).json({ error: 'Enter a valid email address.' });
   }
 
   const existingId = await kv.get<string>(`affiliate:email:${normalizedEmail}`);

@@ -1,6 +1,6 @@
 import type { Connect } from 'vite';
 import { addApplication, getApplicationByEmail, getAllApplications, type AffiliateApplication } from './affiliate-store';
-import { appendAffiliateApplicationRow, generateCouponCode } from '../api/affiliate';
+import { appendAffiliateApplicationRow, generateCouponCode, EMAIL_RE } from '../api/affiliate';
 
 const SOCIAL_PLATFORMS = ['Instagram', 'TikTok'];
 
@@ -46,6 +46,9 @@ async function handleApply(req: Connect.IncomingMessage, res: any) {
   const normalizedPetName = String(petName).trim();
   if (!normalizedEmail || !normalizedPetName) {
     return json(res, 400, { error: 'At least one social account, email, and pet name are required.' });
+  }
+  if (!EMAIL_RE.test(normalizedEmail)) {
+    return json(res, 400, { error: 'Enter a valid email address.' });
   }
 
   if (getApplicationByEmail(normalizedEmail)) {
