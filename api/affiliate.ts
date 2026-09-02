@@ -41,8 +41,11 @@ export function generateCouponCode(petName: string, applicationId: string): stri
 
 // ─── Google Sheets log ─────────────────────────────────────────────────────────
 
-const AFFILIATE_SHEET_ID = process.env.AFFILIATE_SHEET_ID || '';
-const AFFILIATE_SHEET_GID = process.env.AFFILIATE_SHEET_GID || '0';
+function stripBom(s: string): string {
+  return s.charCodeAt(0) === 0xFEFF ? s.slice(1) : s;
+}
+const AFFILIATE_SHEET_ID = stripBom(process.env.AFFILIATE_SHEET_ID || '').trim();
+const AFFILIATE_SHEET_GID = stripBom(process.env.AFFILIATE_SHEET_GID || '0').trim();
 const SHEET_HEADER = ['Submitted At', 'Email Address', "Pet's Name", 'Instagram', 'TikTok', 'Country / Region', 'Acquisition Source'];
 
 let sheetsToken: string | null = null;
@@ -52,8 +55,7 @@ async function getSheetsAccessToken(): Promise<string> {
   const now = Date.now();
   if (sheetsToken && now < sheetsTokenExpiresAt - 60_000) return sheetsToken;
 
-  const rawSaJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '';
-  const saJson = rawSaJson.charCodeAt(0) === 0xFEFF ? rawSaJson.slice(1) : rawSaJson;
+  const saJson = stripBom(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '').trim();
   if (!saJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is not set');
   const sa = JSON.parse(saJson);
   const iat = Math.floor(now / 1000);
