@@ -52,7 +52,8 @@ async function getSheetsAccessToken(): Promise<string> {
   const now = Date.now();
   if (sheetsToken && now < sheetsTokenExpiresAt - 60_000) return sheetsToken;
 
-  const saJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '';
+  const rawSaJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '';
+  const saJson = rawSaJson.charCodeAt(0) === 0xFEFF ? rawSaJson.slice(1) : rawSaJson;
   if (!saJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is not set');
   const sa = JSON.parse(saJson);
   const iat = Math.floor(now / 1000);
