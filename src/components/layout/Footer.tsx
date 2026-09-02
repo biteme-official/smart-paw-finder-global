@@ -69,7 +69,7 @@ export function Footer() {
 
       {/* Main nav section */}
       <div className="w-full max-w-6xl mx-auto px-6 pt-10 pb-8">
-        <div className="grid grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
 
           {/* Brand column */}
           <div className="space-y-3">
