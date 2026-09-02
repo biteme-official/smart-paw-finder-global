@@ -43,6 +43,37 @@
 - 새 패키지 추가 전 사용자에게 확인
 
 
+## 모바일 반응형 규칙
+
+**단일 컴포넌트 + Tailwind 반응형 클래스**만 사용한다. Desktop/Mobile 별도 컴포넌트 분리(`*Desktop.tsx` / `*Mobile.tsx` + `hidden md:block` / `md:hidden` 뷰포트 분기) 금지.
+
+### 필수 패턴
+
+| 항목 | 모바일 (기본) | 데스크톱 (`md:` 이상) | 예시 |
+|------|-------------|---------------------|------|
+| 레이아웃 | `flex-col`, `grid-cols-1` | `md:flex-row`, `md:grid-cols-2` | `grid grid-cols-1 md:grid-cols-2 gap-4` |
+| 타이포 | 작은 사이즈 기본 | `md:text-*`로 확대 | `text-xl md:text-2xl` |
+| 여백 | 좁은 패딩/마진 | `md:px-*`, `md:mt-*`로 확대 | `px-4 md:px-10 mt-10 md:mt-20` |
+| 카드 그리드 | 2열 | 4열 flex 또는 grid | `grid grid-cols-2 md:flex md:gap-4` |
+| 폼 | 세로 스택 | 가로 2열 | `grid grid-cols-1 md:grid-cols-2 gap-4` |
+| 버튼 | `w-full` | `md:w-auto` | `w-full md:w-auto` |
+| 요소 숨김 | 모바일에서 불필요한 장식 숨김 | 데스크톱만 표시 | `hidden md:block` (장식용 화살표 등) |
+
+### 주요 브레이크포인트
+
+- `sm:` (640px) — 소형 모바일 → 일반 모바일 전환
+- `md:` (768px) — **모바일 ↔ 데스크톱 주 분기점**
+- `lg:` (1024px) — 넓은 데스크톱 (그리드 열 추가 등)
+
+### 금지 사항
+
+1. 고정 폭 (`w-[200px]`) 단독 사용 금지 — 반드시 반응형 대안 제공 (`w-full md:w-[200px]`)
+2. `aspect-[21/9]` 같은 와이드 비율 단독 사용 금지 — 모바일 대안 (`aspect-[4/3] md:aspect-[21/9]`)
+3. `px-16` 같은 큰 고정 패딩 단독 사용 금지 — 모바일 축소 (`px-5 md:px-16`)
+4. `grid-cols-2` 폼 레이아웃 단독 사용 금지 — 모바일 1열 (`grid-cols-1 md:grid-cols-2`)
+5. Desktop/Mobile 별도 파일 생성 금지 — 하나의 컴포넌트에서 Tailwind `md:` 클래스로 처리
+
+
 ## 작업 진행 중
 
 - 작업 1일 이상 시: main 동기화 (git fetch → rebase → push --force-with-lease)
