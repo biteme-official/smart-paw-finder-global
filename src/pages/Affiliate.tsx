@@ -5,11 +5,8 @@ import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useAffiliateApply } from "@/components/affiliate/useAffiliateApply";
-import { AffiliatePageDesktop } from "@/components/affiliate/AffiliatePageDesktop";
+import { AffiliatePageContent } from "@/components/affiliate/AffiliatePageContent";
 
-// PC/모바일 분리 구조: 이 셸이 공용 폼 상태(useAffiliateApply)와 완료 팝업을
-// 소유하고, 뷰포트별 본문 컴포넌트에 주입한다. 현재 브랜치는 데스크톱만 —
-// 모바일 본문(AffiliatePageMobile)은 별도 PR에서 추가한다.
 export default function Affiliate() {
   const navigate = useNavigate();
   const apply = useAffiliateApply();
@@ -23,7 +20,7 @@ export default function Affiliate() {
       <Header onSearch={handleSearch} />
 
       <main className="flex-1">
-        <AffiliatePageDesktop apply={apply} />
+        <AffiliatePageContent apply={apply} />
       </main>
 
       <Footer />
