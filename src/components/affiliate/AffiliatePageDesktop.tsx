@@ -38,10 +38,8 @@ export function AffiliatePageDesktop({ apply }: Props) {
   const { fields, append, remove } = socialAccounts;
   const acquisitionSource = watch("acquisitionSource");
 
-  // NOTE: 이 브랜치는 PC(데스크톱) 구현만 포함한다. 모바일 전용 레이아웃
-  // (AffiliatePageMobile)과 `hidden md:block` / `md:hidden` 뷰포트 분기는
-  // 별도 브랜치·PR에서 추가한다 (#108 후속). 그때까지 모바일에서는 이
-  // 데스크톱 레이아웃이 그대로 노출된다.
+  // 데스크톱 전용 레이아웃. 모바일은 AffiliatePageMobile이 담당하며
+  // Affiliate 셸에서 `hidden md:block` / `md:hidden`으로 분기한다.
   return (
     <div className="max-w-7xl mx-auto px-4 mt-6">
       {/* Hero banner — 21:9 image campaign banner */}
