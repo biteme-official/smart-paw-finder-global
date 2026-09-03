@@ -20,11 +20,11 @@ export function AffiliateBanner() {
             Love BITE ME? Earn With <span className="whitespace-nowrap">Us! 🐾</span>
           </span>
           {/* Mobile: compact single-line CTA */}
-          <span className="mt-0.5 flex sm:hidden items-center gap-1 text-[11px] font-bold leading-tight text-white/95">
+          <span className="mt-0.5 flex md:hidden items-center gap-1 text-[11px] font-bold leading-tight text-white/95">
             Earn 10% commission <ArrowRight className="h-3 w-3" />
           </span>
           {/* Desktop: full description with pill */}
-          <span className="mt-0.5 hidden sm:block text-sm leading-snug text-white/90">
+          <span className="mt-0.5 hidden md:block text-sm leading-snug text-white/90">
             Join our Affiliate Program &amp; earn{" "}
             <span className="inline-block whitespace-nowrap rounded-full bg-white px-2 py-0.5 align-middle text-xs font-extrabold text-orange-600">
               10% commission
@@ -32,10 +32,10 @@ export function AffiliateBanner() {
           </span>
         </span>
 
-        <span className="hidden sm:inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-bold text-orange-600 transition-transform group-hover:translate-x-0.5">
+        <span className="hidden md:inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-bold text-orange-600 transition-transform group-hover:translate-x-0.5">
           Join Now <ArrowRight className="h-4 w-4" />
         </span>
-        <span className="sm:hidden flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/15">
+        <span className="md:hidden flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/15">
           <ArrowRight className="h-3.5 w-3.5" />
         </span>
       </Link>
