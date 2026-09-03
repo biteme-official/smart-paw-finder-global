@@ -7,6 +7,11 @@ import {
   X,
   Sparkles,
   Mail,
+  Smartphone,
+  AtSign,
+  Globe,
+  PawPrint,
+  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +32,11 @@ interface Props {
   apply: AffiliateApply;
 }
 
+/** Mobile-only leading icon for a form field label (hidden from md: up so PC layout is unchanged). */
+function FieldIcon({ icon: Icon }: { icon: LucideIcon }) {
+  return <Icon className="md:hidden h-4 w-4 shrink-0 text-orange-500" strokeWidth={2} />;
+}
+
 export function AffiliatePageContent({ apply }: Props) {
   const { form, socialAccounts, submitting, onSubmit } = apply;
   const {
@@ -40,68 +50,71 @@ export function AffiliatePageContent({ apply }: Props) {
 
   return (
     <div className="max-w-7xl mx-auto px-4 mt-4 md:mt-6">
-      {/* Hero banner */}
-      <section className="relative rounded-2xl md:rounded-3xl overflow-hidden">
-        <div className="relative aspect-[4/3] md:aspect-[21/9]">
+      {/* Hero banner — mobile: image card + text stacked below; desktop: text overlaid on wide banner */}
+      <section className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-[#f4eede]">
+        <div className="aspect-[4/3] sm:aspect-[16/7] md:aspect-[21/9]">
           <img
             src={heroBanner}
             alt="BITE ME plush toys and accessories"
-            className="absolute inset-0 h-full w-full object-cover object-[70%_center]"
+            className="h-full w-full object-cover object-[68%_center] md:object-[70%_center]"
           />
-          <div className="relative h-full flex flex-col items-start justify-end pb-6 px-5 md:justify-center md:pb-0 md:px-16 max-w-2xl">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs md:px-4 md:py-1.5 md:text-sm font-semibold text-orange-600">
-              <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5" strokeWidth={2} />
-              Affiliate Collab
-            </span>
-            <h1 className="mt-2 text-2xl md:text-5xl font-bold text-stone-800 leading-tight">
-              Share Bite Me
-              <br />
-              earn together
-            </h1>
-            <p className="mt-1 text-sm md:text-lg text-stone-600">
-              Share your BITE ME favorites and earn with every sale!
-            </p>
-            <p className="mt-2 inline-flex items-center gap-1.5 text-xs md:text-sm font-semibold text-stone-700">
-              <ArrowDown className="h-3.5 w-3.5 md:h-4 md:w-4" />
-              Scroll down and submit your application to join!
-            </p>
-          </div>
+        </div>
+        <div className="px-5 pt-4 pb-5 md:absolute md:inset-0 md:flex md:flex-col md:items-start md:justify-center md:px-16 md:pt-0 md:pb-0 md:max-w-2xl">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs md:px-4 md:py-1.5 md:text-sm font-semibold text-orange-600">
+            <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5" strokeWidth={2} />
+            Affiliate Collab
+          </span>
+          <h1 className="mt-2 text-2xl md:text-5xl font-bold text-stone-800 leading-tight">
+            Share Bite Me
+            <br />
+            earn together
+          </h1>
+          <p className="mt-1 text-sm md:text-lg text-stone-600">
+            Share your BITE ME favorites and earn with every sale!
+          </p>
+          <p className="mt-2 inline-flex items-center gap-1.5 text-xs md:text-sm font-semibold text-orange-600 md:text-stone-700">
+            <ArrowDown className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            Scroll down and submit your application to join!
+          </p>
         </div>
       </section>
 
-      {/* How it works */}
+      {/* How it works — mobile: single-column flow with down arrows; desktop: row with right arrows */}
       <section className="mt-10 md:mt-20">
         <h2 className="text-xl md:text-2xl font-bold text-foreground text-center mb-2">How it works</h2>
         <p className="text-xs md:text-sm text-muted-foreground text-center mb-6 md:mb-8">Join in just a few simple steps!</p>
 
-        <div className="grid grid-cols-2 gap-3 md:flex md:items-stretch md:gap-4">
+        <div className="flex flex-col md:flex-row md:items-stretch gap-3 md:gap-4">
           {STEPS.map(({ icon: Icon, title, desc }, index) => (
-            <div key={title} className="flex items-stretch flex-1 gap-3 md:gap-4">
-              <div className="flex flex-col items-center text-center gap-2 md:gap-3 flex-1 rounded-2xl bg-orange-100 shadow-sm py-6 px-3 md:py-10 md:px-4">
+            <div key={title} className="contents md:flex md:items-stretch md:flex-1 md:gap-4">
+              <div className="flex flex-col items-center text-center gap-2 md:gap-3 w-full md:flex-1 rounded-2xl bg-orange-100 shadow-sm py-6 px-3 md:py-10 md:px-4">
                 <Icon className="h-7 w-7 md:h-9 md:w-9 text-orange-500" strokeWidth={1.75} />
                 <p className="text-sm md:text-base font-extrabold text-foreground">{title}</p>
                 <p className="text-xs md:text-sm text-gray-600 leading-snug">{desc}</p>
               </div>
               {index < STEPS.length - 1 && (
-                <ArrowRight className="hidden md:block h-6 w-6 text-orange-500 self-center shrink-0" strokeWidth={2} />
+                <>
+                  <ArrowDown className="md:hidden h-6 w-6 self-center text-orange-500" strokeWidth={2} />
+                  <ArrowRight className="hidden md:block h-6 w-6 text-orange-500 self-center shrink-0" strokeWidth={2} />
+                </>
               )}
             </div>
           ))}
         </div>
       </section>
 
-      {/* Partner benefits */}
+      {/* Partner benefits — 2x2 on mobile with equal-height rows */}
       <section className="mt-10 md:mt-20">
         <h2 className="text-xl md:text-2xl font-bold text-foreground text-center mb-2">Earn More with BITE ME</h2>
         <p className="text-xs md:text-sm text-muted-foreground text-center mb-6 md:mb-8">
           The more you share, the more you can earn!
         </p>
 
-        <div className="grid grid-cols-2 gap-3 md:flex md:items-stretch md:gap-4">
+        <div className="grid grid-cols-2 auto-rows-fr gap-3 md:flex md:items-stretch md:gap-4">
           {BENEFITS.map(({ icon: Icon, value, bgClass, accentClass, title, desc }) => (
             <div
               key={title}
-              className={`flex flex-col items-center text-center flex-1 rounded-2xl py-6 px-3 md:py-10 md:px-4 ${bgClass}`}
+              className={`flex h-full flex-col items-center text-center md:flex-1 rounded-2xl py-6 px-3 md:py-10 md:px-4 ${bgClass}`}
             >
               <div className="h-10 md:h-12 flex items-center justify-center">
                 {value ? (
@@ -132,17 +145,22 @@ export function AffiliatePageContent({ apply }: Props) {
                 <Label className="font-semibold">Social Media Platform</Label>
                 <Label className="font-semibold">Account</Label>
               </div>
-              <Label className="md:hidden font-semibold">Social Media Accounts</Label>
 
               {fields.map((field, index) => (
-                <div key={field.id} className="flex flex-col md:flex-row gap-2 md:gap-4 items-stretch md:items-start">
-                  <div className="w-full md:w-[200px] md:shrink-0">
+                <div key={field.id} className="flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-start">
+                  <div className="w-full md:w-[200px] md:shrink-0 space-y-2 md:space-y-0">
+                    {index === 0 && (
+                      <Label className="md:hidden font-semibold inline-flex items-center gap-1.5">
+                        <FieldIcon icon={Smartphone} />
+                        Social Media Platform
+                      </Label>
+                    )}
                     <Controller
                       name={`socialAccounts.${index}.platform`}
                       control={control}
                       render={({ field: platformField }) => (
                         <Select value={platformField.value} onValueChange={platformField.onChange}>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-11 md:h-10">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -157,23 +175,31 @@ export function AffiliatePageContent({ apply }: Props) {
                     />
                   </div>
 
-                  <div className="flex-1 flex items-start gap-2">
-                    <div className="flex-1">
-                      <Input
-                        placeholder="@your_account"
-                        className={errors.socialAccounts?.[index]?.account ? "border-destructive" : undefined}
-                        {...register(`socialAccounts.${index}.account`)}
-                      />
-                    </div>
-                    {fields.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => remove(index)}
-                        className="h-10 px-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                      >
-                        <X className="h-3.5 w-3.5" /> Remove
-                      </button>
+                  <div className="flex-1 space-y-2 md:space-y-0">
+                    {index === 0 && (
+                      <Label className="md:hidden font-semibold inline-flex items-center gap-1.5">
+                        <FieldIcon icon={AtSign} />
+                        Account
+                      </Label>
                     )}
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <Input
+                          placeholder="@your_account"
+                          className={`h-11 md:h-10 ${errors.socialAccounts?.[index]?.account ? "border-destructive" : ""}`}
+                          {...register(`socialAccounts.${index}.account`)}
+                        />
+                      </div>
+                      {fields.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => remove(index)}
+                          className="h-11 md:h-10 px-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                        >
+                          <X className="h-3.5 w-3.5" /> Remove
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -190,19 +216,25 @@ export function AffiliatePageContent({ apply }: Props) {
             {/* Email + Pet's Name */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div className="space-y-2">
-                <Label className="font-semibold">Email address</Label>
+                <Label className="font-semibold inline-flex items-center gap-1.5">
+                  <FieldIcon icon={Mail} />
+                  Email address
+                </Label>
                 <Input
                   placeholder="example@email.com"
-                  className={errors.email ? "border-destructive" : undefined}
+                  className={`h-11 md:h-10 ${errors.email ? "border-destructive" : ""}`}
                   {...register("email")}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className="font-semibold">Pet's Name</Label>
+                <Label className="font-semibold inline-flex items-center gap-1.5">
+                  <FieldIcon icon={PawPrint} />
+                  Pet's Name
+                </Label>
                 <Input
                   placeholder="coco"
-                  className={errors.petName ? "border-destructive" : undefined}
+                  className={`h-11 md:h-10 ${errors.petName ? "border-destructive" : ""}`}
                   {...register("petName")}
                 />
                 <p className="text-xs text-muted-foreground leading-relaxed">
@@ -214,16 +246,17 @@ export function AffiliatePageContent({ apply }: Props) {
             {/* Country + Acquisition */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <div className="space-y-2">
-                <Label className="font-semibold inline-flex items-center gap-1">
+                <Label className="font-semibold inline-flex items-center gap-1.5">
+                  <FieldIcon icon={Globe} />
                   Country / Region
-                  <span className="font-normal text-muted-foreground">(Optional)</span>
+                  <span className="hidden md:inline font-normal text-muted-foreground">(Optional)</span>
                 </Label>
                 <Controller
                   name="country"
                   control={control}
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11 md:h-10">
                         <SelectValue placeholder="Select country" />
                       </SelectTrigger>
                       <SelectContent>
@@ -243,16 +276,17 @@ export function AffiliatePageContent({ apply }: Props) {
               </div>
 
               <div className="space-y-2">
-                <Label className="font-semibold inline-flex items-center gap-1">
+                <Label className="font-semibold inline-flex items-center gap-1.5">
+                  <FieldIcon icon={Sparkles} />
                   How did you hear about us?
-                  <span className="font-normal text-muted-foreground">(Optional)</span>
+                  <span className="hidden md:inline font-normal text-muted-foreground">(Optional)</span>
                 </Label>
                 <Controller
                   name="acquisitionSource"
                   control={control}
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11 md:h-10">
                         <SelectValue placeholder="Select an option" />
                       </SelectTrigger>
                       <SelectContent>
@@ -266,7 +300,11 @@ export function AffiliatePageContent({ apply }: Props) {
                   )}
                 />
                 {acquisitionSource === "Other" && (
-                  <Input placeholder="Tell us how you heard about us" {...register("acquisitionOther")} />
+                  <Input
+                    placeholder="Tell us how you heard about us"
+                    className="h-11 md:h-10"
+                    {...register("acquisitionOther")}
+                  />
                 )}
               </div>
             </div>
@@ -303,7 +341,7 @@ export function AffiliatePageContent({ apply }: Props) {
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-2 md:pt-1">
               <Button type="submit" disabled={submitting} size="sm" className="w-full md:w-auto font-semibold px-6">
                 {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                 Join the Program
