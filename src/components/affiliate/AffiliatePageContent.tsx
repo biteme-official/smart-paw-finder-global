@@ -69,7 +69,7 @@ export function AffiliatePageContent({ apply }: Props) {
             <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5" strokeWidth={2} />
             Affiliate Collab
           </span>
-          <h1 className="mt-2 text-[32px] font-extrabold uppercase leading-[1.05] tracking-tight text-stone-800 md:text-5xl md:font-bold md:normal-case md:leading-tight md:tracking-normal">
+          <h1 className="mt-2 text-[32px] font-extrabold uppercase leading-[1.05] tracking-tight text-stone-800 md:text-5xl md:font-bold md:normal-case md:leading-[1.4] md:tracking-normal">
             <span className="md:hidden">
               Share Bite &amp;
               <br />
@@ -92,24 +92,22 @@ export function AffiliatePageContent({ apply }: Props) {
         </div>
       </section>
 
-      {/* How it works — mobile: single-column flow with down arrows; desktop: row with right arrows */}
-      <section className="mt-10 md:mt-20">
+      {/* How it works — mobile: 2x2 compact grid (numbered); desktop: row with right arrows */}
+      <section className="mt-8 md:mt-20">
         <h2 className="text-xl md:text-2xl font-bold text-foreground text-center mb-2">How it works</h2>
-        <p className="text-xs md:text-sm text-muted-foreground text-center mb-6 md:mb-8">Join in just a few simple steps!</p>
+        <p className="text-xs md:text-sm text-muted-foreground text-center mb-4 md:mb-8">Join in just a few simple steps!</p>
 
-        <div className="flex flex-col md:flex-row md:items-stretch gap-3 md:gap-4">
+        <div className="grid grid-cols-2 auto-rows-fr gap-3 md:flex md:items-stretch md:gap-4">
           {STEPS.map(({ icon: Icon, title, desc }, index) => (
             <div key={title} className="contents md:flex md:items-stretch md:flex-1 md:gap-4">
-              <div className="flex flex-col items-center text-center gap-2 md:gap-3 w-full md:flex-1 rounded-2xl bg-orange-100 shadow-sm py-6 px-3 md:py-10 md:px-4">
-                <Icon className="h-7 w-7 md:h-9 md:w-9 text-orange-500" strokeWidth={1.75} />
+              <div className="relative flex h-full flex-col items-center justify-center text-center gap-1.5 md:gap-3 w-full md:flex-1 rounded-2xl bg-orange-100 shadow-sm py-4 px-3 md:py-10 md:px-4">
+                <span className="absolute left-3 top-2.5 text-[11px] font-bold text-orange-400 md:hidden">{index + 1}</span>
+                <Icon className="h-6 w-6 md:h-9 md:w-9 text-orange-500" strokeWidth={1.75} />
                 <p className="text-sm md:text-base font-extrabold text-foreground">{title}</p>
                 <p className="text-xs md:text-sm text-gray-600 leading-snug">{desc}</p>
               </div>
               {index < STEPS.length - 1 && (
-                <>
-                  <ArrowDown className="md:hidden h-6 w-6 self-center text-orange-500" strokeWidth={2} />
-                  <ArrowRight className="hidden md:block h-6 w-6 text-orange-500 self-center shrink-0" strokeWidth={2} />
-                </>
+                <ArrowRight className="hidden md:block h-6 w-6 text-orange-500 self-center shrink-0" strokeWidth={2} />
               )}
             </div>
           ))}
