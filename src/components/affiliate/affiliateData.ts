@@ -93,29 +93,39 @@ export const BENEFITS: BenefitDef[] = [
   },
 ];
 
-export const affiliateSchema = z.object({
-  socialAccounts: z
-    .array(
-      z.object({
-        platform: z.enum(SOCIAL_PLATFORMS),
-        account: z
-          .string()
-          .min(1, "Account is required")
-          .regex(/^[a-zA-Z0-9._@\s-]+$/, "Enter a valid account name"),
-      }),
-    )
-    .min(1),
-  email: z.string().min(1, "Email is required").email("Enter a valid email address"),
-  petName: z
-    .string()
-    .min(1, "Pet's name is required")
-    .regex(/^[\p{L}\p{N}\s'-]+$/u, "Enter a valid name"),
-  country: z.enum(COUNTRIES).optional().or(z.literal("")),
-  acquisitionSource: z.enum(ACQUISITION_SOURCES).optional().or(z.literal("")),
-  acquisitionOther: z.string().optional(),
-  confirmed: z.boolean().refine((v) => v === true, {
-    message: "Please confirm the discount and commission terms",
-  }),
-});
+export const affiliateSchema = z
+  .object({
+    socialAccounts: z
+      .array(
+        z.object({
+          platform: z.enum(SOCIAL_PLATFORMS),
+          account: z
+            .string()
+            .min(1, "Account is required")
+            .regex(/^[a-zA-Z0-9._@\s-]+$/, "Enter a valid account name"),
+        }),
+      )
+      .min(1),
+    email: z.string().min(1, "Email is required").email("Enter a valid email address"),
+    petName: z
+      .string()
+      .min(1, "Pet's name is required")
+      .regex(/^[\p{L}\p{N}\s'-]+$/u, "Enter a valid name"),
+    // Every question is required (PC + mobile). z.enum rejects undefined / empty.
+    country: z.enum(COUNTRIES, {
+      errorMap: () => ({ message: "Please select your country / region" }),
+    }),
+    acquisitionSource: z.enum(ACQUISITION_SOURCES, {
+      errorMap: () => ({ message: "Please let us know how you heard about us" }),
+    }),
+    acquisitionOther: z.string().optional(),
+    confirmed: z.boolean().refine((v) => v === true, {
+      message: "Please confirm the discount and commission terms",
+    }),
+  })
+  .refine(
+    (d) => d.acquisitionSource !== "Other" || !!d.acquisitionOther?.trim(),
+    { message: "Please tell us how you heard about us", path: ["acquisitionOther"] },
+  );
 
 export type AffiliateFormData = z.infer<typeof affiliateSchema>;

@@ -57,7 +57,7 @@ export function PopularProducts() {
 
   if (loading) {
     return (
-      <section className="mt-6 pb-4">
+      <section className="mt-4 md:mt-6 pb-4">
         <div className="flex items-center justify-between px-4 mb-3">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-4 w-16" />
@@ -81,7 +81,7 @@ export function PopularProducts() {
   if (products.length === 0) return null;
 
   return (
-    <section className="mt-6 pb-4 animate-fade-up" style={{ animationDelay: "0.3s" }}>
+    <section className="mt-4 md:mt-6 pb-4 animate-fade-up" style={{ animationDelay: "0.3s" }}>
       <div className="flex items-center justify-between px-4 mb-3">
         <h2 className="text-base font-bold text-foreground">Popular Products</h2>
         <button
