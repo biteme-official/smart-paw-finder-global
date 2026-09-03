@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import heroBanner from "@/assets/affiliate-hero-banner.jpg";
+import heroBannerMobile from "@/assets/affiliate-hero-banner-mobile.jpg";
 import {
   SOCIAL_PLATFORMS,
   COUNTRIES,
@@ -50,16 +51,20 @@ export function AffiliatePageContent({ apply }: Props) {
 
   return (
     <div className="max-w-7xl mx-auto px-4 mt-4 md:mt-6">
-      {/* Hero banner — mobile: image card + text stacked below; desktop: text overlaid on wide banner */}
+      {/* Hero banner — text overlaid on the image bottom (mobile 4:5) / center-left (desktop wide) */}
       <section className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-[#f4eede]">
-        <div className="aspect-[3/2] sm:aspect-[16/7] md:aspect-[21/9]">
-          <img
-            src={heroBanner}
-            alt="BITE ME plush toys and accessories"
-            className="h-full w-full object-cover object-[58%_center] md:object-[70%_center]"
-          />
+        {/* Mobile uses a dedicated 4:5 image (subject pre-centered); desktop keeps the wide banner. */}
+        <div className="aspect-[4/5] md:aspect-[21/9]">
+          <picture>
+            <source media="(min-width: 768px)" srcSet={heroBanner} />
+            <img
+              src={heroBannerMobile}
+              alt="BITE ME plush toys and accessories"
+              className="h-full w-full object-cover object-center md:object-[70%_center]"
+            />
+          </picture>
         </div>
-        <div className="px-6 pt-4 pb-6 md:absolute md:inset-0 md:flex md:flex-col md:items-start md:justify-center md:px-16 md:pt-0 md:pb-0 md:max-w-2xl">
+        <div className="absolute inset-x-0 bottom-0 px-6 pb-6 md:inset-0 md:flex md:flex-col md:items-start md:justify-center md:px-16 md:pb-0 md:max-w-2xl">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs md:px-4 md:py-1.5 md:text-sm font-semibold text-orange-600">
             <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5" strokeWidth={2} />
             Affiliate Collab
