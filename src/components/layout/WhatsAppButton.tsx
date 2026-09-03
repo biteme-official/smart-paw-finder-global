@@ -25,7 +25,7 @@ export function WhatsAppButton() {
   return (
     <div className="fixed bottom-4 right-4 z-50 flex items-end gap-2 md:bottom-20 md:right-6">
       {showBubble && (
-        <div className="group relative mb-1 flex flex-col rounded-2xl bg-white pl-4 pr-8 py-3 shadow-lg ring-1 ring-black/5 text-sm text-gray-800 animate-in fade-in slide-in-from-right-2 duration-300 leading-tight max-w-[200px] md:max-w-[220px]">
+        <div className="group relative mb-1 hidden flex-col rounded-2xl bg-white pl-4 pr-8 py-3 shadow-lg ring-1 ring-black/5 text-sm text-gray-800 animate-in fade-in slide-in-from-right-2 duration-300 leading-tight max-w-[220px] md:flex">
           <a
             href={WHATSAPP_URL}
             target="_blank"

@@ -69,17 +69,25 @@ export function AffiliatePageContent({ apply }: Props) {
             <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5" strokeWidth={2} />
             Affiliate Collab
           </span>
-          <h1 className="mt-2 text-2xl md:text-5xl font-bold text-stone-800 leading-tight">
-            Share Bite Me
-            <br />
-            earn together
+          <h1 className="mt-2 text-[32px] font-extrabold uppercase leading-[1.05] tracking-tight text-stone-800 md:text-5xl md:font-bold md:normal-case md:leading-tight md:tracking-normal">
+            <span className="md:hidden">
+              Share Bite &amp;
+              <br />
+              Earn Together
+            </span>
+            <span className="hidden md:inline">
+              Share Bite Me
+              <br />
+              earn together
+            </span>
           </h1>
-          <p className="mt-1 max-w-[92%] text-sm md:max-w-none md:text-lg text-stone-600">
+          <p className="mt-1 hidden max-w-[92%] text-sm text-stone-600 md:block md:max-w-none md:text-lg">
             Share your BITE ME favorites and earn with every sale!
           </p>
-          <p className="mt-2 flex items-start gap-1.5 text-xs md:items-center md:text-sm font-semibold text-orange-600 md:text-stone-700">
-            <ArrowDown className="mt-0.5 h-3.5 w-3.5 shrink-0 md:mt-0 md:h-4 md:w-4" />
-            Scroll down and submit your application to join!
+          <p className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-orange-600 md:gap-1.5 md:text-sm md:text-stone-700">
+            <ArrowDown className="h-3 w-3 shrink-0 md:h-4 md:w-4" />
+            <span className="md:hidden">Scroll down to join!</span>
+            <span className="hidden md:inline">Scroll down and submit your application to join!</span>
           </p>
         </div>
       </section>
