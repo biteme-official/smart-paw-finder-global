@@ -52,14 +52,14 @@ export function AffiliatePageContent({ apply }: Props) {
     <div className="max-w-7xl mx-auto px-4 mt-4 md:mt-6">
       {/* Hero banner — mobile: image card + text stacked below; desktop: text overlaid on wide banner */}
       <section className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-[#f4eede]">
-        <div className="aspect-[4/3] sm:aspect-[16/7] md:aspect-[21/9]">
+        <div className="aspect-[3/2] sm:aspect-[16/7] md:aspect-[21/9]">
           <img
             src={heroBanner}
             alt="BITE ME plush toys and accessories"
-            className="h-full w-full object-cover object-[68%_center] md:object-[70%_center]"
+            className="h-full w-full object-cover object-[58%_center] md:object-[70%_center]"
           />
         </div>
-        <div className="px-5 pt-4 pb-5 md:absolute md:inset-0 md:flex md:flex-col md:items-start md:justify-center md:px-16 md:pt-0 md:pb-0 md:max-w-2xl">
+        <div className="px-6 pt-4 pb-6 md:absolute md:inset-0 md:flex md:flex-col md:items-start md:justify-center md:px-16 md:pt-0 md:pb-0 md:max-w-2xl">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs md:px-4 md:py-1.5 md:text-sm font-semibold text-orange-600">
             <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5" strokeWidth={2} />
             Affiliate Collab
@@ -69,11 +69,11 @@ export function AffiliatePageContent({ apply }: Props) {
             <br />
             earn together
           </h1>
-          <p className="mt-1 text-sm md:text-lg text-stone-600">
+          <p className="mt-1 max-w-[92%] text-sm md:max-w-none md:text-lg text-stone-600">
             Share your BITE ME favorites and earn with every sale!
           </p>
-          <p className="mt-2 inline-flex items-center gap-1.5 text-xs md:text-sm font-semibold text-orange-600 md:text-stone-700">
-            <ArrowDown className="h-3.5 w-3.5 md:h-4 md:w-4" />
+          <p className="mt-2 flex items-start gap-1.5 text-xs md:items-center md:text-sm font-semibold text-orange-600 md:text-stone-700">
+            <ArrowDown className="mt-0.5 h-3.5 w-3.5 shrink-0 md:mt-0 md:h-4 md:w-4" />
             Scroll down and submit your application to join!
           </p>
         </div>
@@ -114,9 +114,9 @@ export function AffiliatePageContent({ apply }: Props) {
           {BENEFITS.map(({ icon: Icon, value, bgClass, accentClass, title, desc }) => (
             <div
               key={title}
-              className={`flex h-full flex-col items-center text-center md:flex-1 rounded-2xl py-6 px-3 md:py-10 md:px-4 ${bgClass}`}
+              className={`flex h-full min-h-[190px] flex-col items-center text-center md:min-h-0 md:flex-1 rounded-2xl py-6 px-3 md:py-10 md:px-4 ${bgClass}`}
             >
-              <div className="h-10 md:h-12 flex items-center justify-center">
+              <div className="flex h-10 items-center justify-center md:h-12">
                 {value ? (
                   <p className={`text-2xl md:text-[34px] font-extrabold leading-none ${accentClass}`}>{value}</p>
                 ) : (
@@ -138,9 +138,9 @@ export function AffiliatePageContent({ apply }: Props) {
             Enter your social accounts, email, and pet's name.
           </p>
 
-          <form onSubmit={onSubmit} className="space-y-5 md:space-y-6">
+          <form onSubmit={onSubmit} className="space-y-6">
             {/* Social accounts */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="hidden md:grid grid-cols-[200px_1fr] gap-4">
                 <Label className="font-semibold">Social Media Platform</Label>
                 <Label className="font-semibold">Account</Label>
@@ -214,7 +214,7 @@ export function AffiliatePageContent({ apply }: Props) {
             </div>
 
             {/* Email + Pet's Name */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-6">
               <div className="space-y-2">
                 <Label className="font-semibold inline-flex items-center gap-1.5">
                   <FieldIcon icon={Mail} />
@@ -244,19 +244,18 @@ export function AffiliatePageContent({ apply }: Props) {
             </div>
 
             {/* Country + Acquisition */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-6">
               <div className="space-y-2">
                 <Label className="font-semibold inline-flex items-center gap-1.5">
                   <FieldIcon icon={Globe} />
                   Country / Region
-                  <span className="hidden md:inline font-normal text-muted-foreground">(Optional)</span>
                 </Label>
                 <Controller
                   name="country"
                   control={control}
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className="h-11 md:h-10">
+                      <SelectTrigger className={`h-11 md:h-10 ${errors.country ? "border-destructive" : ""}`}>
                         <SelectValue placeholder="Select country" />
                       </SelectTrigger>
                       <SelectContent>
@@ -279,14 +278,13 @@ export function AffiliatePageContent({ apply }: Props) {
                 <Label className="font-semibold inline-flex items-center gap-1.5">
                   <FieldIcon icon={Sparkles} />
                   How did you hear about us?
-                  <span className="hidden md:inline font-normal text-muted-foreground">(Optional)</span>
                 </Label>
                 <Controller
                   name="acquisitionSource"
                   control={control}
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className="h-11 md:h-10">
+                      <SelectTrigger className={`h-11 md:h-10 ${errors.acquisitionSource ? "border-destructive" : ""}`}>
                         <SelectValue placeholder="Select an option" />
                       </SelectTrigger>
                       <SelectContent>
@@ -302,7 +300,7 @@ export function AffiliatePageContent({ apply }: Props) {
                 {acquisitionSource === "Other" && (
                   <Input
                     placeholder="Tell us how you heard about us"
-                    className="h-11 md:h-10"
+                    className={`h-11 md:h-10 ${errors.acquisitionOther ? "border-destructive" : ""}`}
                     {...register("acquisitionOther")}
                   />
                 )}
