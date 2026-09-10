@@ -673,7 +673,9 @@ export async function fetchBanners(first: number = 10): Promise<ShopifyBanner[]>
     }
 
     return { id: node.id, handle: node.handle, image, linkUrl, fields };
-  });
+  })
+  // Active 필드가 '거짓'인 배너는 노출 제외. 미설정(null) 항목은 기존과 동일하게 노출한다.
+  .filter((banner) => banner.fields.active !== 'false');
 
   banners.sort((a, b) => {
     const aOrder = a.fields.sort_order;
