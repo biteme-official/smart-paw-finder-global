@@ -675,7 +675,18 @@ export async function fetchBanners(first: number = 10): Promise<ShopifyBanner[]>
     return { id: node.id, handle: node.handle, image, linkUrl, fields };
   })
   // Active 필드가 '거짓'인 배너는 노출 제외. 미설정(null) 항목은 기존과 동일하게 노출한다.
-  .filter((banner) => banner.fields.active !== 'false');
+  // start_at/end_at 예약 노출: 미설정 항목은 해당 방향에 제한 없음(하위 호환).
+  .filter((banner) => {
+    if (banner.fields.active === 'false') return false;
+
+    const now = Date.now();
+    const startAt = banner.fields.start_at;
+    const endAt = banner.fields.end_at;
+    if (startAt && new Date(startAt).getTime() > now) return false;
+    if (endAt && new Date(endAt).getTime() < now) return false;
+
+    return true;
+  });
 
   banners.sort((a, b) => {
     const aOrder = a.fields.sort_order;
