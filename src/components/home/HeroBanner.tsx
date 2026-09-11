@@ -102,48 +102,53 @@ export function HeroBanner() {
           style={{ transform: `translateX(-${currentIndex * 100}%)` }}
         >
           {banners.map((banner) => {
+            const badge = banner.fields.badge?.trim();
             const headline = banner.fields.headline?.trim();
             const subtext = banner.fields.subtext?.trim();
             const buttonLabel = banner.fields.button_label?.trim();
-            const hasText = Boolean(headline || subtext || buttonLabel);
+            const hasText = Boolean(badge || headline || subtext || buttonLabel);
 
             return (
               <div key={banner.id} className="w-full flex-shrink-0">
                 {hasText ? (
-                  <div className="grid grid-cols-1 items-center gap-6 px-6 py-8 sm:px-10 md:grid-cols-2 md:gap-10 md:py-0">
-                    <div className="order-2 flex flex-col items-start gap-3 md:order-1 md:gap-4 md:py-16">
-                      {subtext && (
-                        <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-500 md:text-base">
-                          {subtext}
-                        </p>
+                  <div className="relative aspect-[16/10] w-full overflow-hidden rounded-lg md:aspect-[2/1]">
+                    <img
+                      src={banner.image!.url}
+                      alt={banner.image!.altText || headline || "Main banner"}
+                      onClick={() => handleBannerClick(banner.linkUrl)}
+                      className={cn(
+                        "absolute inset-0 h-full w-full object-cover",
+                        banner.linkUrl && "cursor-pointer"
                       )}
-                      {headline && (
-                        <h2 className="line-clamp-2 whitespace-pre-line text-2xl font-bold leading-snug text-neutral-900 md:text-4xl">
-                          {headline}
-                        </h2>
-                      )}
-                      {buttonLabel && banner.linkUrl && (
-                        <button
-                          type="button"
-                          onClick={() => handleBannerClick(banner.linkUrl)}
-                          className="mt-2 border-b-2 border-neutral-900 pb-0.5 text-sm font-bold text-neutral-900 transition-opacity hover:opacity-60 md:text-base"
-                        >
-                          {buttonLabel}
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="order-1 md:order-2">
-                      <img
-                        src={banner.image!.url}
-                        alt={banner.image!.altText || headline || "Main banner"}
-                        onClick={() => handleBannerClick(banner.linkUrl)}
-                        className={cn(
-                          "block aspect-[3/2] w-full rounded-lg object-cover",
-                          banner.linkUrl && "cursor-pointer"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="flex max-w-[75%] flex-col items-start gap-2 px-6 sm:px-10 md:max-w-md md:gap-3 md:px-16">
+                        {badge && (
+                          <span className="whitespace-nowrap rounded-full bg-neutral-900 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white md:text-xs">
+                            {badge}
+                          </span>
                         )}
-                        loading="lazy"
-                      />
+                        {headline && (
+                          <h2 className="line-clamp-2 whitespace-pre-line text-2xl font-bold leading-snug text-neutral-900 md:text-4xl">
+                            {headline}
+                          </h2>
+                        )}
+                        {subtext && (
+                          <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600 md:text-base">
+                            {subtext}
+                          </p>
+                        )}
+                        {buttonLabel && banner.linkUrl && (
+                          <button
+                            type="button"
+                            onClick={() => handleBannerClick(banner.linkUrl)}
+                            className="mt-2 border-b-2 border-neutral-900 pb-0.5 text-sm font-bold text-neutral-900 transition-opacity hover:opacity-60 md:text-base"
+                          >
+                            {buttonLabel}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ) : (
