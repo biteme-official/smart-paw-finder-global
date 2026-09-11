@@ -674,10 +674,10 @@ export async function fetchBanners(first: number = 10): Promise<ShopifyBanner[]>
 
     return { id: node.id, handle: node.handle, image, linkUrl, fields };
   })
-  // Active 필드가 '거짓'인 배너는 노출 제외. 미설정(null) 항목은 기존과 동일하게 노출한다.
+  // Active 필드(선택 목록: 노출/미노출)가 '노출'인 배너만 노출한다. 그 외 값·미설정은 노출 제외.
   // start_at/end_at 예약 노출: 미설정 항목은 해당 방향에 제한 없음(하위 호환).
   .filter((banner) => {
-    if (banner.fields.active === 'false') return false;
+    if (banner.fields.active !== '노출') return false;
 
     const now = Date.now();
     const startAt = banner.fields.start_at;
