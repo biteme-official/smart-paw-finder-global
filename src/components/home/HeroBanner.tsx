@@ -122,7 +122,7 @@ export function HeroBanner() {
                       )}
                       loading="lazy"
                     />
-                    <div className="absolute inset-0 flex items-center">
+                    <div className="pointer-events-none absolute inset-0 flex items-center">
                       <div className="flex max-w-[75%] flex-col items-start gap-2 px-6 sm:px-10 md:max-w-md md:gap-3 md:px-16">
                         {badge && (
                           <span className="whitespace-nowrap rounded-full bg-neutral-900 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white md:text-xs">
@@ -143,7 +143,7 @@ export function HeroBanner() {
                           <button
                             type="button"
                             onClick={() => handleBannerClick(banner.linkUrl)}
-                            className="mt-2 border-b-2 border-neutral-900 pb-0.5 text-sm font-bold text-neutral-900 transition-opacity hover:opacity-60 md:text-base"
+                            className="pointer-events-auto mt-2 border-b-2 border-neutral-900 pb-0.5 text-sm font-bold text-neutral-900 transition-opacity hover:opacity-60 md:text-base"
                           >
                             {buttonLabel}
                           </button>
