@@ -7,7 +7,7 @@ import { fetchProductByHandle, formatPrice } from '@/lib/shopify';
 import { useAuthStore } from '@/stores/authStore';
 import { useFavoritesStore } from '@/stores/favoritesStore';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PriceTag } from '@/components/ui/PriceTag';
+import { AutoDiscountPriceTag } from '@/components/ui/PriceTag';
 import { initiateLogin } from '@/lib/customer-auth';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -20,7 +20,7 @@ export default function FavoritesPage() {
   const favoritesData = useFavoritesStore((s) => s.favorites);
   const favoritesKey = authUser?.userId;
 
-  const [products, setProducts] = useState<Array<{ handle: string; title: string; image?: string; price: string; currencyCode: string; soldOut: boolean }>>([]);
+  const [products, setProducts] = useState<Array<{ handle: string; title: string; image?: string; price: string; currencyCode: string; soldOut: boolean; variantId?: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -70,13 +70,18 @@ export default function FavoritesPage() {
               (p.variants.edges.length > 0 &&
                 p.variants.edges.filter((v: any) => v.node.quantityAvailable !== null).length > 0 &&
                 p.variants.edges.filter((v: any) => v.node.quantityAvailable !== null).every((v: any) => v.node.quantityAvailable <= 0));
+            const priceAmount = p.priceRange.minVariantPrice.amount;
             return {
               handle: p.handle,
               title: p.title,
               image: p.images.edges[0]?.node.url,
-              price: p.priceRange.minVariantPrice.amount,
+              price: priceAmount,
               currencyCode: p.priceRange.minVariantPrice.currencyCode,
               soldOut: isSoldOut,
+              // 자동 할인을 물어보려면 옵션 ID 가 필요하다. 화면에 찍히는 가격(최저가) 옵션 기준.
+              variantId:
+                p.variants.edges.find((v: any) => v.node.price.amount === priceAmount)?.node.id ??
+                p.variants.edges[0]?.node.id,
             };
           })
         );
@@ -174,7 +179,7 @@ export default function FavoritesPage() {
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-medium truncate ${product.soldOut ? 'text-muted-foreground' : ''}`}>{product.title}</p>
                   <div className="mt-1">
-                    <PriceTag amount={product.price} currencyCode={product.currencyCode} className={`text-sm font-bold ${product.soldOut ? 'text-muted-foreground' : 'text-primary'}`} originalClassName="text-xs" />
+                    <AutoDiscountPriceTag variantId={product.variantId} amount={product.price} currencyCode={product.currencyCode} className={`text-sm font-bold ${product.soldOut ? 'text-muted-foreground' : 'text-primary'}`} originalClassName="text-xs" />
                   </div>
                 </div>
                 <button
