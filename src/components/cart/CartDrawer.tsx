@@ -365,7 +365,7 @@ export const CartDrawer = ({ open: controlledOpen, onOpenChange, showTrigger = t
                     {t('cart.total')} ({selectedCount} {t('cart.itemCount') || 'items'})
                   </span>
                   {preview && preview.savings > 0 ? (
-                    <span className="flex items-baseline gap-2">
+                    <span className="flex flex-wrap items-baseline justify-end gap-x-2">
                       <span className="text-sm text-muted-foreground line-through" translate="no">
                         {formatPrice(preview.subtotal.toFixed(2), preview.currencyCode)}
                       </span>

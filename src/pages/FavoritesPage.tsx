@@ -80,8 +80,10 @@ export default function FavoritesPage() {
               soldOut: isSoldOut,
               // 자동 할인을 물어보려면 옵션 ID 가 필요하다. 화면에 찍히는 가격(최저가) 옵션 기준.
               variantId:
-                p.variants.edges.find((v: any) => v.node.price.amount === priceAmount)?.node.id ??
-                p.variants.edges[0]?.node.id,
+                p.variants.edges.find(
+                  (v: { node: { id: string; price: { amount: string } } }) =>
+                    v.node.price.amount === priceAmount
+                )?.node.id ?? p.variants.edges[0]?.node.id,
             };
           })
         );
