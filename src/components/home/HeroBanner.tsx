@@ -15,10 +15,10 @@ function withManualLineBreaks(text: string): string {
 // 배지/헤드라인/서브텍스트/CTA 폰트 크기를 화면 폭에 비례해 줄인다(clamp(최소, 화면폭 비례, 최대)).
 // 브레이크포인트별 고정값을 여러 개 두는 대신 화면 폭이 좁아질수록 계속 비례해서 작아지므로,
 // 좁은 화면에서도 헤드라인이 사진 속 피사체를 침범하지 않는다. 최대값은 기존 PC 고정 크기와 동일.
-const FLUID_BADGE_TEXT = "text-[clamp(0.625rem,1.8vw,0.75rem)]";
-const FLUID_HEADLINE_TEXT = "text-[clamp(1.125rem,4.5vw,2.25rem)]";
-const FLUID_SUBTEXT_TEXT = "text-[clamp(0.75rem,2.2vw,1rem)]";
-const FLUID_BUTTON_TEXT = "text-[clamp(0.8125rem,2.4vw,1rem)]";
+const FLUID_BADGE_TEXT = "text-[clamp(0.5rem,1.6vw,0.75rem)]";
+const FLUID_HEADLINE_TEXT = "text-[clamp(0.8125rem,3.6vw,2.25rem)]";
+const FLUID_SUBTEXT_TEXT = "text-[clamp(0.625rem,2vw,1rem)]";
+const FLUID_BUTTON_TEXT = "text-[clamp(0.6875rem,2.2vw,1rem)]";
 // 캐러셀 화살표(왼쪽 폭 40px)와 겹치지 않도록 좌우 패딩의 최솟값을 화살표 폭보다 넉넉하게 확보한다.
 const FLUID_TEXT_PADDING_X = "px-[clamp(3.5rem,8vw,4rem)]";
 
@@ -246,7 +246,7 @@ export function HeroBanner() {
               aria-current={i === currentIndex}
               onClick={() => goTo(i)}
               className={cn(
-                "h-2 w-2 rounded-full transition-colors",
+                "h-1 w-1 rounded-full transition-colors md:h-2 md:w-2",
                 i === currentIndex ? "bg-neutral-900" : "bg-neutral-300 hover:bg-neutral-400"
               )}
             />
