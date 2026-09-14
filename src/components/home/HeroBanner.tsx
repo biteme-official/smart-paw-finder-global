@@ -12,60 +12,15 @@ function withManualLineBreaks(text: string): string {
   return text.replace(/\\n/g, "\n");
 }
 
-// 배너 원본(가로로 넓은 PC용 사진)은 피사체가 오른쪽에 몰려있는 구도가 많아 모바일 컨테이너에
-// object-fit:cover로 확대할 때 가로 기준 65% 지점을 중심으로 크롭한다.
-export const MOBILE_IMAGE_FOCAL_X = 0.65;
-
-// object-fit:cover의 기본 커버 배율만으로는(원본이 가로로 넓어) 확대가 부족해서
-// 위 focal point를 기준으로 추가로 더 확대한다.
-export const MOBILE_IMAGE_EXTRA_ZOOM = 2;
-
-// object-fit: cover + 위 focal point + 추가 확대(zoom) 기준으로 실제 화면에 노출되는
-// 크롭 영역 상단 가장자리 색상을 추출한다. 텍스트 블록 배경을 사진 가장자리 색상에
-// 맞춰 이음새를 없앤다.
-function sampleTopEdgeColor(
-  img: HTMLImageElement,
-  containerWidth: number,
-  containerHeight: number,
-  focalX = 0.5,
-  focalY = 0.5,
-  extraZoom = 1
-): string | null {
-  const nw = img.naturalWidth;
-  const nh = img.naturalHeight;
-  if (!containerWidth || !containerHeight || !nw || !nh) return null;
-
-  const scale = Math.max(containerWidth / nw, containerHeight / nh) * extraZoom;
-  const displayedWidth = nw * scale;
-  const displayedHeight = nh * scale;
-
-  const visibleLeft = Math.max(0, ((displayedWidth - containerWidth) * focalX) / scale);
-  const visibleTop = Math.max(0, ((displayedHeight - containerHeight) * focalY) / scale);
-  const visibleWidth = Math.max(1, Math.min(nw - visibleLeft, containerWidth / scale));
-  const stripHeight = Math.max(1, Math.min(8, nh - visibleTop));
-
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(visibleWidth));
-  canvas.height = stripHeight;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-
-  try {
-    ctx.drawImage(img, visibleLeft, visibleTop, visibleWidth, stripHeight, 0, 0, canvas.width, stripHeight);
-    const { data } = ctx.getImageData(0, 0, canvas.width, stripHeight);
-    let r = 0, g = 0, b = 0;
-    const pixelCount = data.length / 4;
-    for (let i = 0; i < data.length; i += 4) {
-      r += data[i];
-      g += data[i + 1];
-      b += data[i + 2];
-    }
-    return `rgb(${Math.round(r / pixelCount)}, ${Math.round(g / pixelCount)}, ${Math.round(b / pixelCount)})`;
-  } catch {
-    // 이미지 CORS 정책 등으로 픽셀 접근이 막히면 기본 배경(흰색)을 유지한다.
-    return null;
-  }
-}
+// 배지/헤드라인/서브텍스트/CTA 폰트 크기를 화면 폭에 비례해 줄인다(clamp(최소, 화면폭 비례, 최대)).
+// 브레이크포인트별 고정값을 여러 개 두는 대신 화면 폭이 좁아질수록 계속 비례해서 작아지므로,
+// 좁은 화면에서도 헤드라인이 사진 속 피사체를 침범하지 않는다. 최대값은 기존 PC 고정 크기와 동일.
+const FLUID_BADGE_TEXT = "text-[clamp(0.625rem,1.8vw,0.75rem)]";
+const FLUID_HEADLINE_TEXT = "text-[clamp(1.125rem,4.5vw,2.25rem)]";
+const FLUID_SUBTEXT_TEXT = "text-[clamp(0.75rem,2.2vw,1rem)]";
+const FLUID_BUTTON_TEXT = "text-[clamp(0.8125rem,2.4vw,1rem)]";
+// 캐러셀 화살표(왼쪽 폭 40px)와 겹치지 않도록 좌우 패딩의 최솟값을 화살표 폭보다 넉넉하게 확보한다.
+const FLUID_TEXT_PADDING_X = "px-[clamp(3.5rem,8vw,4rem)]";
 
 function HeroBannerSlide({
   banner,
@@ -79,24 +34,6 @@ function HeroBannerSlide({
   const subtext = banner.fields.subtext?.trim();
   const buttonLabel = banner.fields.button_label?.trim();
   const hasText = Boolean(badge || headline || subtext || buttonLabel);
-
-  const mobileImageWrapRef = useRef<HTMLDivElement>(null);
-  const [mobileTextBg, setMobileTextBg] = useState<string | null>(null);
-
-  const handleMobileImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-    const container = mobileImageWrapRef.current;
-    if (!container) return;
-    const color = sampleTopEdgeColor(
-      img,
-      container.clientWidth,
-      container.clientHeight,
-      MOBILE_IMAGE_FOCAL_X,
-      0.5,
-      MOBILE_IMAGE_EXTRA_ZOOM
-    );
-    if (color) setMobileTextBg(color);
-  }, []);
 
   if (!hasText) {
     // 텍스트 필드가 모두 비어있으면 이미지 원본 비율 그대로 전체 폭 표시
@@ -113,62 +50,11 @@ function HeroBannerSlide({
     );
   }
 
+  // 이미지 풀블리드 배경 + 텍스트 좌측 정렬 오버레이. PC/모바일 동일 구조이며
+  // 폰트 크기만 화면 폭에 비례해 줄어든다.
   return (
     <div className="w-full flex-shrink-0">
-      {/* 모바일: 텍스트 블록 위 + 사진 아래 (스택형) */}
-      <div className="md:hidden">
-        <div
-          className="flex min-h-[150px] flex-col items-center justify-center gap-2 px-6 pb-4 pt-6 text-center transition-colors duration-300"
-          style={mobileTextBg ? { backgroundColor: mobileTextBg } : undefined}
-        >
-          {badge && (
-            <span className="text-xs font-bold uppercase tracking-widest text-primary">
-              {badge}
-            </span>
-          )}
-          {headline && (
-            <h2 className="line-clamp-2 whitespace-pre-line text-2xl font-bold leading-snug text-neutral-900">
-              {withManualLineBreaks(headline)}
-            </h2>
-          )}
-          {subtext && (
-            <p className="whitespace-pre-line text-sm font-light text-neutral-400">
-              {subtext}
-            </p>
-          )}
-          {buttonLabel && banner.linkUrl && (
-            <button
-              type="button"
-              onClick={() => onNavigate(banner.linkUrl)}
-              className="mt-2 rounded-full bg-primary px-6 py-2 text-sm font-bold lowercase text-primary-foreground first-letter:uppercase transition-opacity hover:opacity-90"
-            >
-              {buttonLabel}
-            </button>
-          )}
-        </div>
-        <div ref={mobileImageWrapRef} className="relative aspect-[6/5] w-full overflow-hidden">
-          <img
-            src={banner.image!.url}
-            alt={banner.image!.altText || headline || "Main banner"}
-            crossOrigin="anonymous"
-            onLoad={handleMobileImageLoad}
-            onClick={() => onNavigate(banner.linkUrl)}
-            className={cn(
-              "absolute inset-0 h-full w-full object-cover",
-              banner.linkUrl && "cursor-pointer"
-            )}
-            style={{
-              objectPosition: `${MOBILE_IMAGE_FOCAL_X * 100}% center`,
-              transform: `scale(${MOBILE_IMAGE_EXTRA_ZOOM})`,
-              transformOrigin: `${MOBILE_IMAGE_FOCAL_X * 100}% 50%`,
-            }}
-            loading="lazy"
-          />
-        </div>
-      </div>
-
-      {/* 데스크톱: 이미지 풀블리드 배경 + 텍스트 오버레이 */}
-      <div className="relative hidden aspect-[2/1] w-full overflow-hidden rounded-lg md:block">
+      <div className="relative aspect-[2/1] w-full overflow-hidden rounded-lg">
         <img
           src={banner.image!.url}
           alt={banner.image!.altText || headline || "Main banner"}
@@ -180,19 +66,29 @@ function HeroBannerSlide({
           loading="lazy"
         />
         <div className="pointer-events-none absolute inset-0 flex items-center">
-          <div className="flex max-w-md flex-col items-start gap-3 px-16">
+          <div className={cn("flex max-w-md flex-col items-start gap-2 sm:gap-3", FLUID_TEXT_PADDING_X)}>
             {badge && (
-              <span className="whitespace-nowrap rounded-full bg-neutral-900 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
+              <span
+                className={cn(
+                  "whitespace-nowrap rounded-full bg-neutral-900 px-3 py-1 font-bold uppercase tracking-wide text-white",
+                  FLUID_BADGE_TEXT
+                )}
+              >
                 {badge}
               </span>
             )}
             {headline && (
-              <h2 className="line-clamp-2 whitespace-pre-line text-4xl font-bold leading-snug text-neutral-900">
+              <h2
+                className={cn(
+                  "line-clamp-2 whitespace-pre-line font-bold leading-snug text-neutral-900",
+                  FLUID_HEADLINE_TEXT
+                )}
+              >
                 {withManualLineBreaks(headline)}
               </h2>
             )}
             {subtext && (
-              <p className="whitespace-pre-line text-base leading-relaxed text-neutral-600">
+              <p className={cn("whitespace-pre-line leading-relaxed text-neutral-600", FLUID_SUBTEXT_TEXT)}>
                 {subtext}
               </p>
             )}
@@ -200,7 +96,10 @@ function HeroBannerSlide({
               <button
                 type="button"
                 onClick={() => onNavigate(banner.linkUrl)}
-                className="pointer-events-auto mt-2 border-b-2 border-neutral-900 pb-0.5 text-base font-bold lowercase text-neutral-900 first-letter:uppercase transition-opacity hover:opacity-60"
+                className={cn(
+                  "pointer-events-auto mt-2 border-b-2 border-neutral-900 pb-0.5 font-bold lowercase text-neutral-900 first-letter:uppercase transition-opacity hover:opacity-60",
+                  FLUID_BUTTON_TEXT
+                )}
               >
                 {buttonLabel}
               </button>
@@ -293,7 +192,7 @@ export function HeroBanner() {
   if (loading) {
     return (
       <div className="w-full px-6 py-8 sm:px-10">
-        <Skeleton className="w-full aspect-[16/10] md:aspect-[2/1] rounded-lg" />
+        <Skeleton className="w-full aspect-[2/1] rounded-lg" />
       </div>
     );
   }
@@ -320,7 +219,7 @@ export function HeroBanner() {
               type="button"
               aria-label="이전 배너"
               onClick={goPrev}
-              className="absolute left-0 top-1/2 hidden h-10 w-10 -translate-y-1/2 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-900 md:flex md:left-1"
+              className="absolute left-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-900 md:left-1"
             >
               <ChevronLeft className="h-7 w-7" strokeWidth={1.5} />
             </button>
@@ -328,7 +227,7 @@ export function HeroBanner() {
               type="button"
               aria-label="다음 배너"
               onClick={goNext}
-              className="absolute right-0 top-1/2 hidden h-10 w-10 -translate-y-1/2 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-900 md:flex md:right-1"
+              className="absolute right-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-900 md:right-1"
             >
               <ChevronRight className="h-7 w-7" strokeWidth={1.5} />
             </button>
