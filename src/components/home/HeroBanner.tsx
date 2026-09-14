@@ -111,31 +111,22 @@ export function HeroBanner() {
             return (
               <div key={banner.id} className="w-full flex-shrink-0">
                 {hasText ? (
-                  <div className="relative aspect-[16/10] w-full overflow-hidden rounded-lg md:aspect-[2/1]">
-                    <img
-                      src={banner.image!.url}
-                      alt={banner.image!.altText || headline || "Main banner"}
-                      onClick={() => handleBannerClick(banner.linkUrl)}
-                      className={cn(
-                        "absolute inset-0 h-full w-full object-cover",
-                        banner.linkUrl && "cursor-pointer"
-                      )}
-                      loading="lazy"
-                    />
-                    <div className="pointer-events-none absolute inset-0 flex items-center">
-                      <div className="flex max-w-[75%] flex-col items-start gap-2 px-6 sm:px-10 md:max-w-md md:gap-3 md:px-16">
+                  <>
+                    {/* 모바일: 텍스트 블록 위 + 사진 아래 (스택형) */}
+                    <div className="md:hidden">
+                      <div className="flex flex-col items-center gap-2 px-6 pb-4 pt-8 text-center">
                         {badge && (
-                          <span className="whitespace-nowrap rounded-full bg-neutral-900 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white md:text-xs">
+                          <span className="text-xs font-bold uppercase tracking-widest text-primary">
                             {badge}
                           </span>
                         )}
                         {headline && (
-                          <h2 className="line-clamp-2 whitespace-pre-line text-2xl font-bold leading-snug text-neutral-900 md:text-4xl">
+                          <h2 className="line-clamp-2 whitespace-pre-line text-2xl font-bold leading-snug text-neutral-900">
                             {headline}
                           </h2>
                         )}
                         {subtext && (
-                          <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600 md:text-base">
+                          <p className="whitespace-pre-line text-sm font-light text-neutral-400">
                             {subtext}
                           </p>
                         )}
@@ -143,14 +134,63 @@ export function HeroBanner() {
                           <button
                             type="button"
                             onClick={() => handleBannerClick(banner.linkUrl)}
-                            className="pointer-events-auto mt-2 border-b-2 border-neutral-900 pb-0.5 text-sm font-bold text-neutral-900 transition-opacity hover:opacity-60 md:text-base"
+                            className="mt-2 rounded-full bg-primary px-6 py-2 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90"
                           >
                             {buttonLabel}
                           </button>
                         )}
                       </div>
+                      <img
+                        src={banner.image!.url}
+                        alt={banner.image!.altText || headline || "Main banner"}
+                        onClick={() => handleBannerClick(banner.linkUrl)}
+                        className={cn("block h-auto w-full", banner.linkUrl && "cursor-pointer")}
+                        loading="lazy"
+                      />
                     </div>
-                  </div>
+
+                    {/* 데스크톱: 이미지 풀블리드 배경 + 텍스트 오버레이 */}
+                    <div className="relative hidden aspect-[2/1] w-full overflow-hidden rounded-lg md:block">
+                      <img
+                        src={banner.image!.url}
+                        alt={banner.image!.altText || headline || "Main banner"}
+                        onClick={() => handleBannerClick(banner.linkUrl)}
+                        className={cn(
+                          "absolute inset-0 h-full w-full object-cover",
+                          banner.linkUrl && "cursor-pointer"
+                        )}
+                        loading="lazy"
+                      />
+                      <div className="pointer-events-none absolute inset-0 flex items-center">
+                        <div className="flex max-w-md flex-col items-start gap-3 px-16">
+                          {badge && (
+                            <span className="whitespace-nowrap rounded-full bg-neutral-900 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
+                              {badge}
+                            </span>
+                          )}
+                          {headline && (
+                            <h2 className="line-clamp-2 whitespace-pre-line text-4xl font-bold leading-snug text-neutral-900">
+                              {headline}
+                            </h2>
+                          )}
+                          {subtext && (
+                            <p className="whitespace-pre-line text-base leading-relaxed text-neutral-600">
+                              {subtext}
+                            </p>
+                          )}
+                          {buttonLabel && banner.linkUrl && (
+                            <button
+                              type="button"
+                              onClick={() => handleBannerClick(banner.linkUrl)}
+                              className="pointer-events-auto mt-2 border-b-2 border-neutral-900 pb-0.5 text-base font-bold text-neutral-900 transition-opacity hover:opacity-60"
+                            >
+                              {buttonLabel}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   // 텍스트 필드가 모두 비어있으면 이미지 원본 비율 그대로 전체 폭 표시
                   <img
@@ -173,7 +213,7 @@ export function HeroBanner() {
               type="button"
               aria-label="이전 배너"
               onClick={goPrev}
-              className="absolute left-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-900 md:left-1"
+              className="absolute left-0 top-1/2 hidden h-10 w-10 -translate-y-1/2 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-900 md:flex md:left-1"
             >
               <ChevronLeft className="h-7 w-7" strokeWidth={1.5} />
             </button>
@@ -181,7 +221,7 @@ export function HeroBanner() {
               type="button"
               aria-label="다음 배너"
               onClick={goNext}
-              className="absolute right-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-900 md:right-1"
+              className="absolute right-0 top-1/2 hidden h-10 w-10 -translate-y-1/2 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-900 md:flex md:right-1"
             >
               <ChevronRight className="h-7 w-7" strokeWidth={1.5} />
             </button>
