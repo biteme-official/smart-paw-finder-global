@@ -675,18 +675,8 @@ export async function fetchBanners(first: number = 10): Promise<ShopifyBanner[]>
     return { id: node.id, handle: node.handle, image, linkUrl, fields };
   })
   // Active 필드(선택 목록: 노출/미노출)가 '노출'인 배너만 노출한다. 그 외 값·미설정은 노출 제외.
-  // start_at/end_at 예약 노출: 미설정 항목은 해당 방향에 제한 없음(하위 호환).
-  .filter((banner) => {
-    if (banner.fields.active !== '노출') return false;
-
-    const now = Date.now();
-    const startAt = banner.fields.start_at;
-    const endAt = banner.fields.end_at;
-    if (startAt && new Date(startAt).getTime() > now) return false;
-    if (endAt && new Date(endAt).getTime() < now) return false;
-
-    return true;
-  });
+  // start_at/end_at 필드는 CMS에 남아있지만, 이번 PR에서는 필터링에 사용하지 않는다. (서버 고정 쿼리 전환 작업에서 별도 처리 예정)
+  .filter((banner) => banner.fields.active === '노출');
 
   banners.sort((a, b) => {
     const aOrder = a.fields.sort_order;
