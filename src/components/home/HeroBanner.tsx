@@ -12,27 +12,41 @@ function withManualLineBreaks(text: string): string {
   return text.replace(/\\n/g, "\n");
 }
 
-// object-fit: cover + object-position: bottom 기준으로 실제 화면에 노출되는 이미지의
-// 상단 크롭 지점 색상을 추출한다. 텍스트 블록 배경을 사진 상단 색상에 맞춰 이음새를 없앤다.
-function sampleTopEdgeColor(img: HTMLImageElement, containerWidth: number, containerHeight: number): string | null {
+// 배너 원본(가로로 넓은 PC용 사진)은 피사체가 오른쪽에 몰려있는 구도가 많아 모바일 정사각
+// 컨테이너에 object-fit:cover로 확대할 때 가로 기준 65% 지점을 중심으로 크롭한다.
+export const MOBILE_IMAGE_FOCAL_X = 0.65;
+
+// object-fit: cover + 위 focal point 기준으로 실제 화면에 노출되는 크롭 영역 상단 가장자리
+// 색상을 추출한다. 텍스트 블록 배경을 사진 가장자리 색상에 맞춰 이음새를 없앤다.
+function sampleTopEdgeColor(
+  img: HTMLImageElement,
+  containerWidth: number,
+  containerHeight: number,
+  focalX = 0.5,
+  focalY = 0.5
+): string | null {
   const nw = img.naturalWidth;
   const nh = img.naturalHeight;
   if (!containerWidth || !containerHeight || !nw || !nh) return null;
 
   const scale = Math.max(containerWidth / nw, containerHeight / nh);
+  const displayedWidth = nw * scale;
   const displayedHeight = nh * scale;
-  const cropTopNatural = Math.max(0, Math.min(nh - 1, (displayedHeight - containerHeight) / scale));
-  const stripHeight = Math.max(1, Math.min(8, nh - cropTopNatural));
+
+  const visibleLeft = Math.max(0, ((displayedWidth - containerWidth) * focalX) / scale);
+  const visibleTop = Math.max(0, ((displayedHeight - containerHeight) * focalY) / scale);
+  const visibleWidth = Math.max(1, Math.min(nw - visibleLeft, containerWidth / scale));
+  const stripHeight = Math.max(1, Math.min(8, nh - visibleTop));
 
   const canvas = document.createElement("canvas");
-  canvas.width = nw;
+  canvas.width = Math.max(1, Math.round(visibleWidth));
   canvas.height = stripHeight;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
   try {
-    ctx.drawImage(img, 0, cropTopNatural, nw, stripHeight, 0, 0, nw, stripHeight);
-    const { data } = ctx.getImageData(0, 0, nw, stripHeight);
+    ctx.drawImage(img, visibleLeft, visibleTop, visibleWidth, stripHeight, 0, 0, canvas.width, stripHeight);
+    const { data } = ctx.getImageData(0, 0, canvas.width, stripHeight);
     let r = 0, g = 0, b = 0;
     const pixelCount = data.length / 4;
     for (let i = 0; i < data.length; i += 4) {
@@ -67,7 +81,7 @@ function HeroBannerSlide({
     const img = e.currentTarget;
     const container = mobileImageWrapRef.current;
     if (!container) return;
-    const color = sampleTopEdgeColor(img, container.clientWidth, container.clientHeight);
+    const color = sampleTopEdgeColor(img, container.clientWidth, container.clientHeight, MOBILE_IMAGE_FOCAL_X, 0.5);
     if (color) setMobileTextBg(color);
   }, []);
 
@@ -91,7 +105,7 @@ function HeroBannerSlide({
       {/* 모바일: 텍스트 블록 위 + 사진 아래 (스택형) */}
       <div className="md:hidden">
         <div
-          className="flex flex-col items-center gap-2 px-6 pb-4 pt-8 text-center transition-colors duration-300"
+          className="flex min-h-[220px] flex-col items-center justify-center gap-2 px-6 pb-4 pt-8 text-center transition-colors duration-300"
           style={mobileTextBg ? { backgroundColor: mobileTextBg } : undefined}
         >
           {badge && (
@@ -119,7 +133,7 @@ function HeroBannerSlide({
             </button>
           )}
         </div>
-        <div ref={mobileImageWrapRef} className="relative aspect-[3/2] w-full overflow-hidden">
+        <div ref={mobileImageWrapRef} className="relative aspect-square w-full overflow-hidden">
           <img
             src={banner.image!.url}
             alt={banner.image!.altText || headline || "Main banner"}
@@ -127,9 +141,10 @@ function HeroBannerSlide({
             onLoad={handleMobileImageLoad}
             onClick={() => onNavigate(banner.linkUrl)}
             className={cn(
-              "absolute inset-0 h-full w-full object-cover object-bottom",
+              "absolute inset-0 h-full w-full object-cover",
               banner.linkUrl && "cursor-pointer"
             )}
+            style={{ objectPosition: `${MOBILE_IMAGE_FOCAL_X * 100}% center` }}
             loading="lazy"
           />
         </div>
