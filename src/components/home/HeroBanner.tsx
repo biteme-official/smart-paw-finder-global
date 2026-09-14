@@ -134,19 +134,24 @@ export function HeroBanner() {
                           <button
                             type="button"
                             onClick={() => handleBannerClick(banner.linkUrl)}
-                            className="mt-2 rounded-full bg-primary px-6 py-2 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90"
+                            className="mt-2 rounded-full bg-primary px-6 py-2 text-sm font-bold lowercase text-primary-foreground first-letter:uppercase transition-opacity hover:opacity-90"
                           >
                             {buttonLabel}
                           </button>
                         )}
                       </div>
-                      <img
-                        src={banner.image!.url}
-                        alt={banner.image!.altText || headline || "Main banner"}
-                        onClick={() => handleBannerClick(banner.linkUrl)}
-                        className={cn("block h-auto w-full", banner.linkUrl && "cursor-pointer")}
-                        loading="lazy"
-                      />
+                      <div className="relative aspect-[3/2] w-full overflow-hidden">
+                        <img
+                          src={banner.image!.url}
+                          alt={banner.image!.altText || headline || "Main banner"}
+                          onClick={() => handleBannerClick(banner.linkUrl)}
+                          className={cn(
+                            "absolute inset-0 h-full w-full object-cover object-bottom",
+                            banner.linkUrl && "cursor-pointer"
+                          )}
+                          loading="lazy"
+                        />
+                      </div>
                     </div>
 
                     {/* 데스크톱: 이미지 풀블리드 배경 + 텍스트 오버레이 */}
@@ -182,7 +187,7 @@ export function HeroBanner() {
                             <button
                               type="button"
                               onClick={() => handleBannerClick(banner.linkUrl)}
-                              className="pointer-events-auto mt-2 border-b-2 border-neutral-900 pb-0.5 text-base font-bold text-neutral-900 transition-opacity hover:opacity-60"
+                              className="pointer-events-auto mt-2 border-b-2 border-neutral-900 pb-0.5 text-base font-bold lowercase text-neutral-900 first-letter:uppercase transition-opacity hover:opacity-60"
                             >
                               {buttonLabel}
                             </button>
