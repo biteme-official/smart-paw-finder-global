@@ -5,6 +5,181 @@ import { fetchBanners, ShopifyBanner } from "@/lib/shopify";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
+// Shopify 헤드라인 필드는 보통 한 줄 텍스트라 실제 Enter 줄바꿈을 못 넣는 경우가 많다.
+// CMS에서 원하는 줄바꿈 위치에 문자 그대로 "\n"(백슬래시+n)을 입력하면 실제 줄바꿈으로 치환해
+// 화면 폭과 상관없이 항상 같은 지점에서 끊기도록 한다. (whitespace-pre-line과 함께 사용)
+function withManualLineBreaks(text: string): string {
+  return text.replace(/\\n/g, "\n");
+}
+
+// object-fit: cover + object-position: bottom 기준으로 실제 화면에 노출되는 이미지의
+// 상단 크롭 지점 색상을 추출한다. 텍스트 블록 배경을 사진 상단 색상에 맞춰 이음새를 없앤다.
+function sampleTopEdgeColor(img: HTMLImageElement, containerWidth: number, containerHeight: number): string | null {
+  const nw = img.naturalWidth;
+  const nh = img.naturalHeight;
+  if (!containerWidth || !containerHeight || !nw || !nh) return null;
+
+  const scale = Math.max(containerWidth / nw, containerHeight / nh);
+  const displayedHeight = nh * scale;
+  const cropTopNatural = Math.max(0, Math.min(nh - 1, (displayedHeight - containerHeight) / scale));
+  const stripHeight = Math.max(1, Math.min(8, nh - cropTopNatural));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = nw;
+  canvas.height = stripHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  try {
+    ctx.drawImage(img, 0, cropTopNatural, nw, stripHeight, 0, 0, nw, stripHeight);
+    const { data } = ctx.getImageData(0, 0, nw, stripHeight);
+    let r = 0, g = 0, b = 0;
+    const pixelCount = data.length / 4;
+    for (let i = 0; i < data.length; i += 4) {
+      r += data[i];
+      g += data[i + 1];
+      b += data[i + 2];
+    }
+    return `rgb(${Math.round(r / pixelCount)}, ${Math.round(g / pixelCount)}, ${Math.round(b / pixelCount)})`;
+  } catch {
+    // 이미지 CORS 정책 등으로 픽셀 접근이 막히면 기본 배경(흰색)을 유지한다.
+    return null;
+  }
+}
+
+function HeroBannerSlide({
+  banner,
+  onNavigate,
+}: {
+  banner: ShopifyBanner;
+  onNavigate: (linkUrl: string | null) => void;
+}) {
+  const badge = banner.fields.badge?.trim();
+  const headline = banner.fields.headline?.trim();
+  const subtext = banner.fields.subtext?.trim();
+  const buttonLabel = banner.fields.button_label?.trim();
+  const hasText = Boolean(badge || headline || subtext || buttonLabel);
+
+  const mobileImageWrapRef = useRef<HTMLDivElement>(null);
+  const [mobileTextBg, setMobileTextBg] = useState<string | null>(null);
+
+  const handleMobileImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    const container = mobileImageWrapRef.current;
+    if (!container) return;
+    const color = sampleTopEdgeColor(img, container.clientWidth, container.clientHeight);
+    if (color) setMobileTextBg(color);
+  }, []);
+
+  if (!hasText) {
+    // 텍스트 필드가 모두 비어있으면 이미지 원본 비율 그대로 전체 폭 표시
+    return (
+      <div className="w-full flex-shrink-0">
+        <img
+          src={banner.image!.url}
+          alt={banner.image!.altText || "Main banner"}
+          onClick={() => onNavigate(banner.linkUrl)}
+          className={cn("block h-auto w-full", banner.linkUrl && "cursor-pointer")}
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full flex-shrink-0">
+      {/* 모바일: 텍스트 블록 위 + 사진 아래 (스택형) */}
+      <div className="md:hidden">
+        <div
+          className="flex flex-col items-center gap-2 px-6 pb-4 pt-8 text-center transition-colors duration-300"
+          style={mobileTextBg ? { backgroundColor: mobileTextBg } : undefined}
+        >
+          {badge && (
+            <span className="text-xs font-bold uppercase tracking-widest text-primary">
+              {badge}
+            </span>
+          )}
+          {headline && (
+            <h2 className="line-clamp-2 whitespace-pre-line text-2xl font-bold leading-snug text-neutral-900">
+              {withManualLineBreaks(headline)}
+            </h2>
+          )}
+          {subtext && (
+            <p className="whitespace-pre-line text-sm font-light text-neutral-400">
+              {subtext}
+            </p>
+          )}
+          {buttonLabel && banner.linkUrl && (
+            <button
+              type="button"
+              onClick={() => onNavigate(banner.linkUrl)}
+              className="mt-2 rounded-full bg-primary px-6 py-2 text-sm font-bold lowercase text-primary-foreground first-letter:uppercase transition-opacity hover:opacity-90"
+            >
+              {buttonLabel}
+            </button>
+          )}
+        </div>
+        <div ref={mobileImageWrapRef} className="relative aspect-[3/2] w-full overflow-hidden">
+          <img
+            src={banner.image!.url}
+            alt={banner.image!.altText || headline || "Main banner"}
+            crossOrigin="anonymous"
+            onLoad={handleMobileImageLoad}
+            onClick={() => onNavigate(banner.linkUrl)}
+            className={cn(
+              "absolute inset-0 h-full w-full object-cover object-bottom",
+              banner.linkUrl && "cursor-pointer"
+            )}
+            loading="lazy"
+          />
+        </div>
+      </div>
+
+      {/* 데스크톱: 이미지 풀블리드 배경 + 텍스트 오버레이 */}
+      <div className="relative hidden aspect-[2/1] w-full overflow-hidden rounded-lg md:block">
+        <img
+          src={banner.image!.url}
+          alt={banner.image!.altText || headline || "Main banner"}
+          onClick={() => onNavigate(banner.linkUrl)}
+          className={cn(
+            "absolute inset-0 h-full w-full object-cover",
+            banner.linkUrl && "cursor-pointer"
+          )}
+          loading="lazy"
+        />
+        <div className="pointer-events-none absolute inset-0 flex items-center">
+          <div className="flex max-w-md flex-col items-start gap-3 px-16">
+            {badge && (
+              <span className="whitespace-nowrap rounded-full bg-neutral-900 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
+                {badge}
+              </span>
+            )}
+            {headline && (
+              <h2 className="line-clamp-2 whitespace-pre-line text-4xl font-bold leading-snug text-neutral-900">
+                {withManualLineBreaks(headline)}
+              </h2>
+            )}
+            {subtext && (
+              <p className="whitespace-pre-line text-base leading-relaxed text-neutral-600">
+                {subtext}
+              </p>
+            )}
+            {buttonLabel && banner.linkUrl && (
+              <button
+                type="button"
+                onClick={() => onNavigate(banner.linkUrl)}
+                className="pointer-events-auto mt-2 border-b-2 border-neutral-900 pb-0.5 text-base font-bold lowercase text-neutral-900 first-letter:uppercase transition-opacity hover:opacity-60"
+              >
+                {buttonLabel}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function HeroBanner() {
   const navigate = useNavigate();
   const [banners, setBanners] = useState<ShopifyBanner[]>([]);
@@ -101,114 +276,9 @@ export function HeroBanner() {
           className="flex transition-transform duration-500 ease-in-out"
           style={{ transform: `translateX(-${currentIndex * 100}%)` }}
         >
-          {banners.map((banner) => {
-            const badge = banner.fields.badge?.trim();
-            const headline = banner.fields.headline?.trim();
-            const subtext = banner.fields.subtext?.trim();
-            const buttonLabel = banner.fields.button_label?.trim();
-            const hasText = Boolean(badge || headline || subtext || buttonLabel);
-
-            return (
-              <div key={banner.id} className="w-full flex-shrink-0">
-                {hasText ? (
-                  <>
-                    {/* 모바일: 텍스트 블록 위 + 사진 아래 (스택형) */}
-                    <div className="md:hidden">
-                      <div className="flex flex-col items-center gap-2 px-6 pb-4 pt-8 text-center">
-                        {badge && (
-                          <span className="text-xs font-bold uppercase tracking-widest text-primary">
-                            {badge}
-                          </span>
-                        )}
-                        {headline && (
-                          <h2 className="line-clamp-2 whitespace-pre-line text-2xl font-bold leading-snug text-neutral-900">
-                            {headline}
-                          </h2>
-                        )}
-                        {subtext && (
-                          <p className="whitespace-pre-line text-sm font-light text-neutral-400">
-                            {subtext}
-                          </p>
-                        )}
-                        {buttonLabel && banner.linkUrl && (
-                          <button
-                            type="button"
-                            onClick={() => handleBannerClick(banner.linkUrl)}
-                            className="mt-2 rounded-full bg-primary px-6 py-2 text-sm font-bold lowercase text-primary-foreground first-letter:uppercase transition-opacity hover:opacity-90"
-                          >
-                            {buttonLabel}
-                          </button>
-                        )}
-                      </div>
-                      <div className="relative aspect-[3/2] w-full overflow-hidden">
-                        <img
-                          src={banner.image!.url}
-                          alt={banner.image!.altText || headline || "Main banner"}
-                          onClick={() => handleBannerClick(banner.linkUrl)}
-                          className={cn(
-                            "absolute inset-0 h-full w-full object-cover object-bottom",
-                            banner.linkUrl && "cursor-pointer"
-                          )}
-                          loading="lazy"
-                        />
-                      </div>
-                    </div>
-
-                    {/* 데스크톱: 이미지 풀블리드 배경 + 텍스트 오버레이 */}
-                    <div className="relative hidden aspect-[2/1] w-full overflow-hidden rounded-lg md:block">
-                      <img
-                        src={banner.image!.url}
-                        alt={banner.image!.altText || headline || "Main banner"}
-                        onClick={() => handleBannerClick(banner.linkUrl)}
-                        className={cn(
-                          "absolute inset-0 h-full w-full object-cover",
-                          banner.linkUrl && "cursor-pointer"
-                        )}
-                        loading="lazy"
-                      />
-                      <div className="pointer-events-none absolute inset-0 flex items-center">
-                        <div className="flex max-w-md flex-col items-start gap-3 px-16">
-                          {badge && (
-                            <span className="whitespace-nowrap rounded-full bg-neutral-900 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
-                              {badge}
-                            </span>
-                          )}
-                          {headline && (
-                            <h2 className="line-clamp-2 whitespace-pre-line text-4xl font-bold leading-snug text-neutral-900">
-                              {headline}
-                            </h2>
-                          )}
-                          {subtext && (
-                            <p className="whitespace-pre-line text-base leading-relaxed text-neutral-600">
-                              {subtext}
-                            </p>
-                          )}
-                          {buttonLabel && banner.linkUrl && (
-                            <button
-                              type="button"
-                              onClick={() => handleBannerClick(banner.linkUrl)}
-                              className="pointer-events-auto mt-2 border-b-2 border-neutral-900 pb-0.5 text-base font-bold lowercase text-neutral-900 first-letter:uppercase transition-opacity hover:opacity-60"
-                            >
-                              {buttonLabel}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  // 텍스트 필드가 모두 비어있으면 이미지 원본 비율 그대로 전체 폭 표시
-                  <img
-                    src={banner.image!.url}
-                    alt={banner.image!.altText || "Main banner"}
-                    onClick={() => handleBannerClick(banner.linkUrl)}
-                    className={cn("block h-auto w-full", banner.linkUrl && "cursor-pointer")}
-                    loading="lazy"
-                  />
-                )}
-              </div>
-            );
-          })}
+          {banners.map((banner) => (
+            <HeroBannerSlide key={banner.id} banner={banner} onNavigate={handleBannerClick} />
+          ))}
         </div>
 
         {/* Navigation Arrows */}
