@@ -5,10 +5,20 @@ import { fetchBanners, ShopifyBanner } from "@/lib/shopify";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-// Shopify 헤드라인 필드는 보통 한 줄 텍스트라 실제 Enter 줄바꿈을 못 넣는 경우가 많다.
-// CMS에서 원하는 줄바꿈 위치에 문자 그대로 "\n"(백슬래시+n)을 입력하면 실제 줄바꿈으로 치환해
-// 화면 폭과 상관없이 항상 같은 지점에서 끊기도록 한다. (whitespace-pre-line과 함께 사용)
+// CMS 운영 부담 때문에 관리자가 headline 필드에 줄바꿈을 직접 입력하는 방식은 쓰지 않기로 했다.
+// 대신 알려진 헤드라인 문구는 코드에 줄바꿈 지점을 하드코딩해서 PC/모바일 화면 폭과 무관하게
+// 항상 같은 지점에서 끊기도록 고정한다. 목록에 없는 새 헤드라인은 기존처럼 화면 폭에 따라
+// 자동 줄바꿈되는 것으로 폴백한다.
+const HEADLINE_LINE_BREAKS: Record<string, string> = {
+  "Made to keep them moving": "Made to keep\nthem moving",
+  "Comfort Made For Every Walk": "Comfort Made For\nEvery Walk",
+  "Cleaner Paws, Cleaner Floors": "Cleaner Paws,\nCleaner Floors",
+};
+
 function withManualLineBreaks(text: string): string {
+  if (text in HEADLINE_LINE_BREAKS) return HEADLINE_LINE_BREAKS[text];
+  // 위 목록에 없는 헤드라인은 CMS에 문자 그대로 "\n"(백슬래시+n)이 입력된 경우에만 치환하고,
+  // 그마저 없으면 화면 폭에 따라 자동 줄바꿈된다. (whitespace-pre-line과 함께 사용)
   return text.replace(/\\n/g, "\n");
 }
 
@@ -16,8 +26,8 @@ function withManualLineBreaks(text: string): string {
 // 브레이크포인트별 고정값을 여러 개 두는 대신 화면 폭이 좁아질수록 계속 비례해서 작아지므로,
 // 좁은 화면에서도 헤드라인이 사진 속 피사체를 침범하지 않는다.
 // 최소/화면폭 비례/최대값 모두 이전 크기의 정확히 절반으로 축소(요청: "지금의 50%").
-const FLUID_BADGE_TEXT = "text-[clamp(0.25rem,0.8vw,0.375rem)]";
-const FLUID_HEADLINE_TEXT = "text-[clamp(0.40625rem,1.8vw,1.125rem)]";
+const FLUID_BADGE_TEXT = "text-[clamp(0.3125rem,1vw,0.5rem)]";
+const FLUID_HEADLINE_TEXT = "text-[clamp(0.5rem,2.25vw,1.5rem)]";
 const FLUID_SUBTEXT_TEXT = "text-[clamp(0.3125rem,1vw,0.5rem)]";
 const FLUID_BUTTON_TEXT = "text-[clamp(0.34375rem,1.1vw,0.5rem)]";
 // 캐러셀 화살표(왼쪽 폭 40px)와 겹치지 않도록 좌우 패딩의 최솟값을 화살표 폭보다 넉넉하게 확보한다.
