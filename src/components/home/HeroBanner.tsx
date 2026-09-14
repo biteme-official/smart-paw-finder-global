@@ -14,11 +14,12 @@ function withManualLineBreaks(text: string): string {
 
 // 배지/헤드라인/서브텍스트/CTA 폰트 크기를 화면 폭에 비례해 줄인다(clamp(최소, 화면폭 비례, 최대)).
 // 브레이크포인트별 고정값을 여러 개 두는 대신 화면 폭이 좁아질수록 계속 비례해서 작아지므로,
-// 좁은 화면에서도 헤드라인이 사진 속 피사체를 침범하지 않는다. 최대값은 기존 PC 고정 크기와 동일.
-const FLUID_BADGE_TEXT = "text-[clamp(0.5rem,1.6vw,0.75rem)]";
-const FLUID_HEADLINE_TEXT = "text-[clamp(0.8125rem,3.6vw,2.25rem)]";
-const FLUID_SUBTEXT_TEXT = "text-[clamp(0.625rem,2vw,1rem)]";
-const FLUID_BUTTON_TEXT = "text-[clamp(0.6875rem,2.2vw,1rem)]";
+// 좁은 화면에서도 헤드라인이 사진 속 피사체를 침범하지 않는다.
+// 최소/화면폭 비례/최대값 모두 이전 크기의 정확히 절반으로 축소(요청: "지금의 50%").
+const FLUID_BADGE_TEXT = "text-[clamp(0.25rem,0.8vw,0.375rem)]";
+const FLUID_HEADLINE_TEXT = "text-[clamp(0.40625rem,1.8vw,1.125rem)]";
+const FLUID_SUBTEXT_TEXT = "text-[clamp(0.3125rem,1vw,0.5rem)]";
+const FLUID_BUTTON_TEXT = "text-[clamp(0.34375rem,1.1vw,0.5rem)]";
 // 캐러셀 화살표(왼쪽 폭 40px)와 겹치지 않도록 좌우 패딩의 최솟값을 화살표 폭보다 넉넉하게 확보한다.
 const FLUID_TEXT_PADDING_X = "px-[clamp(3.5rem,8vw,4rem)]";
 
@@ -88,21 +89,35 @@ function HeroBannerSlide({
               </h2>
             )}
             {subtext && (
-              <p className={cn("whitespace-pre-line leading-relaxed text-neutral-600", FLUID_SUBTEXT_TEXT)}>
+              <p className={cn("md:hidden whitespace-pre-line leading-relaxed text-neutral-600", FLUID_SUBTEXT_TEXT)}>
                 {subtext}
               </p>
             )}
-            {buttonLabel && banner.linkUrl && (
-              <button
-                type="button"
-                onClick={() => onNavigate(banner.linkUrl)}
-                className={cn(
-                  "pointer-events-auto mt-2 border-b-2 border-neutral-900 pb-0.5 font-bold lowercase text-neutral-900 first-letter:uppercase transition-opacity hover:opacity-60",
-                  FLUID_BUTTON_TEXT
-                )}
-              >
-                {buttonLabel}
-              </button>
+            {buttonLabel && (
+              banner.linkUrl ? (
+                <button
+                  type="button"
+                  onClick={() => onNavigate(banner.linkUrl)}
+                  className={cn(
+                    "pointer-events-auto mt-2 border-b-2 border-neutral-900 pb-0.5 font-bold lowercase text-neutral-900 first-letter:uppercase transition-opacity hover:opacity-60",
+                    FLUID_BUTTON_TEXT
+                  )}
+                >
+                  {buttonLabel}
+                </button>
+              ) : (
+                // link 필드가 비어있어 버튼을 노출할 수 없는 배너도, 배지/헤드라인 위치가
+                // 다른 슬라이드와 같은 높이에 오도록 버튼 자리만큼 공간을 그대로 유지한다.
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "invisible mt-2 border-b-2 border-transparent pb-0.5 font-bold",
+                    FLUID_BUTTON_TEXT
+                  )}
+                >
+                  {buttonLabel}
+                </span>
+              )
             )}
           </div>
         </div>
