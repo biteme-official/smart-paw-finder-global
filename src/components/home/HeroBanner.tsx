@@ -12,24 +12,30 @@ function withManualLineBreaks(text: string): string {
   return text.replace(/\\n/g, "\n");
 }
 
-// 배너 원본(가로로 넓은 PC용 사진)은 피사체가 오른쪽에 몰려있는 구도가 많아 모바일 정사각
-// 컨테이너에 object-fit:cover로 확대할 때 가로 기준 65% 지점을 중심으로 크롭한다.
+// 배너 원본(가로로 넓은 PC용 사진)은 피사체가 오른쪽에 몰려있는 구도가 많아 모바일 컨테이너에
+// object-fit:cover로 확대할 때 가로 기준 65% 지점을 중심으로 크롭한다.
 export const MOBILE_IMAGE_FOCAL_X = 0.65;
 
-// object-fit: cover + 위 focal point 기준으로 실제 화면에 노출되는 크롭 영역 상단 가장자리
-// 색상을 추출한다. 텍스트 블록 배경을 사진 가장자리 색상에 맞춰 이음새를 없앤다.
+// object-fit:cover의 기본 커버 배율만으로는(원본이 가로로 넓어) 확대가 부족해서
+// 위 focal point를 기준으로 추가로 더 확대한다.
+export const MOBILE_IMAGE_EXTRA_ZOOM = 2;
+
+// object-fit: cover + 위 focal point + 추가 확대(zoom) 기준으로 실제 화면에 노출되는
+// 크롭 영역 상단 가장자리 색상을 추출한다. 텍스트 블록 배경을 사진 가장자리 색상에
+// 맞춰 이음새를 없앤다.
 function sampleTopEdgeColor(
   img: HTMLImageElement,
   containerWidth: number,
   containerHeight: number,
   focalX = 0.5,
-  focalY = 0.5
+  focalY = 0.5,
+  extraZoom = 1
 ): string | null {
   const nw = img.naturalWidth;
   const nh = img.naturalHeight;
   if (!containerWidth || !containerHeight || !nw || !nh) return null;
 
-  const scale = Math.max(containerWidth / nw, containerHeight / nh);
+  const scale = Math.max(containerWidth / nw, containerHeight / nh) * extraZoom;
   const displayedWidth = nw * scale;
   const displayedHeight = nh * scale;
 
@@ -81,7 +87,14 @@ function HeroBannerSlide({
     const img = e.currentTarget;
     const container = mobileImageWrapRef.current;
     if (!container) return;
-    const color = sampleTopEdgeColor(img, container.clientWidth, container.clientHeight, MOBILE_IMAGE_FOCAL_X, 0.5);
+    const color = sampleTopEdgeColor(
+      img,
+      container.clientWidth,
+      container.clientHeight,
+      MOBILE_IMAGE_FOCAL_X,
+      0.5,
+      MOBILE_IMAGE_EXTRA_ZOOM
+    );
     if (color) setMobileTextBg(color);
   }, []);
 
@@ -105,7 +118,7 @@ function HeroBannerSlide({
       {/* 모바일: 텍스트 블록 위 + 사진 아래 (스택형) */}
       <div className="md:hidden">
         <div
-          className="flex min-h-[220px] flex-col items-center justify-center gap-2 px-6 pb-4 pt-8 text-center transition-colors duration-300"
+          className="flex min-h-[150px] flex-col items-center justify-center gap-2 px-6 pb-4 pt-6 text-center transition-colors duration-300"
           style={mobileTextBg ? { backgroundColor: mobileTextBg } : undefined}
         >
           {badge && (
@@ -133,7 +146,7 @@ function HeroBannerSlide({
             </button>
           )}
         </div>
-        <div ref={mobileImageWrapRef} className="relative aspect-square w-full overflow-hidden">
+        <div ref={mobileImageWrapRef} className="relative aspect-[6/5] w-full overflow-hidden">
           <img
             src={banner.image!.url}
             alt={banner.image!.altText || headline || "Main banner"}
@@ -144,7 +157,11 @@ function HeroBannerSlide({
               "absolute inset-0 h-full w-full object-cover",
               banner.linkUrl && "cursor-pointer"
             )}
-            style={{ objectPosition: `${MOBILE_IMAGE_FOCAL_X * 100}% center` }}
+            style={{
+              objectPosition: `${MOBILE_IMAGE_FOCAL_X * 100}% center`,
+              transform: `scale(${MOBILE_IMAGE_EXTRA_ZOOM})`,
+              transformOrigin: `${MOBILE_IMAGE_FOCAL_X * 100}% 50%`,
+            }}
             loading="lazy"
           />
         </div>

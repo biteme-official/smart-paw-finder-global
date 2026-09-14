@@ -5,15 +5,26 @@ const WHATSAPP_NUMBER = '15559433437';
 const PREFILLED_MESSAGE = `Hi BITE ME! I'd like to get my 10% OFF coupon.`;
 const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(PREFILLED_MESSAGE)}`;
 const DISMISS_KEY = 'wa_bubble_dismissed';
+// 페이지 최상단(히어로 배너 영역)에서는 버튼을 숨겨서 배너 사진 위에 겹치지 않도록 한다.
+const SHOW_AFTER_SCROLL_Y = 500;
 
 export function WhatsAppButton() {
+  const [visible, setVisible] = useState(false);
   const [showBubble, setShowBubble] = useState(false);
 
   useEffect(() => {
+    const handleScroll = () => setVisible(window.scrollY > SHOW_AFTER_SCROLL_Y);
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!visible) return;
     if (sessionStorage.getItem(DISMISS_KEY) === '1') return;
     const t = setTimeout(() => setShowBubble(true), 1200);
     return () => clearTimeout(t);
-  }, []);
+  }, [visible]);
 
   const dismissBubble = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -21,6 +32,8 @@ export function WhatsAppButton() {
     sessionStorage.setItem(DISMISS_KEY, '1');
     setShowBubble(false);
   };
+
+  if (!visible) return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50 flex items-end gap-2 md:bottom-20 md:right-6">
