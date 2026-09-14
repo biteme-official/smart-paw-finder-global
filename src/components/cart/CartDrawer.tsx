@@ -15,6 +15,7 @@ import { ShoppingCart, Minus, Plus, Trash2, ExternalLink, Loader2 } from "lucide
 import { useCartStore } from "@/stores/cartStore";
 import { formatPrice } from "@/lib/shopify";
 import { useAuthStore } from "@/stores/authStore";
+import { useCartPreviewStore, usePreviewFor } from "@/stores/cartPreviewStore";
 import { ThresholdBanner } from "./ThresholdBanner";
 import { useTranslation } from "@/hooks/useTranslation";
 import { safeNavigate } from "@/lib/browser-utils";
@@ -66,7 +67,7 @@ export const CartDrawer = ({ open: controlledOpen, onOpenChange, showTrigger = t
   const currencyCode = items[0]?.price.currencyCode || 'USD';
 
   // Calculate total price from selected items only (or all if none selected)
-  const { totalPrice, selectedCount } = useMemo(() => {
+  const { totalPrice, selectedCount, selectedLines } = useMemo(() => {
     const itemsToCalculate = selectedItems.size > 0
       ? items.filter(item => selectedItems.has(item.variantId))
       : items;
@@ -79,9 +80,23 @@ export const CartDrawer = ({ open: controlledOpen, onOpenChange, showTrigger = t
 
     return {
       totalPrice: total,
-      selectedCount: selectedItems.size > 0 ? selectedItems.size : items.length
+      selectedCount: selectedItems.size > 0 ? selectedItems.size : items.length,
+      selectedLines: itemsToCalculate.map(item => ({
+        variantId: item.variantId,
+        quantity: item.quantity,
+      })),
     };
   }, [items, selectedItems]);
+
+  // 자동 할인은 상품 가격이 아니라 카트에서 계산된다. 드로어가 열려 있는 동안만,
+  // 선택된 항목이 바뀔 때마다 Shopify 에 실제 결제 금액을 물어 둔다.
+  const refreshPreview = useCartPreviewStore((s) => s.refresh);
+  useEffect(() => {
+    if (!isOpen) return;
+    refreshPreview(selectedLines);
+  }, [isOpen, selectedLines, refreshPreview]);
+
+  const preview = usePreviewFor(selectedLines);
 
   // Check if all items are selected
   const allSelected = items.length > 0 && selectedItems.size === items.length;
@@ -336,18 +351,39 @@ export const CartDrawer = ({ open: controlledOpen, onOpenChange, showTrigger = t
               </div>
 
               <div className="flex-shrink-0 space-y-4 pt-4 border-t mt-4">
+                {/* 할인은 Shopify 가 카트에서 계산한 값(preview)을 그대로 쓴다.
+                    미리보기를 못 받았을 때만 기존 B2B 클라이언트 계산으로 되돌아간다. */}
+                {preview && preview.savings > 0 && (
+                  <div className="flex justify-between items-center text-sm text-green-600">
+                    <span>Discount</span>
+                    <span translate="no">−{formatPrice(preview.savings.toFixed(2), preview.currencyCode)}</span>
+                  </div>
+                )}
+
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold">
                     {t('cart.total')} ({selectedCount} {t('cart.itemCount') || 'items'})
                   </span>
-                  <span className="text-xl font-bold">
-                    {(() => {
-                      const isB2B = useAuthStore.getState().isB2B;
-                      const b2bRate = useAuthStore.getState().b2bDiscountRate;
-                      const displayed = isB2B ? (totalPrice * (1 - b2bRate)).toFixed(2) : totalPrice.toFixed(2);
-                      return formatPrice(displayed, currencyCode);
-                    })()}
-                  </span>
+                  {preview && preview.savings > 0 ? (
+                    <span className="flex flex-wrap items-baseline justify-end gap-x-2">
+                      <span className="text-sm text-muted-foreground line-through" translate="no">
+                        {formatPrice(preview.subtotal.toFixed(2), preview.currencyCode)}
+                      </span>
+                      <span className="text-xl font-bold" translate="no">
+                        {formatPrice(preview.total.toFixed(2), preview.currencyCode)}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-xl font-bold">
+                      {(() => {
+                        if (preview) return formatPrice(preview.total.toFixed(2), preview.currencyCode);
+                        const isB2B = useAuthStore.getState().isB2B;
+                        const b2bRate = useAuthStore.getState().b2bDiscountRate;
+                        const displayed = isB2B ? (totalPrice * (1 - b2bRate)).toFixed(2) : totalPrice.toFixed(2);
+                        return formatPrice(displayed, currencyCode);
+                      })()}
+                    </span>
+                  )}
                 </div>
 
                 <Button
