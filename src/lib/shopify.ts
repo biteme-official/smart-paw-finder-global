@@ -646,8 +646,13 @@ const GET_BANNERS_QUERY = `
 `;
 
 
-export async function fetchBanners(first: number = 10): Promise<ShopifyBanner[]> {
-  const data = await adminApiRequest(GET_BANNERS_QUERY, { first });
+// Shopify Admin API의 metaobjects 커넥션 한 페이지 최대치. 노출용 상위 N개를 고르기 전에
+// active/미노출 배너 전부를 먼저 확보해야 sort_order 기준 정렬이 정확해지므로,
+// 실제 노출 개수(maxDisplay)와 별개로 항상 이 값으로 전체 메타객체를 조회한다.
+const BANNERS_FETCH_LIMIT = 250;
+
+export async function fetchBanners(maxDisplay: number = 10): Promise<ShopifyBanner[]> {
+  const data = await adminApiRequest(GET_BANNERS_QUERY, { first: BANNERS_FETCH_LIMIT });
   if (!data) return [];
 
   const banners = (data.data?.metaobjects?.edges || []).map((edge: any) => {
@@ -693,9 +698,18 @@ export async function fetchBanners(first: number = 10): Promise<ShopifyBanner[]>
     return { id: node.id, handle: node.handle, pcImage, mobileImage, linkUrl, fields };
   })
   // Active 필드(선택 목록: 노출/미노출)가 '노출'인 배너만 노출한다. 그 외 값·미설정은 노출 제외.
-  // start_at/end_at 필드는 CMS에 남아있지만, 이번 PR에서는 필터링에 사용하지 않는다. (서버 고정 쿼리 전환 작업에서 별도 처리 예정)
-  .filter((banner) => banner.fields.active === '노출');
+  .filter((banner) => banner.fields.active === '노출')
+  // start_at/end_at(date_time, 선택) — 값이 있을 때만 해당 방향으로 기간을 제한한다.
+  .filter((banner) => {
+    const startAt = banner.fields.start_at;
+    const endAt = banner.fields.end_at;
+    const now = Date.now();
+    if (startAt && new Date(startAt).getTime() > now) return false;
+    if (endAt && new Date(endAt).getTime() < now) return false;
+    return true;
+  });
 
+  // sort_order 오름차순 정렬 — 미설정은 뒤로 보낸다. PC/모바일 공통으로 이 순서를 그대로 사용.
   banners.sort((a, b) => {
     const aOrder = a.fields.sort_order;
     const bOrder = b.fields.sort_order;
@@ -704,7 +718,8 @@ export async function fetchBanners(first: number = 10): Promise<ShopifyBanner[]>
     return Number(aOrder) - Number(bOrder);
   });
 
-  return banners;
+  // 정렬된 노출 대상 중 상위 maxDisplay개까지만 캐러셀에 표시한다.
+  return banners.slice(0, maxDisplay);
 }
 
 // Announcement Bar (Metaobjects)
