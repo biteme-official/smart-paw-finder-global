@@ -135,14 +135,16 @@ export function HeroBanner() {
                       loading="lazy"
                     />
                     {/*
-                      텍스트 오버레이는 PC/모바일 공통 스타일을 그대로 쓰되, 세로 위치만 다르다.
-                      Mobile_image는 상단에 여백(밝은 배경) 구도라 텍스트를 상단에 배치하고,
-                      PC_image는 피사체가 프레임 전체에 걸쳐 있어 기존처럼 세로 중앙에 배치한다.
+                      텍스트 오버레이 위치는 PC/모바일 공통(Mobile_image는 상단 여백 구도라 상단,
+                      PC_image는 세로 중앙)이지만, 텍스트 스타일 자체는 모바일 전용 세트로 완전히
+                      분리한다 — PC 스타일(좌측 정렬/검은 배지/밑줄 링크)을 그대로 축소 복사하지 않음.
+                      모바일: 전체 가운데 정렬, 배지는 배경 없이 주황 텍스트, 서브텍스트는 브라운 톤,
+                      CTA는 주황 알약형 버튼. PC(md 이상): 기존 좌측 정렬 오버레이 스타일 그대로 유지.
                     */}
-                    <div className="pointer-events-none absolute inset-0 flex items-start pt-10 sm:pt-12 md:items-center md:pt-0">
-                      <div className="flex max-w-[75%] flex-col items-start gap-2 px-6 sm:px-10 md:max-w-md md:gap-3 md:px-16">
+                    <div className="pointer-events-none absolute inset-0 flex items-start justify-center pt-10 text-center sm:pt-12 md:items-center md:justify-start md:pt-0 md:text-left">
+                      <div className="flex w-full max-w-[85%] flex-col items-center gap-2 px-6 sm:px-10 md:w-auto md:max-w-md md:items-start md:gap-3 md:px-16">
                         {badge && (
-                          <span className="whitespace-nowrap rounded-full bg-neutral-900 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white md:text-xs">
+                          <span className="text-xs font-bold uppercase tracking-widest text-orange-500 md:whitespace-nowrap md:rounded-full md:bg-neutral-900 md:px-3 md:py-1 md:tracking-wide md:text-white">
                             {badge}
                           </span>
                         )}
@@ -152,7 +154,7 @@ export function HeroBanner() {
                           </h2>
                         )}
                         {subtext && (
-                          <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600 md:text-base">
+                          <p className="whitespace-pre-line text-sm leading-relaxed text-amber-700 md:text-base md:text-neutral-600">
                             {subtext}
                           </p>
                         )}
@@ -160,7 +162,7 @@ export function HeroBanner() {
                           <button
                             type="button"
                             onClick={() => handleBannerClick(banner.linkUrl)}
-                            className="pointer-events-auto mt-2 border-b-2 border-neutral-900 pb-0.5 text-sm font-bold text-neutral-900 transition-opacity hover:opacity-60 md:text-base"
+                            className="pointer-events-auto mt-2 rounded-full bg-orange-500 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-orange-600 md:rounded-none md:border-b-2 md:border-neutral-900 md:bg-transparent md:px-0 md:py-0 md:text-base md:text-neutral-900 md:opacity-100 md:transition-opacity md:hover:bg-transparent md:hover:opacity-60 md:pb-0.5"
                           >
                             {buttonLabel}
                           </button>
