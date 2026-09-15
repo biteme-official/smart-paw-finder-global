@@ -219,7 +219,7 @@ export function HeroBanner() {
 
       {/* Dots */}
       {banners.length > 1 && (
-        <div className="flex items-center justify-center gap-2 pb-5 pt-1">
+        <div className="flex items-center justify-center gap-2 pb-2 pt-1 md:pb-5">
           {banners.map((_, i) => (
             <button
               key={i}
