@@ -35,7 +35,7 @@ export function HeroBanner() {
   useEffect(() => {
     fetchBanners(10)
       .then((data) => {
-        setBanners(data.filter((b) => b.image));
+        setBanners(data.filter((b) => b.pcImage && b.mobileImage));
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -111,13 +111,25 @@ export function HeroBanner() {
             return (
               <div key={banner.id} className="w-full flex-shrink-0">
                 {hasText ? (
-                  <div className="relative aspect-[16/10] w-full overflow-hidden rounded-lg md:aspect-[2/1]">
+                  <div className="relative aspect-[9/10] w-full overflow-hidden rounded-lg md:aspect-[2/1]">
+                    {/* 모바일: Mobile_image(9:10, 세로형) 풀블리드 */}
                     <img
-                      src={banner.image!.url}
-                      alt={banner.image!.altText || headline || "Main banner"}
+                      src={banner.mobileImage!.url}
+                      alt={banner.mobileImage!.altText || headline || "Main banner"}
                       onClick={() => handleBannerClick(banner.linkUrl)}
                       className={cn(
-                        "absolute inset-0 h-full w-full object-cover",
+                        "absolute inset-0 h-full w-full object-cover md:hidden",
+                        banner.linkUrl && "cursor-pointer"
+                      )}
+                      loading="lazy"
+                    />
+                    {/* PC/태블릿: PC_image(2:1) 풀블리드 */}
+                    <img
+                      src={banner.pcImage!.url}
+                      alt={banner.pcImage!.altText || headline || "Main banner"}
+                      onClick={() => handleBannerClick(banner.linkUrl)}
+                      className={cn(
+                        "absolute inset-0 hidden h-full w-full object-cover md:block",
                         banner.linkUrl && "cursor-pointer"
                       )}
                       loading="lazy"
@@ -153,13 +165,22 @@ export function HeroBanner() {
                   </div>
                 ) : (
                   // 텍스트 필드가 모두 비어있으면 이미지 원본 비율 그대로 전체 폭 표시
-                  <img
-                    src={banner.image!.url}
-                    alt={banner.image!.altText || "Main banner"}
-                    onClick={() => handleBannerClick(banner.linkUrl)}
-                    className={cn("block h-auto w-full", banner.linkUrl && "cursor-pointer")}
-                    loading="lazy"
-                  />
+                  <>
+                    <img
+                      src={banner.mobileImage!.url}
+                      alt={banner.mobileImage!.altText || "Main banner"}
+                      onClick={() => handleBannerClick(banner.linkUrl)}
+                      className={cn("block h-auto w-full md:hidden", banner.linkUrl && "cursor-pointer")}
+                      loading="lazy"
+                    />
+                    <img
+                      src={banner.pcImage!.url}
+                      alt={banner.pcImage!.altText || "Main banner"}
+                      onClick={() => handleBannerClick(banner.linkUrl)}
+                      className={cn("hidden h-auto w-full md:block", banner.linkUrl && "cursor-pointer")}
+                      loading="lazy"
+                    />
+                  </>
                 )}
               </div>
             );
