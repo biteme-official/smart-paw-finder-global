@@ -683,22 +683,21 @@ export async function fetchBanners(maxDisplay: number = 10): Promise<ShopifyBann
       }
     }
 
-    // img(PC)/mobile(모바일) 중 하나가 비어있으면 있는 쪽으로 폴백 — 필드 분리 전 기존 배너와
-    // mobile 등록 누락된 배너 모두 화면에서 사라지지 않도록 함. 노출 중인데 누락된 경우만 콘솔 경고.
-    if (!pcImage && mobileImage) pcImage = mobileImage;
-    if (!mobileImage && pcImage) mobileImage = pcImage;
+    // 노출(active) 배너는 img(PC)/mobile(모바일) 둘 다 필수 — 운영 정책. 하나라도 비어있으면
+    // 콘솔 경고 남기고, 아래 필터에서 해당 배너를 노출 대상에서 제외한다(폴백으로 채우지 않음).
     if (fields.active === '노출' && (!pcImage || !mobileImage)) {
       console.warn(
-        `[main_banner] handle="${node.handle}" 이미지 필드 누락 — ` +
+        `[main_banner] handle="${node.handle}" 노출(active) 배너인데 이미지 필드 누락 — ` +
         `img(PC): ${pcImage ? 'OK' : '없음'}, mobile: ${mobileImage ? 'OK' : '없음'} ` +
-        `(노출 중인 배너는 두 필드 모두 채워야 합니다)`
+        `(두 필드 모두 채워야 노출됩니다 — 이 배너는 캐러셀에서 제외됩니다)`
       );
     }
 
     return { id: node.id, handle: node.handle, pcImage, mobileImage, linkUrl, fields };
   })
-  // Active 필드(선택 목록: 노출/미노출)가 '노출'인 배너만 노출한다. 그 외 값·미설정은 노출 제외.
-  .filter((banner) => banner.fields.active === '노출')
+  // Active 필드(선택 목록: 노출/미노출)가 '노출'이면서 img/mobile 이미지가 둘 다 채워진 배너만
+  // 노출한다. 정책상 노출 배너는 두 필드 모두 필수이므로 하나라도 없으면 노출 대상에서 제외.
+  .filter((banner) => banner.fields.active === '노출' && banner.pcImage && banner.mobileImage)
   // start_at/end_at(date_time, 선택) — 값이 있을 때만 해당 방향으로 기간을 제한한다.
   .filter((banner) => {
     const startAt = banner.fields.start_at;

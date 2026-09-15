@@ -86,7 +86,7 @@ export function HeroBanner() {
   if (loading) {
     return (
       <div className="w-full px-6 py-8 sm:px-10">
-        <Skeleton className="w-full aspect-[16/10] md:aspect-[2/1] rounded-lg" />
+        <Skeleton className="w-full aspect-[9/10] md:aspect-[2/1] rounded-lg" />
       </div>
     );
   }
@@ -154,7 +154,7 @@ export function HeroBanner() {
                           </h2>
                         )}
                         {subtext && (
-                          <p className="mt-3 whitespace-pre-line text-xs leading-none text-amber-700 md:mt-0 md:text-base md:leading-relaxed md:text-neutral-600">
+                          <p className="mt-3 whitespace-pre-line text-xs leading-snug text-amber-700 md:mt-0 md:text-base md:leading-relaxed md:text-neutral-600">
                             {subtext}
                           </p>
                         )}
@@ -162,7 +162,7 @@ export function HeroBanner() {
                           <button
                             type="button"
                             onClick={() => handleBannerClick(banner.linkUrl)}
-                            className="pointer-events-auto mt-3 rounded-full bg-orange-500 px-3 py-1.5 text-xs font-bold leading-none text-white transition-colors hover:bg-orange-600 md:mt-2 md:rounded-none md:border-b-2 md:border-neutral-900 md:bg-transparent md:px-0 md:py-0 md:text-base md:leading-normal md:text-neutral-900 md:opacity-100 md:transition-opacity md:hover:bg-transparent md:hover:opacity-60 md:pb-0.5"
+                            className="pointer-events-auto mt-3 rounded-full bg-orange-500 px-3 py-1.5 text-xs font-bold leading-none text-white transition-colors hover:bg-orange-600 md:mt-2 md:rounded-none md:border-b-2 md:border-neutral-900 md:bg-transparent md:px-0 md:py-0 md:text-base md:leading-normal md:text-neutral-900 md:transition-opacity md:hover:bg-transparent md:hover:opacity-60 md:pb-0.5"
                           >
                             {buttonLabel}
                           </button>
