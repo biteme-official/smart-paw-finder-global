@@ -613,7 +613,8 @@ export async function fetchCuratedReels(first: number = 20): Promise<ShopifyCura
 export interface ShopifyBanner {
   id: string;
   handle: string;
-  image: { url: string; altText: string | null } | null;
+  pcImage: { url: string; altText: string | null } | null;
+  mobileImage: { url: string; altText: string | null } | null;
   linkUrl: string | null;
   fields: Record<string, string>;
 }
@@ -652,13 +653,18 @@ export async function fetchBanners(first: number = 10): Promise<ShopifyBanner[]>
   const banners = (data.data?.metaobjects?.edges || []).map((edge: any) => {
     const node = edge.node;
     const fields: Record<string, string> = {};
-    let image: { url: string; altText: string | null } | null = null;
+    let pcImage: { url: string; altText: string | null } | null = null;
+    let mobileImage: { url: string; altText: string | null } | null = null;
 
     let linkUrl: string | null = null;
 
     for (const field of node.fields) {
       if (field.reference?.image) {
-        image = field.reference.image;
+        if (field.key === 'img') {
+          pcImage = field.reference.image;
+        } else if (field.key === 'mobile') {
+          mobileImage = field.reference.image;
+        }
       }
       if (field.type === 'link' && field.value) {
         try {
@@ -672,7 +678,19 @@ export async function fetchBanners(first: number = 10): Promise<ShopifyBanner[]>
       }
     }
 
-    return { id: node.id, handle: node.handle, image, linkUrl, fields };
+    // img(PC)/mobile(모바일) 중 하나가 비어있으면 있는 쪽으로 폴백 — 필드 분리 전 기존 배너와
+    // mobile 등록 누락된 배너 모두 화면에서 사라지지 않도록 함. 노출 중인데 누락된 경우만 콘솔 경고.
+    if (!pcImage && mobileImage) pcImage = mobileImage;
+    if (!mobileImage && pcImage) mobileImage = pcImage;
+    if (fields.active === '노출' && (!pcImage || !mobileImage)) {
+      console.warn(
+        `[main_banner] handle="${node.handle}" 이미지 필드 누락 — ` +
+        `img(PC): ${pcImage ? 'OK' : '없음'}, mobile: ${mobileImage ? 'OK' : '없음'} ` +
+        `(노출 중인 배너는 두 필드 모두 채워야 합니다)`
+      );
+    }
+
+    return { id: node.id, handle: node.handle, pcImage, mobileImage, linkUrl, fields };
   })
   // Active 필드(선택 목록: 노출/미노출)가 '노출'인 배너만 노출한다. 그 외 값·미설정은 노출 제외.
   // start_at/end_at 필드는 CMS에 남아있지만, 이번 PR에서는 필터링에 사용하지 않는다. (서버 고정 쿼리 전환 작업에서 별도 처리 예정)

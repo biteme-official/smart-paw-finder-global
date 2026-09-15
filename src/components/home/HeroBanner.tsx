@@ -35,7 +35,7 @@ export function HeroBanner() {
   useEffect(() => {
     fetchBanners(10)
       .then((data) => {
-        setBanners(data.filter((b) => b.image));
+        setBanners(data.filter((b) => b.pcImage && b.mobileImage));
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -110,57 +110,99 @@ export function HeroBanner() {
 
             return (
               <div key={banner.id} className="w-full flex-shrink-0">
-                {hasText ? (
-                  <div className="relative aspect-[16/10] w-full overflow-hidden rounded-lg md:aspect-[2/1]">
-                    <img
-                      src={banner.image!.url}
-                      alt={banner.image!.altText || headline || "Main banner"}
-                      onClick={() => handleBannerClick(banner.linkUrl)}
-                      className={cn(
-                        "absolute inset-0 h-full w-full object-cover",
-                        banner.linkUrl && "cursor-pointer"
+                {/* 모바일: 텍스트 오버레이(상단, 밝은 단색 배경) + Mobile_image(하단, 텍스트 없는 순수 이미지) 고정 패턴 */}
+                <div className="md:hidden">
+                  {hasText && (
+                    <div className="flex flex-col items-center gap-2 bg-neutral-100 px-6 py-8 text-center">
+                      {badge && (
+                        <span className="text-xs font-bold uppercase tracking-widest text-orange-500">
+                          {badge}
+                        </span>
                       )}
-                      loading="lazy"
-                    />
-                    <div className="pointer-events-none absolute inset-0 flex items-center">
-                      <div className="flex max-w-[75%] flex-col items-start gap-2 px-6 sm:px-10 md:max-w-md md:gap-3 md:px-16">
-                        {badge && (
-                          <span className="whitespace-nowrap rounded-full bg-neutral-900 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white md:text-xs">
-                            {badge}
-                          </span>
-                        )}
-                        {headline && (
-                          <h2 className="line-clamp-2 whitespace-pre-line text-2xl font-bold leading-snug text-neutral-900 md:text-4xl">
-                            {headline}
-                          </h2>
-                        )}
-                        {subtext && (
-                          <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600 md:text-base">
-                            {subtext}
-                          </p>
-                        )}
-                        {buttonLabel && banner.linkUrl && (
-                          <button
-                            type="button"
-                            onClick={() => handleBannerClick(banner.linkUrl)}
-                            className="pointer-events-auto mt-2 border-b-2 border-neutral-900 pb-0.5 text-sm font-bold text-neutral-900 transition-opacity hover:opacity-60 md:text-base"
-                          >
-                            {buttonLabel}
-                          </button>
-                        )}
-                      </div>
+                      {headline && (
+                        <h2 className="whitespace-pre-line text-3xl font-extrabold leading-tight text-neutral-900">
+                          {headline}
+                        </h2>
+                      )}
+                      {subtext && (
+                        <p className="whitespace-pre-line text-base text-neutral-500">
+                          {subtext}
+                        </p>
+                      )}
+                      {buttonLabel && banner.linkUrl && (
+                        <button
+                          type="button"
+                          onClick={() => handleBannerClick(banner.linkUrl)}
+                          className="mt-2 rounded-full bg-orange-500 px-8 py-3 text-sm font-bold text-white transition-colors hover:bg-orange-600"
+                        >
+                          {buttonLabel}
+                        </button>
+                      )}
                     </div>
-                  </div>
-                ) : (
-                  // 텍스트 필드가 모두 비어있으면 이미지 원본 비율 그대로 전체 폭 표시
+                  )}
                   <img
-                    src={banner.image!.url}
-                    alt={banner.image!.altText || "Main banner"}
+                    src={banner.mobileImage!.url}
+                    alt={banner.mobileImage!.altText || headline || "Main banner"}
                     onClick={() => handleBannerClick(banner.linkUrl)}
                     className={cn("block h-auto w-full", banner.linkUrl && "cursor-pointer")}
                     loading="lazy"
                   />
-                )}
+                </div>
+
+                {/* PC/태블릿: 기존 사진 풀블리드 배경 + 좌측 정렬 텍스트 오버레이 구조 유지 */}
+                <div className="hidden md:block">
+                  {hasText ? (
+                    <div className="relative aspect-[2/1] w-full overflow-hidden rounded-lg">
+                      <img
+                        src={banner.pcImage!.url}
+                        alt={banner.pcImage!.altText || headline || "Main banner"}
+                        onClick={() => handleBannerClick(banner.linkUrl)}
+                        className={cn(
+                          "absolute inset-0 h-full w-full object-cover",
+                          banner.linkUrl && "cursor-pointer"
+                        )}
+                        loading="lazy"
+                      />
+                      <div className="pointer-events-none absolute inset-0 flex items-center">
+                        <div className="flex max-w-md flex-col items-start gap-3 px-16">
+                          {badge && (
+                            <span className="whitespace-nowrap rounded-full bg-neutral-900 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
+                              {badge}
+                            </span>
+                          )}
+                          {headline && (
+                            <h2 className="line-clamp-2 whitespace-pre-line text-4xl font-bold leading-snug text-neutral-900">
+                              {headline}
+                            </h2>
+                          )}
+                          {subtext && (
+                            <p className="whitespace-pre-line text-base leading-relaxed text-neutral-600">
+                              {subtext}
+                            </p>
+                          )}
+                          {buttonLabel && banner.linkUrl && (
+                            <button
+                              type="button"
+                              onClick={() => handleBannerClick(banner.linkUrl)}
+                              className="pointer-events-auto mt-2 border-b-2 border-neutral-900 pb-0.5 text-base font-bold text-neutral-900 transition-opacity hover:opacity-60"
+                            >
+                              {buttonLabel}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    // 텍스트 필드가 모두 비어있으면 이미지 원본 비율 그대로 전체 폭 표시
+                    <img
+                      src={banner.pcImage!.url}
+                      alt={banner.pcImage!.altText || "Main banner"}
+                      onClick={() => handleBannerClick(banner.linkUrl)}
+                      className={cn("block h-auto w-full", banner.linkUrl && "cursor-pointer")}
+                      loading="lazy"
+                    />
+                  )}
+                </div>
               </div>
             );
           })}
