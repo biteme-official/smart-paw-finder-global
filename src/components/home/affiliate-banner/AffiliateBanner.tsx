@@ -3,7 +3,7 @@ import { Camera, ArrowRight } from "lucide-react";
 
 export function AffiliateBanner() {
   return (
-    <section className="mt-4 md:mt-6 px-4">
+    <section className="mt-2 md:mt-6 px-4">
       <Link
         to="/affiliate"
         className="group flex items-center gap-2.5 md:gap-4 rounded-2xl bg-orange-500 px-3.5 py-2.5 md:px-6 md:py-5 text-white shadow-sm transition-all hover:bg-orange-600 hover:shadow-md"

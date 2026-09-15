@@ -86,7 +86,7 @@ export function HeroBanner() {
   if (loading) {
     return (
       <div className="w-full px-6 py-8 sm:px-10">
-        <Skeleton className="w-full aspect-[16/10] md:aspect-[2/1] rounded-lg" />
+        <Skeleton className="w-full aspect-[9/10] md:aspect-[2/1] rounded-lg" />
       </div>
     );
   }
@@ -134,20 +134,27 @@ export function HeroBanner() {
                       )}
                       loading="lazy"
                     />
-                    <div className="pointer-events-none absolute inset-0 flex items-center">
-                      <div className="flex max-w-[75%] flex-col items-start gap-2 px-6 sm:px-10 md:max-w-md md:gap-3 md:px-16">
+                    {/*
+                      텍스트 오버레이 위치는 PC/모바일 공통(Mobile_image는 상단 여백 구도라 상단,
+                      PC_image는 세로 중앙)이지만, 텍스트 스타일 자체는 모바일 전용 세트로 완전히
+                      분리한다 — PC 스타일(좌측 정렬/검은 배지/밑줄 링크)을 그대로 축소 복사하지 않음.
+                      모바일: 전체 가운데 정렬, 배지는 배경 없이 주황 텍스트, 서브텍스트는 브라운 톤,
+                      CTA는 주황 알약형 버튼. PC(md 이상): 기존 좌측 정렬 오버레이 스타일 그대로 유지.
+                    */}
+                    <div className="pointer-events-none absolute inset-0 flex items-start justify-center pt-6 text-center sm:pt-7 md:items-center md:justify-start md:pt-0 md:text-left">
+                      <div className="flex w-full max-w-[85%] flex-col items-center gap-0 px-6 sm:px-10 md:w-auto md:max-w-md md:items-start md:gap-3 md:px-16">
                         {badge && (
-                          <span className="whitespace-nowrap rounded-full bg-neutral-900 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white md:text-xs">
+                          <span className="text-[11px] font-bold uppercase leading-none tracking-widest text-orange-500 md:whitespace-nowrap md:rounded-full md:bg-neutral-900 md:px-3 md:py-1 md:text-xs md:leading-normal md:tracking-wide md:text-white">
                             {badge}
                           </span>
                         )}
                         {headline && (
-                          <h2 className="line-clamp-2 whitespace-pre-line text-2xl font-bold leading-snug text-neutral-900 md:text-4xl">
+                          <h2 className="mt-5 line-clamp-2 whitespace-pre-line text-2xl font-bold leading-tight text-neutral-900 md:mt-0 md:text-4xl md:leading-snug">
                             {headline}
                           </h2>
                         )}
                         {subtext && (
-                          <p className="whitespace-pre-line text-sm leading-relaxed text-neutral-600 md:text-base">
+                          <p className="mt-3 whitespace-pre-line text-xs leading-snug text-amber-700 md:mt-0 md:text-base md:leading-relaxed md:text-neutral-600">
                             {subtext}
                           </p>
                         )}
@@ -155,7 +162,7 @@ export function HeroBanner() {
                           <button
                             type="button"
                             onClick={() => handleBannerClick(banner.linkUrl)}
-                            className="pointer-events-auto mt-2 border-b-2 border-neutral-900 pb-0.5 text-sm font-bold text-neutral-900 transition-opacity hover:opacity-60 md:text-base"
+                            className="pointer-events-auto mt-3 rounded-full bg-orange-500 px-3 py-1.5 text-xs font-bold leading-none text-white transition-colors hover:bg-orange-600 md:mt-2 md:rounded-none md:border-b-2 md:border-neutral-900 md:bg-transparent md:px-0 md:py-0 md:text-base md:leading-normal md:text-neutral-900 md:transition-opacity md:hover:bg-transparent md:hover:opacity-60 md:pb-0.5"
                           >
                             {buttonLabel}
                           </button>
@@ -212,7 +219,7 @@ export function HeroBanner() {
 
       {/* Dots */}
       {banners.length > 1 && (
-        <div className="flex items-center justify-center gap-2 pb-5 pt-1">
+        <div className="flex items-center justify-center gap-2 pb-2 pt-1 md:pb-5">
           {banners.map((_, i) => (
             <button
               key={i}
