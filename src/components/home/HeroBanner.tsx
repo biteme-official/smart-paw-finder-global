@@ -149,7 +149,7 @@ export function HeroBanner() {
                           </span>
                         )}
                         {headline && (
-                          <h2 className="mt-2 line-clamp-2 whitespace-pre-line text-2xl font-bold leading-tight text-neutral-900 md:mt-0 md:text-4xl md:leading-snug">
+                          <h2 className="mt-5 line-clamp-2 whitespace-pre-line text-2xl font-bold leading-tight text-neutral-900 md:mt-0 md:text-4xl md:leading-snug">
                             {headline}
                           </h2>
                         )}
