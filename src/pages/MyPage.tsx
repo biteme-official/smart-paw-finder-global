@@ -3,12 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
 import {
   LogOut, User, ShoppingBag, Heart, HelpCircle, ChevronRight,
-  MapPin, Loader2, Search, Building2, Wallet,
+  MapPin, Loader2, Search, Building2, Wallet, Mail,
 } from 'lucide-react';
 import { initiateLogin, isLoggedIn as isCustomerLoggedIn, logout as customerLogout } from '@/lib/customer-auth';
-import { fetchCustomerAccount, fetchStoreCredit, CustomerAccountProfile, StoreCreditData } from '@/lib/customer-account';
+import {
+  fetchCustomerAccount, fetchStoreCredit, updateEmailMarketingConsent,
+  CustomerAccountProfile, StoreCreditData, EmailMarketingState,
+} from '@/lib/customer-account';
 import { formatPrice } from '@/lib/shopify';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
@@ -30,6 +34,54 @@ function MenuLink({ icon: Icon, label, badge, onClick }: {
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
       </div>
     </button>
+  );
+}
+
+function MarketingConsent({ state, onChange }: {
+  state: EmailMarketingState | null;
+  onChange: (next: EmailMarketingState) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const subscribed = state === 'SUBSCRIBED' || state === 'PENDING';
+
+  const handleToggle = async (checked: boolean) => {
+    setSaving(true);
+    try {
+      const next = await updateEmailMarketingConsent(checked);
+      onChange(next);
+      toast.success(
+        checked ? 'Subscribed to marketing emails.' : 'Unsubscribed from marketing emails.',
+        { position: 'top-center' },
+      );
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to update your preference. Please try again.', { position: 'top-center' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-card rounded-xl border border-border p-4 flex items-center justify-between gap-4">
+      <div className="flex items-center gap-3 min-w-0">
+        <Mail className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+        <div className="min-w-0">
+          <p className="text-sm">Marketing Emails</p>
+          <p className="text-xs text-muted-foreground">
+            Receive news, new arrivals and special offers.
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {saving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+        <Switch
+          checked={subscribed}
+          disabled={saving}
+          onCheckedChange={handleToggle}
+          aria-label="Marketing email consent"
+        />
+      </div>
+    </div>
   );
 }
 
@@ -224,6 +276,13 @@ export default function MyPage() {
               <MenuLink icon={Building2} label="B2B Application" onClick={() => navigate('/mypage/b2b-apply')} />
               <MenuLink icon={HelpCircle} label="Contact Us" onClick={() => navigate('/contact')} />
             </div>
+
+            <MarketingConsent
+              state={customerData?.emailMarketingState ?? null}
+              onChange={(next) =>
+                setCustomerData((prev) => (prev ? { ...prev, emailMarketingState: next } : prev))
+              }
+            />
 
             <Button variant="outline" onClick={handleLogout} className="w-full h-12">
               <LogOut className="h-4 w-4 mr-2" />
