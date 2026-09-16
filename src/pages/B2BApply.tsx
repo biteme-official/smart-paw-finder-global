@@ -4,14 +4,15 @@ import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Upload, FileText, X, Loader2, ArrowLeft, CheckCircle, Clock, XCircle, LogIn, UserPlus, FileUp, ShieldCheck, Tag, ShoppingBag } from 'lucide-react';
 import { Footer } from '@/components/layout/Footer';
 import { isLoggedIn as isCustomerLoggedIn, initiateLogin } from '@/lib/customer-auth';
-import { fetchCustomerAccount, type CustomerAccountProfile } from '@/lib/customer-account';
+import { fetchCustomerAccount, updateEmailMarketingConsent, type CustomerAccountProfile } from '@/lib/customer-account';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -67,6 +68,10 @@ const schema = z.object({
   phoneNumber: z.string().min(1, 'Phone number is required'),
   address: z.string().min(1, 'Address is required'),
   companyName: z.string().min(1, 'Company name is required'),
+  privacyConsent: z.literal(true, {
+    errorMap: () => ({ message: 'You must agree before submitting your application.' }),
+  }),
+  marketingConsent: z.boolean(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -143,8 +148,9 @@ export default function B2BApply() {
   const [customerData, setCustomerData] = useState<CustomerAccountProfile | null>(null);
   const [file, setFile] = useState<{ name: string; type: string; data: string } | null>(null);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, control, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
+    defaultValues: { marketingConsent: false },
   });
 
   useEffect(() => {
@@ -210,12 +216,13 @@ export default function B2BApply() {
     }
     setSubmitting(true);
     try {
+      const { privacyConsent: _privacyConsent, marketingConsent, ...applicationData } = formData;
       const res = await fetch('/api/b2b-apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: customerData?.emailAddress,
-          ...formData,
+          ...applicationData,
           document: file,
         }),
       });
@@ -226,6 +233,16 @@ export default function B2BApply() {
       }
       toast.success('B2B application submitted successfully!', { position: 'top-center' });
       setB2bStatus('pending');
+
+      // 마케팅 구독 실패가 신청 접수를 되돌리지는 않는다 — 경고만 노출한다.
+      if (marketingConsent) {
+        try {
+          await updateEmailMarketingConsent(true);
+        } catch (err) {
+          console.error(err);
+          toast.warning('Your application was received, but we could not save your email subscription. You can turn it on in My Page.', { position: 'top-center' });
+        }
+      }
     } catch {
       toast.error('Network error. Please try again.', { position: 'top-center' });
     } finally {
@@ -318,6 +335,62 @@ export default function B2BApply() {
                 )}
                 <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf"
                   onChange={handleFileSelect} className="hidden" />
+              </div>
+
+              <div className="space-y-3 pt-1 border-t border-border">
+                <div className="flex items-start gap-3 pt-4">
+                  <Controller
+                    name="privacyConsent"
+                    control={control}
+                    render={({ field }) => (
+                      <Checkbox
+                        id="privacyConsent"
+                        checked={field.value === true}
+                        onCheckedChange={(checked) => field.onChange(checked === true)}
+                        className="mt-0.5 flex-shrink-0"
+                      />
+                    )}
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="privacyConsent" className="text-sm font-normal leading-snug cursor-pointer">
+                      I agree to Bite Me collecting and using my business and personal information to review
+                      this wholesale application and manage my wholesale account.{' '}
+                      <span className="text-destructive">*</span>
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      See our{' '}
+                      <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
+                        Privacy Policy
+                      </a>{' '}
+                      for how we handle your information.
+                    </p>
+                  </div>
+                </div>
+                {errors.privacyConsent && <p className="text-xs text-destructive">{errors.privacyConsent.message}</p>}
+
+                <div className="flex items-start gap-3">
+                  <Controller
+                    name="marketingConsent"
+                    control={control}
+                    render={({ field }) => (
+                      <Checkbox
+                        id="marketingConsent"
+                        checked={field.value === true}
+                        onCheckedChange={(checked) => field.onChange(checked === true)}
+                        className="mt-0.5 flex-shrink-0"
+                      />
+                    )}
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="marketingConsent" className="text-sm font-normal leading-snug cursor-pointer">
+                      Send me wholesale news, new arrivals and special offers by email.{' '}
+                      <span className="text-muted-foreground">(optional)</span>
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      You can unsubscribe at any time in My Page.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <Button type="submit" disabled={submitting} className="w-full h-12 text-base font-semibold">
