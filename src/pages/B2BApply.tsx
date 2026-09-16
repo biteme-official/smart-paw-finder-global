@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Upload, FileText, X, Loader2, ArrowLeft, CheckCircle, Clock, XCircle, LogIn, UserPlus, FileUp, ShieldCheck, Tag, ShoppingBag } from 'lucide-react';
 import { Footer } from '@/components/layout/Footer';
 import { isLoggedIn as isCustomerLoggedIn, initiateLogin } from '@/lib/customer-auth';
-import { fetchCustomerAccount, updateEmailMarketingConsent, type CustomerAccountProfile } from '@/lib/customer-account';
+import { fetchCustomerAccount, type CustomerAccountProfile } from '@/lib/customer-account';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
@@ -71,7 +71,6 @@ const schema = z.object({
   privacyConsent: z.literal(true, {
     errorMap: () => ({ message: 'You must agree before submitting your application.' }),
   }),
-  marketingConsent: z.boolean(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -150,7 +149,6 @@ export default function B2BApply() {
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { marketingConsent: false },
   });
 
   useEffect(() => {
@@ -216,7 +214,7 @@ export default function B2BApply() {
     }
     setSubmitting(true);
     try {
-      const { privacyConsent: _privacyConsent, marketingConsent, ...applicationData } = formData;
+      const { privacyConsent: _privacyConsent, ...applicationData } = formData;
       const res = await fetch('/api/b2b-apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -233,16 +231,6 @@ export default function B2BApply() {
       }
       toast.success('B2B application submitted successfully!', { position: 'top-center' });
       setB2bStatus('pending');
-
-      // 마케팅 구독 실패가 신청 접수를 되돌리지는 않는다 — 경고만 노출한다.
-      if (marketingConsent) {
-        try {
-          await updateEmailMarketingConsent(true);
-        } catch (err) {
-          console.error(err);
-          toast.warning('Your application was received, but we could not save your email subscription. You can turn it on in My Page.', { position: 'top-center' });
-        }
-      }
     } catch {
       toast.error('Network error. Please try again.', { position: 'top-center' });
     } finally {
@@ -367,30 +355,6 @@ export default function B2BApply() {
                   </div>
                 </div>
                 {errors.privacyConsent && <p className="text-xs text-destructive">{errors.privacyConsent.message}</p>}
-
-                <div className="flex items-start gap-3">
-                  <Controller
-                    name="marketingConsent"
-                    control={control}
-                    render={({ field }) => (
-                      <Checkbox
-                        id="marketingConsent"
-                        checked={field.value === true}
-                        onCheckedChange={(checked) => field.onChange(checked === true)}
-                        className="mt-0.5 flex-shrink-0"
-                      />
-                    )}
-                  />
-                  <div className="space-y-1">
-                    <Label htmlFor="marketingConsent" className="text-sm font-normal leading-snug cursor-pointer">
-                      Get early access to pre-orders and exclusive B2B-only offers by email.{' '}
-                      <span className="text-muted-foreground">(optional)</span>
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      You can unsubscribe at any time in My Page.
-                    </p>
-                  </div>
-                </div>
               </div>
 
               <Button type="submit" disabled={submitting} className="w-full h-12 text-base font-semibold">
