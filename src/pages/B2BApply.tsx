@@ -383,7 +383,7 @@ export default function B2BApply() {
                   />
                   <div className="space-y-1">
                     <Label htmlFor="marketingConsent" className="text-sm font-normal leading-snug cursor-pointer">
-                      Send me wholesale news, new arrivals and special offers by email.{' '}
+                      Get early access to pre-orders and exclusive B2B-only offers by email.{' '}
                       <span className="text-muted-foreground">(optional)</span>
                     </Label>
                     <p className="text-xs text-muted-foreground">
