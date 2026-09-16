@@ -69,9 +69,9 @@ export function AffiliatePageContent({ apply }: Props) {
             <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5" strokeWidth={2} />
             Affiliate Collab
           </span>
-          <h1 className="mt-2 text-[26px] font-extrabold uppercase leading-[1.05] tracking-tight text-stone-800 md:text-5xl md:font-bold md:normal-case md:leading-[1.4] md:tracking-normal">
+          <h1 className="mt-2 text-[32px] font-extrabold uppercase leading-[1.05] tracking-tight text-stone-800 md:text-5xl md:font-bold md:normal-case md:leading-[1.4] md:tracking-normal">
             <span className="md:hidden">
-              Share Bite &amp;
+              Share Bite Me &amp;
               <br />
               Earn Together
             </span>
