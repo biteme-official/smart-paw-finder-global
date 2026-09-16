@@ -46,12 +46,16 @@ export interface StoreCreditTransaction {
   type: 'CREDIT' | 'DEBIT';
 }
 
+export type EmailMarketingState =
+  | 'INVALID' | 'NOT_SUBSCRIBED' | 'PENDING' | 'REDACTED' | 'SUBSCRIBED' | 'UNSUBSCRIBED';
+
 export interface CustomerAccountProfile {
   id: string;
   displayName: string;
   firstName: string | null;
   lastName: string | null;
   emailAddress: string | null;
+  emailMarketingState: EmailMarketingState | null;
   phoneNumber: string | null;
   defaultAddress: {
     address1: string | null;
@@ -92,7 +96,7 @@ const GET_CUSTOMER_QUERY = `
       displayName
       firstName
       lastName
-      emailAddress { emailAddress }
+      emailAddress { emailAddress marketingState }
       phoneNumber { phoneNumber }
       defaultAddress {
         address1 address2 city province zip
@@ -143,6 +147,7 @@ export async function fetchCustomerAccount(): Promise<CustomerAccountProfile | n
     firstName: c.firstName,
     lastName: c.lastName,
     emailAddress: c.emailAddress?.emailAddress || null,
+    emailMarketingState: c.emailAddress?.marketingState || null,
     phoneNumber: c.phoneNumber?.phoneNumber || null,
     defaultAddress: c.defaultAddress ? {
       address1: c.defaultAddress.address1,
@@ -185,6 +190,53 @@ export async function fetchCustomerAccount(): Promise<CustomerAccountProfile | n
       };
     }),
   };
+}
+
+const EMAIL_MARKETING_SUBSCRIBE_MUTATION = `
+  mutation EmailMarketingSubscribe {
+    customerEmailMarketingSubscribe {
+      emailAddress { marketingState }
+      userErrors { field message }
+    }
+  }
+`;
+
+const EMAIL_MARKETING_UNSUBSCRIBE_MUTATION = `
+  mutation EmailMarketingUnsubscribe {
+    customerEmailMarketingUnsubscribe {
+      emailAddress { marketingState }
+      userErrors { field message }
+    }
+  }
+`;
+
+interface EmailMarketingPayload {
+  emailAddress: { marketingState: EmailMarketingState } | null;
+  userErrors: Array<{ field: string[] | null; message: string }>;
+}
+
+interface EmailMarketingMutationData {
+  customerEmailMarketingSubscribe?: EmailMarketingPayload;
+  customerEmailMarketingUnsubscribe?: EmailMarketingPayload;
+}
+
+export async function updateEmailMarketingConsent(subscribe: boolean): Promise<EmailMarketingState> {
+  const mutation = subscribe ? EMAIL_MARKETING_SUBSCRIBE_MUTATION : EMAIL_MARKETING_UNSUBSCRIBE_MUTATION;
+  const data = await customerAccountRequest<EmailMarketingMutationData>(mutation);
+  const payload = subscribe
+    ? data?.customerEmailMarketingSubscribe
+    : data?.customerEmailMarketingUnsubscribe;
+
+  const userErrors = payload?.userErrors || [];
+  if (userErrors.length > 0) {
+    throw new Error(userErrors.map((e) => e.message).join(', '));
+  }
+
+  const state = payload?.emailAddress?.marketingState;
+  if (!state) {
+    throw new Error('Failed to update marketing preference');
+  }
+  return state;
 }
 
 export interface StoreCreditData {
