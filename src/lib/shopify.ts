@@ -302,6 +302,208 @@ const CART_CREATE_MUTATION = `
   }
 `;
 
+/**
+ * 장바구니 미리보기 전용 뮤테이션.
+ *
+ * 결제 생성용 CART_CREATE_MUTATION 과 **의도적으로 분리**한다. 결제 경로는 지금 정상 동작 중이고
+ * 거기에 필드를 더하면 결제 자체가 걸린다. 미리보기는 실패해도 정가로 떨어지면 그만이라 위험도가 다르다.
+ *
+ * checkoutUrl 은 요청하지 않는다 — 이 카트는 금액을 보여주기 위한 것이지 결제로 넘길 것이 아니다.
+ */
+const CART_PREVIEW_MUTATION = `
+  mutation cartPreview($input: CartInput!) {
+    cartCreate(input: $input) {
+      cart {
+        cost {
+          subtotalAmount { amount currencyCode }
+          totalAmount { amount currencyCode }
+        }
+        lines(first: 100) {
+          edges {
+            node {
+              quantity
+              discountAllocations { discountedAmount { amount currencyCode } }
+              merchandise {
+                ... on ProductVariant {
+                  id
+                  price { amount currencyCode }
+                }
+              }
+            }
+          }
+        }
+      }
+      userErrors { field message }
+    }
+  }
+`;
+
+export interface CartPreview {
+  /** 할인 적용 전 정가 합계 (variant 가격 × 수량) */
+  subtotal: number;
+  /** 할인이 반영된 상품 금액. 배송비·세금은 포함하지 않는다 — 요약 화면이 배송비를 따로 더한다. */
+  total: number;
+  /** subtotal - total. 0 이면 할인이 붙지 않은 것 */
+  savings: number;
+  currencyCode: string;
+  /** variantId → 그 줄에 붙은 할인 금액 */
+  lineDiscounts: Record<string, number>;
+}
+
+/**
+ * Shopify 에 카트를 만들어 **실제 결제 금액**을 받아온다.
+ *
+ * 자동 할인(Open Sale 등)은 상품 데이터에 반영되지 않고 카트 단계에서만 계산된다.
+ * 그래서 정가 합산으로는 할인을 알 수 없고, 결제창에 가서야 금액이 바뀌어 보였다.
+ *
+ * ⚠️ 호출 빈도에 주의할 것. JP 에서는 상품 목록에서 **상품마다** 이 호출을 돌렸다가
+ *    Vercel 서버 IP 기준 rate limit 에 상시 THROTTLED 로 걸려 할인이 통째로 안 보였다.
+ *    여기서는 카트 단위로만 부른다 — 호출자(cartPreviewStore)가 디바운스와 캐시를 책임진다.
+ *
+ * 실패하면 null 을 돌려준다. 화면은 기존처럼 정가를 보여주면 되고, 결제는 영향받지 않는다.
+ */
+export async function fetchCartPreview(
+  items: { variantId: string; quantity: number }[]
+): Promise<CartPreview | null> {
+  if (items.length === 0) return null;
+
+  const input: Record<string, unknown> = {
+    lines: items.map((item) => ({
+      merchandiseId: item.variantId,
+      quantity: item.quantity,
+    })),
+  };
+
+  // 할인코드는 실제 결제와 같은 규칙으로 싣는다 — 화면 금액과 결제 금액이 어긋나지 않게.
+  const affiliateDiscount = localStorage.getItem('affiliate_discount');
+  const blocked = ['BUSINESS'];
+  if (affiliateDiscount && !blocked.includes(affiliateDiscount.toUpperCase())) {
+    input.discountCodes = [affiliateDiscount];
+  }
+
+  // 로그인 고객은 계정별 가격(B2B 포함)이 반영되도록 토큰을 함께 보낸다.
+  try {
+    if (isCustomerLoggedIn()) {
+      const storefrontToken = getCachedStorefrontCustomerToken();
+      if (storefrontToken) {
+        input.buyerIdentity = { customerAccessToken: storefrontToken };
+      }
+    }
+  } catch { /* 토큰 없이 진행 */ }
+
+  try {
+    let data = await storefrontApiRequest(CART_PREVIEW_MUTATION, { input });
+
+    // 만료된 고객 토큰이면 토큰 없이 한 번만 다시 시도 (결제 경로와 동일한 방어)
+    const tokenError = data?.data?.cartCreate?.userErrors?.some(
+      (e: { field: string[]; message: string }) =>
+        e.field?.includes('customerAccessToken') || e.message?.includes('invalid')
+    );
+    if (tokenError && input.buyerIdentity) {
+      delete input.buyerIdentity;
+      data = await storefrontApiRequest(CART_PREVIEW_MUTATION, { input });
+    }
+
+    const cart = data?.data?.cartCreate?.cart;
+    if (!cart?.cost?.subtotalAmount) return null;
+
+    /**
+     * ⚠️ `cost.subtotalAmount` 는 **이미 할인이 적용된** 금액이다.
+     *    실측(2026-09-11, Fruit Friends Ball Toy): 정가 $20 · 할인 $2 → subtotalAmount $18.
+     *    그래서 "정가"는 여기서 못 얻는다. merchandise.price × 수량으로 직접 합산해야 한다.
+     *
+     *    `totalAmount` 를 쓰지 않는 이유: 세금·관세가 얹힐 수 있어 상품 금액이 아니다.
+     *    우리 요약 화면은 배송비를 따로 더하므로 할인만 반영된 subtotalAmount 가 맞다.
+     */
+    const total = parseFloat(cart.cost.subtotalAmount.amount);
+    const currencyCode: string = cart.cost.subtotalAmount.currencyCode;
+
+    let subtotal = 0;
+    const lineDiscounts: Record<string, number> = {};
+    for (const edge of cart.lines?.edges ?? []) {
+      const node = edge.node;
+      const variantId = node?.merchandise?.id;
+      if (!variantId) continue;
+
+      subtotal += parseFloat(node.merchandise?.price?.amount ?? '0') * (node.quantity ?? 0);
+
+      // 할인이 없는 줄도 0 으로 적어 둔다 — 할인이 끝났을 때 이전 값이 남지 않게.
+      lineDiscounts[variantId] = (node.discountAllocations ?? []).reduce(
+        (sum: number, d: { discountedAmount: { amount: string } }) =>
+          sum + parseFloat(d.discountedAmount.amount),
+        0
+      );
+    }
+
+    return {
+      subtotal,
+      total,
+      savings: Math.max(subtotal - total, 0),
+      currencyCode,
+      lineDiscounts,
+    };
+  } catch (err) {
+    console.warn('[CartPreview] 미리보기 실패 — 정가로 표시합니다:', err);
+    return null;
+  }
+}
+
+/**
+ * 여러 상품의 자동 할인을 **한 번의 요청**으로 받아온다.
+ *
+ * 상품마다 따로 부르면 JP 가 겪은 rate limit(THROTTLED)에 그대로 걸린다. 그렇다고 모든 상품을
+ * 한 카트에 넣으면 「10만원 이상 구매 시」 같은 최소 구매 조건 할인이 합산액 때문에 잘못 붙는다.
+ *
+ * 그래서 GraphQL 별칭으로 **상품당 카트 하나**를 만들어 한 요청에 실어 보낸다.
+ * 카트가 분리돼 있으니 조건 판정은 상품별로 정확하고, HTTP 요청은 한 번이다.
+ * 실측(2026-09-11): 상품 2개 요청 비용 40 — 상품당 약 20.
+ */
+export async function fetchVariantDiscounts(variantIds: string[]): Promise<Record<string, number>> {
+  const ids = [...new Set(variantIds.filter(Boolean))];
+  if (ids.length === 0) return {};
+
+  const params = ids.map((_, i) => `$v${i}: ID!`).join(', ');
+  const body = ids
+    .map(
+      (_, i) => `
+    d${i}: cartCreate(input: { lines: [{ merchandiseId: $v${i}, quantity: 1 }] }) {
+      cart {
+        lines(first: 1) {
+          edges {
+            node {
+              discountAllocations { discountedAmount { amount } }
+              merchandise { ... on ProductVariant { id price { amount } } }
+            }
+          }
+        }
+      }
+    }`
+    )
+    .join('\n');
+
+  const variables = Object.fromEntries(ids.map((id, i) => [`v${i}`, id]));
+
+  try {
+    const data = await storefrontApiRequest(`mutation batchDiscounts(${params}) {${body}\n}`, variables);
+    const result: Record<string, number> = {};
+
+    ids.forEach((id, i) => {
+      const node = data?.data?.[`d${i}`]?.cart?.lines?.edges?.[0]?.node;
+      // 응답이 없으면 0 으로 둔다 — 할인이 없는 것과 같게 취급해 정가를 보여준다.
+      result[id] = (node?.discountAllocations ?? []).reduce(
+        (sum: number, d: { discountedAmount: { amount: string } }) =>
+          sum + parseFloat(d.discountedAmount.amount),
+        0
+      );
+    });
+
+    return result;
+  } catch (err) {
+    console.warn('[CartPreview] 할인 일괄 조회 실패 — 정가로 표시합니다:', err);
+    return {};
+  }
+}
+
 // Collections
 export interface ShopifyCollection {
   id: string;

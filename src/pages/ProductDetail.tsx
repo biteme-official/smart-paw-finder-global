@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { fetchProductByHandle, formatPrice, createStorefrontCheckout, ShopifyProduct } from "@/lib/shopify";
-import { PriceTag } from "@/components/ui/PriceTag";
+import { AutoDiscountPriceTag } from "@/components/ui/PriceTag";
 import { trackViewItem, trackAddToCart, shopifyToGA4Item } from "@/lib/ga4-ecommerce";
 import { trackViewContentCapi } from "@/lib/meta-capi";
 import { useCartStore } from "@/stores/cartStore";
@@ -546,7 +546,7 @@ export default function ProductDetail() {
         <div className="mb-4">
           <h1 className="text-xl font-bold text-foreground mb-2">{product.title}</h1>
           <div className="flex items-baseline gap-2">
-            <PriceTag amount={price.amount} currencyCode={price.currencyCode} className="text-2xl font-bold text-foreground" originalClassName="text-base" />
+            <AutoDiscountPriceTag variantId={selectedVariant?.id} amount={price.amount} currencyCode={price.currencyCode} className="text-2xl font-bold text-foreground" originalClassName="text-base" />
           </div>
         </div>
 
@@ -595,7 +595,7 @@ export default function ProductDetail() {
                   <span className="text-sm font-medium text-foreground">{selectedOptions[option.name]}</span>
                 </div>
                 {showSwatchUI && (
-                  <PriceTag amount={price.amount} currencyCode={price.currencyCode} className="text-base font-semibold text-foreground" originalClassName="text-sm" />
+                  <AutoDiscountPriceTag variantId={selectedVariant?.id} amount={price.amount} currencyCode={price.currencyCode} className="text-base font-semibold text-foreground" originalClassName="text-sm" />
                 )}
               </div>
 
