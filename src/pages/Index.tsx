@@ -3,6 +3,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { HeroBanner } from "@/components/home/HeroBanner";
 import { PopularProducts } from "@/components/home/PopularProducts";
+import { JustOpened } from "@/components/home/JustOpened";
 import { InstagramReels } from "@/components/home/InstagramReels";
 import { CategoryIcons } from "@/components/home/categories/CategoryIcons";
 import { PromoBanner } from "@/components/home/promo/PromoBanner";
@@ -55,6 +56,7 @@ const Index = () => {
           <HeroBanner />
           <CategoryIcons onSelect={handleCollectionSelect} />
           <PopularProducts />
+          <JustOpened />
           <PromoBanner />
           <InstagramReels />
           <WhatYouMightLike />

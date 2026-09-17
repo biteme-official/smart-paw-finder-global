@@ -939,6 +939,56 @@ export async function fetchNewProducts(first: number = 12, filterDays?: number):
   return data.data?.products?.edges || [];
 }
 
+// Identical to GET_NEW_PRODUCTS_QUERY (same CREATED_AT-desc sort, same fields) minus
+// variants.quantityAvailable, which requires the `unauthenticated_read_product_inventory`
+// Storefront scope. Only fetchLatestProducts (home "Just Opened" preview) uses this —
+// it never reads quantityAvailable, unlike /new-products (fetchNewProducts), which does
+// and must keep requesting it. Do not use this for anything that needs stock-accurate
+// sold-out detection.
+const GET_LATEST_PRODUCTS_QUERY = `
+  query GetLatestProducts($first: Int!) {
+    products(first: $first, sortKey: CREATED_AT, reverse: true) {
+      edges {
+        node {
+          id
+          title
+          handle
+          availableForSale
+          productType
+          tags
+          vendor
+          priceRange {
+            minVariantPrice { amount currencyCode }
+          }
+          images(first: 1) {
+            edges { node { url altText } }
+          }
+          variants(first: 50) {
+            edges {
+              node {
+                id
+                title
+                price { amount currencyCode }
+                compareAtPrice { amount currencyCode }
+                availableForSale
+                image { url altText }
+                selectedOptions { name value }
+              }
+            }
+          }
+          options { name values }
+        }
+      }
+    }
+  }
+`;
+
+export async function fetchLatestProducts(first: number = 12): Promise<ShopifyProduct[]> {
+  const data = await storefrontApiRequest(GET_LATEST_PRODUCTS_QUERY, { first });
+  if (!data) return [];
+  return data.data?.products?.edges || [];
+}
+
 const GET_PRODUCT_RECOMMENDATIONS_QUERY = `
   query GetProductRecommendations($productId: ID!) {
     productRecommendations(productId: $productId) {
