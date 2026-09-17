@@ -70,7 +70,7 @@ function MarketingConsent({ state, onChange, highlight, containerRef, children }
   return (
     <div
       ref={containerRef}
-      className={`bg-card rounded-xl p-4 scroll-mt-24 transition-shadow ${
+      className={`bg-card rounded-xl p-4 scroll-mt-36 transition-shadow ${
         highlight ? 'border-2 border-primary ring-4 ring-primary/15' : 'border border-border'
       }`}
     >
