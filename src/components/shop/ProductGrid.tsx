@@ -1,14 +1,13 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ShopifyProduct, fetchProducts, fetchBestSellingProductsPaginated, fetchCollectionProducts, fetchCollectionIntersection, fetchProductCount, fetchCollectionProductCount } from '@/lib/shopify';
+import { ShopifyProduct, CollectionSortKey, ProductListSortKey, fetchProducts, fetchBestSellingProductsPaginated, fetchCollectionProducts, fetchCollectionIntersection, fetchProductCount, fetchCollectionProductCount } from '@/lib/shopify';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2 } from 'lucide-react';
 import { ProductCard } from '@/components/shop/ProductCard';
 import { saveScrollPosition } from '@/hooks/useScrollRestoration';
-import { ProductFilters, SortOption, FilterState } from './ProductFilters';
+import { ProductFilters, SortOption } from './ProductFilters';
 import { ProductOptionDialog } from './ProductOptionDialog';
-import { useTranslation } from '@/hooks/useTranslation';
 import { trackViewItemList, shopifyToGA4Item } from '@/lib/ga4-ecommerce';
 
 // Product skeleton component
@@ -36,7 +35,6 @@ interface ProductGridProps {
 
 const PRODUCTS_PER_PAGE = 12;
 const BEST_SELLING_INITIAL = 12;
-const DEFAULT_MAX_PRICE = 100;
 
 export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCollections = null, overrideTitle = null, defaultBestSelling = false }: ProductGridProps) => {
   const [allProducts, setAllProducts] = useState<ShopifyProduct[]>([]);
@@ -54,28 +52,27 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
 
-  // Filter and sort state
-  const [sortOption, setSortOption] = useState<SortOption>("default");
-  const [filters, setFilters] = useState<FilterState>({
-    priceRange: [0, DEFAULT_MAX_PRICE],
-  });
+  // Sort state — "best-selling" is applied server-side via CollectionSortKey; "most-viewed"
+  // fetches the collection in its default order and re-sorts client-side by GA4 view count
+  // (Shopify's Storefront API has no native "most viewed" sortKey).
+  const [sortOption, setSortOption] = useState<SortOption>("most-viewed");
+  const [viewCounts, setViewCounts] = useState<Map<string, number> | null>(null);
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useTranslation();
 
-  const { minPrice, maxPrice } = useMemo(() => {
-    if (allProducts.length === 0) return { minPrice: 0, maxPrice: DEFAULT_MAX_PRICE };
-    const prices = allProducts.map(p => parseFloat(p.node.priceRange.minVariantPrice.amount));
-    return { minPrice: Math.min(...prices), maxPrice: Math.max(...prices) };
-  }, [allProducts]);
+  const sortKey: CollectionSortKey =
+    sortOption === "best-selling" ? "BEST_SELLING" : sortOption === "newest" ? "CREATED" : "COLLECTION_DEFAULT";
+  const productListSortKey: ProductListSortKey = sortOption === "best-selling" ? "BEST_SELLING" : "CREATED_AT";
 
   useEffect(() => {
-    setFilters(prev => ({
-      ...prev,
-      priceRange: [minPrice, maxPrice],
-    }));
-  }, [minPrice, maxPrice]);
+    fetch("/api/top-viewed-products?limit=100")
+      .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
+      .then((data: { items: { productId: string; views: number }[] }) => {
+        setViewCounts(new Map(data.items.map((item) => [item.productId, item.views])));
+      })
+      .catch((err) => console.error("[ProductGrid] view-count fetch failed", err));
+  }, []);
 
   const isProductSoldOut = useCallback((product: ShopifyProduct) => {
     if (product.node.availableForSale === false) return true;
@@ -86,49 +83,25 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
     return false;
   }, []);
 
-  // Apply filters and sorting to products
+  // "best-selling" arrives already sorted from Shopify. "most-viewed" is re-sorted here by
+  // GA4 view count (products with no view data keep their fetched order, pushed after any
+  // with data). Sold-out items are always pinned to the bottom, on top of either sort.
   const filteredAndSortedProducts = useMemo(() => {
-    let result = [...allProducts];
-
-    // Apply price filter
-    result = result.filter(product => {
-      const price = parseFloat(product.node.priceRange.minVariantPrice.amount);
-      return price >= filters.priceRange[0] && price <= filters.priceRange[1];
-    });
-
-    // Apply sorting
-    switch (sortOption) {
-      case "price-asc":
-        result.sort((a, b) =>
-          parseFloat(a.node.priceRange.minVariantPrice.amount) -
-          parseFloat(b.node.priceRange.minVariantPrice.amount)
-        );
-        break;
-      case "price-desc":
-        result.sort((a, b) =>
-          parseFloat(b.node.priceRange.minVariantPrice.amount) -
-          parseFloat(a.node.priceRange.minVariantPrice.amount)
-        );
-        break;
-      case "title-asc":
-        result.sort((a, b) => a.node.title.localeCompare(b.node.title));
-        break;
-      case "title-desc":
-        result.sort((a, b) => b.node.title.localeCompare(a.node.title));
-        break;
-      default:
-        break;
+    let result = allProducts;
+    if (sortOption === "most-viewed" && viewCounts) {
+      result = [...allProducts].sort((a, b) => {
+        const viewsA = viewCounts.get(a.node.id) ?? -1;
+        const viewsB = viewCounts.get(b.node.id) ?? -1;
+        return viewsB - viewsA;
+      });
     }
-
-    // While more pages remain, hide sold-out to prevent shifting.
-    // Once all pages are loaded, show them at the bottom.
     if (hasNextPage) {
       return result.filter(p => !isProductSoldOut(p));
     }
     const notSoldOut = result.filter(p => !isProductSoldOut(p));
     const soldOut = result.filter(p => isProductSoldOut(p));
     return [...notSoldOut, ...soldOut];
-  }, [allProducts, sortOption, filters, hasNextPage, isProductSoldOut]);
+  }, [allProducts, sortOption, viewCounts, hasNextPage, isProductSoldOut]);
 
   // GA4: view_item_list — fire once per search/collection change
   useEffect(() => {
@@ -140,13 +113,6 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
       trackViewItemList(ga4Items, 'All Products');
     }
   }, [loading, totalProductCount, filteredAndSortedProducts]);
-
-  // Count active filters
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (filters.priceRange[0] > minPrice || filters.priceRange[1] < maxPrice) count++;
-    return count;
-  }, [filters, minPrice, maxPrice]);
 
   const handleProductClick = (handle: string) => {
     saveScrollPosition(location.pathname);
@@ -162,7 +128,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   }, [searchQuery]);
 
   useEffect(() => {
-    setSortOption("default");
+    setSortOption("most-viewed");
   }, [searchQuery, collectionHandle, multiCollections]);
 
   // Initial load
@@ -186,7 +152,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
           countPromise = Promise.resolve(response.products.length);
         } else if (collectionHandle) {
           countPromise = fetchCollectionProductCount(collectionHandle);
-          const collectionResponse = await fetchCollectionProducts(collectionHandle, PRODUCTS_PER_PAGE);
+          const collectionResponse = await fetchCollectionProducts(collectionHandle, PRODUCTS_PER_PAGE, undefined, sortKey);
           response = collectionResponse;
           setCollectionTitle(collectionResponse.collectionTitle);
         } else if (defaultBestSelling && !searchQuery) {
@@ -195,7 +161,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
         } else {
           const query = getQuery();
           countPromise = fetchProductCount(query);
-          response = await fetchProducts(PRODUCTS_PER_PAGE, query, undefined);
+          response = await fetchProducts(PRODUCTS_PER_PAGE, query, undefined, productListSortKey);
         }
 
         setAllProducts(response.products);
@@ -210,7 +176,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
       }
     };
     loadProducts();
-  }, [searchQuery, collectionHandle, multiCollections, overrideTitle, getQuery, retryKey]);
+  }, [searchQuery, collectionHandle, multiCollections, overrideTitle, getQuery, retryKey, sortKey, productListSortKey]);
 
   // Load more products
   const loadMore = useCallback(async () => {
@@ -223,12 +189,12 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
         // Intersection results are fetched all at once; no cursor-based load more
         return;
       } else if (collectionHandle) {
-        response = await fetchCollectionProducts(collectionHandle, PRODUCTS_PER_PAGE, endCursor);
+        response = await fetchCollectionProducts(collectionHandle, PRODUCTS_PER_PAGE, endCursor, sortKey);
       } else if (defaultBestSelling && !searchQuery) {
         response = await fetchBestSellingProductsPaginated(PRODUCTS_PER_PAGE, endCursor);
       } else {
         const query = getQuery();
-        response = await fetchProducts(PRODUCTS_PER_PAGE, query, endCursor);
+        response = await fetchProducts(PRODUCTS_PER_PAGE, query, endCursor, productListSortKey);
       }
       setAllProducts(prev => [...prev, ...response.products]);
       setHasNextPage(response.pageInfo.hasNextPage);
@@ -238,7 +204,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, hasNextPage, endCursor, multiCollections, collectionHandle, defaultBestSelling, searchQuery, getQuery]);
+  }, [loadingMore, hasNextPage, endCursor, multiCollections, collectionHandle, defaultBestSelling, searchQuery, getQuery, sortKey, productListSortKey]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -273,10 +239,8 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   };
 
   const getSearchText = () => `Search: "${searchQuery}"`;
-  const getProductCountText = (count: number) => `${count} products`;
   const getNoSearchResultsText = () => 'No results found';
   const getTryDifferentSearchText = () => 'Try a different search term.';
-  const getNoFilterResultsText = () => 'No products match the selected filters';
 
   const [collectionTitle, setCollectionTitle] = useState<string | null>(null);
 
@@ -292,7 +256,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   if (loadError) {
     return (
       <section className="py-8 px-4">
-        <h2 className="text-2xl font-bold mb-6">{displayTitle}</h2>
+        <h2 className="text-2xl font-bold text-center mb-6">{displayTitle}</h2>
         <div className="bg-muted/50 rounded-xl p-12 text-center">
           <p className="text-muted-foreground text-lg mb-4">Failed to load products.</p>
           <Button variant="outline" onClick={() => setRetryKey(k => k + 1)}>
@@ -306,7 +270,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   if (loading) {
     return (
       <section className="py-8 px-4">
-        <h2 className="text-2xl font-bold mb-4">{displayTitle}</h2>
+        <h2 className="text-2xl font-bold text-center mb-4">{displayTitle}</h2>
         <div className="flex items-center gap-2 mb-4">
           <Skeleton className="h-9 w-[140px]" />
           <Skeleton className="h-9 w-20" />
@@ -323,7 +287,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   if (allProducts.length === 0) {
     return (
       <section className="py-8 px-4">
-        <h2 className="text-2xl font-bold mb-6">{displayTitle}</h2>
+        <h2 className="text-2xl font-bold text-center mb-6">{displayTitle}</h2>
         <div className="bg-muted/50 rounded-xl p-12 text-center">
           <p className="text-muted-foreground text-lg mb-4">
             {getNoSearchResultsText()}
@@ -338,37 +302,19 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
 
   return (
     <section id="product-grid" className="py-8 px-4">
+      <h2 className="text-2xl font-bold text-center mb-4">{displayTitle}</h2>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold">{displayTitle}</h2>
-        {totalProductCount !== null && (
-          <span className="text-sm text-muted-foreground">
-            {totalProductCount} products
-          </span>
-        )}
+        <span className="text-sm text-muted-foreground">
+          {totalProductCount !== null ? `${totalProductCount} products` : ""}
+        </span>
+        <ProductFilters sortOption={sortOption} onSortChange={setSortOption} />
       </div>
-
-      {/* Filters and Sort */}
-      <ProductFilters
-        sortOption={sortOption}
-        onSortChange={setSortOption}
-        filters={filters}
-        onFiltersChange={setFilters}
-        minPrice={minPrice}
-        maxPrice={maxPrice}
-        activeFilterCount={activeFilterCount}
-      />
 
       {filteredAndSortedProducts.length === 0 ? (
         <div className="bg-muted/50 rounded-xl p-12 text-center">
-          <p className="text-muted-foreground text-lg mb-4">
-            {getNoFilterResultsText()}
+          <p className="text-muted-foreground text-lg">
+            No products found.
           </p>
-          <Button
-            variant="outline"
-            onClick={() => setFilters({ priceRange: [minPrice, maxPrice] })}
-          >
-            {t('filters.clearFilters')}
-          </Button>
         </div>
       ) : (
         <>
@@ -387,8 +333,9 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
             })}
           </div>
 
-          {/* Infinite scroll trigger */}
-          <div ref={loadMoreRef} className="h-20 flex items-center justify-center">
+          {/* Infinite scroll trigger — collapses to a hairline sentinel when idle so it
+              doesn't reserve empty space between the last product row and the footer. */}
+          <div ref={loadMoreRef} className={`flex items-center justify-center ${loadingMore ? "h-20" : "h-px"}`}>
             {loadingMore && (
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             )}
