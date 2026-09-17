@@ -115,8 +115,8 @@ async function adminApiRequest(query: string, variables: Record<string, unknown>
 
 // GraphQL Queries
 const GET_PRODUCTS_QUERY = `
-  query GetProducts($first: Int!, $query: String, $after: String) {
-    products(first: $first, query: $query, after: $after, sortKey: CREATED_AT, reverse: true) {
+  query GetProducts($first: Int!, $query: String, $after: String, $sortKey: ProductSortKeys, $reverse: Boolean) {
+    products(first: $first, query: $query, after: $after, sortKey: $sortKey, reverse: $reverse) {
       pageInfo {
         hasNextPage
         endCursor
@@ -389,12 +389,12 @@ const GET_MENU_QUERY = `
 `;
 
 const GET_COLLECTION_PRODUCTS_QUERY = `
-  query GetCollectionProducts($handle: String!, $first: Int!, $after: String) {
+  query GetCollectionProducts($handle: String!, $first: Int!, $after: String, $sortKey: ProductCollectionSortKeys, $reverse: Boolean) {
     collection(handle: $handle) {
       id
       title
       handle
-      products(first: $first, after: $after, sortKey: CREATED, reverse: true) {
+      products(first: $first, after: $after, sortKey: $sortKey, reverse: $reverse) {
         pageInfo {
           hasNextPage
           endCursor
@@ -980,8 +980,21 @@ export async function fetchProductRecommendations(productId: string): Promise<Sh
 }
 
 // API Functions
-export async function fetchProducts(first: number = 20, query?: string, after?: string): Promise<ProductsResponse> {
-  const data = await storefrontApiRequest(GET_PRODUCTS_QUERY, { first, query, after });
+export type ProductListSortKey = 'CREATED_AT' | 'BEST_SELLING';
+
+export async function fetchProducts(
+  first: number = 20,
+  query?: string,
+  after?: string,
+  sortKey: ProductListSortKey = 'CREATED_AT'
+): Promise<ProductsResponse> {
+  const data = await storefrontApiRequest(GET_PRODUCTS_QUERY, {
+    first,
+    query,
+    after,
+    sortKey,
+    reverse: sortKey === 'CREATED_AT',
+  });
   if (!data) return { products: [], pageInfo: { hasNextPage: false, endCursor: null } };
 
   const productsData = data.data?.products;
@@ -1060,6 +1073,24 @@ export async function fetchProductsByHandles(handles: string[]): Promise<Record<
   return result;
 }
 
+const GET_PRODUCTS_BY_IDS_QUERY = `
+  query GetProductsByIds($ids: [ID!]!) {
+    nodes(ids: $ids) {
+      ... on Product {
+        ${PRODUCT_BY_HANDLE_FRAGMENT}
+      }
+    }
+  }
+`;
+
+// Batch product fetch by Storefront GID — preserves input order, nulls for missing/non-product ids
+export async function fetchProductsByIds(ids: string[]): Promise<(ShopifyProduct['node'] | null)[]> {
+  if (!ids.length) return [];
+  const data = await storefrontApiRequest(GET_PRODUCTS_BY_IDS_QUERY, { ids });
+  if (!data) return ids.map(() => null);
+  return (data.data?.nodes || []).map((node: ShopifyProduct['node'] | null) => node || null);
+}
+
 export async function fetchCollections(first: number = 20): Promise<ShopifyCollection[]> {
   const data = await storefrontApiRequest(GET_COLLECTIONS_QUERY, { first });
   if (!data) return [];
@@ -1096,8 +1127,21 @@ export interface CollectionProductsResponse extends ProductsResponse {
   collectionTitle: string | null;
 }
 
-export async function fetchCollectionProducts(handle: string, first: number = 20, after?: string): Promise<CollectionProductsResponse> {
-  const data = await storefrontApiRequest(GET_COLLECTION_PRODUCTS_QUERY, { handle, first, after });
+export type CollectionSortKey = 'COLLECTION_DEFAULT' | 'BEST_SELLING';
+
+export async function fetchCollectionProducts(
+  handle: string,
+  first: number = 20,
+  after?: string,
+  sortKey: CollectionSortKey = 'COLLECTION_DEFAULT'
+): Promise<CollectionProductsResponse> {
+  const data = await storefrontApiRequest(GET_COLLECTION_PRODUCTS_QUERY, {
+    handle,
+    first,
+    after,
+    sortKey,
+    reverse: false,
+  });
   if (!data) return { products: [], pageInfo: { hasNextPage: false, endCursor: null }, collectionTitle: null };
 
   const collection = data.data?.collection;

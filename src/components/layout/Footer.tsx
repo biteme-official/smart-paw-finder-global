@@ -1,59 +1,37 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
-function MastercardIcon() {
-  return (
-    <svg viewBox="0 0 38 24" className="h-4 w-auto" aria-label="Mastercard">
-      <circle cx="14" cy="12" r="9" fill="#555" />
-      <circle cx="24" cy="12" r="9" fill="#888" />
-      <path d="M19 5.3a9 9 0 0 1 0 13.4A9 9 0 0 1 19 5.3z" fill="#666" />
-    </svg>
-  );
-}
+const WHATSAPP_URL = "https://wa.me/15559433437";
 
-function PayPalIcon() {
-  return (
-    <svg viewBox="0 0 40 16" className="h-4 w-auto" aria-label="PayPal">
-      <text x="1" y="13" fontSize="12" fontStyle="italic" fontWeight="700" fill="#444" fontFamily="Arial, sans-serif">PayPal</text>
-    </svg>
-  );
-}
-
-const BRAND_LINKS = [
-  { label: "About Us", to: "/about" },
-  { label: "Popup Stores", to: "/popup-offline-stores" },
-  { label: "Blog", to: "/blog" },
+const SHOP_LINKS = [
+  { label: "Shop All", to: "/" },
+  { label: "Best Sellers", to: "/" },
+  { label: "New Arrivals", to: "/new-products" },
 ];
 
-const POLICY_LINKS = [
-  { label: "Terms of Use", to: "/terms" },
-  { label: "Shipping & Returns", to: "/refund-policy" },
-  { label: "Privacy Policy", to: "/privacy" },
-];
-
-const HELP_LINKS = [
-  { label: "Contact Us", to: "/contact" },
+const SUPPORT_LINKS = [
+  { label: "Shipping", to: "/refund-policy" },
+  { label: "Returns", to: "/refund-policy" },
+  { label: "FAQ", to: "/contact" },
   { label: "B2B Inquiry", to: "/mypage/b2b-apply" },
+];
+
+const COMPANY_LINKS = [
+  { label: "About Us", to: "/about" },
   { label: "Affiliate Program", to: "/affiliate" },
+  { label: "Terms of Use", to: "/terms" },
+  { label: "Privacy Policy", to: "/privacy" },
+  { label: "Contact", to: "/contact" },
 ];
-
-const TEXT_PAYMENT_METHODS = [
-  { name: "VISA",      style: "font-black italic tracking-widest text-sm"  },
-  { name: "AMEX",      style: "font-bold text-xs tracking-wide"            },
-  { name: "JCB",       style: "font-bold text-xs"                          },
-  { name: "UnionPay",  style: "font-semibold text-xs"                      },
-  { name: "Discover",  style: "font-semibold text-xs"                      },
-  { name: "Bank Transfer", style: "font-semibold text-xs"                  },
-];
-
 
 function NavColumn({ title, links }: { title: string; links: { label: string; to: string }[] }) {
   return (
-    <div className="space-y-3">
-      <p className="text-sm font-semibold text-foreground">{title}</p>
-      <ul className="space-y-2">
-        {links.map(({ label, to }) => (
-          <li key={to}>
-            <Link to={to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+    <div className="space-y-2.5">
+      <p className="text-xs font-semibold text-white uppercase tracking-wide">{title}</p>
+      <ul className="space-y-1.5">
+        {links.map(({ label, to }, i) => (
+          <li key={`${to}-${i}`}>
+            <Link to={to} className="text-xs text-zinc-500 hover:text-white transition-colors">
               {label}
             </Link>
           </li>
@@ -63,85 +41,100 @@ function NavColumn({ title, links }: { title: string; links: { label: string; to
   );
 }
 
+function AccordionSection({ title, links }: { title: string; links: { label: string; to: string }[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-zinc-800">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between py-3.5"
+      >
+        <span className="text-xs font-semibold text-white uppercase tracking-wide">{title}</span>
+        <span className="text-white text-base leading-none">{open ? "−" : "+"}</span>
+      </button>
+      {open && (
+        <ul className="pb-3.5 space-y-1.5">
+          {links.map(({ label, to }, i) => (
+            <li key={`${to}-${i}`}>
+              <Link to={to} className="text-xs text-zinc-500 hover:text-white transition-colors">
+                {label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function AboutContactColumn() {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <p className="text-xs font-semibold text-white uppercase tracking-wide">About us</p>
+        <p className="text-xs text-zinc-500 leading-relaxed">
+          © BITE ME Co., Ltd.
+          <br />
+          CEO: Jaeeun Kwak
+          <br />
+          Business Registration No.: 210-87-00613
+          <br />
+          Mail-order Business Report No.: 2019-SeoulGangnam-05372
+          <br />
+          8F, 10 Teheran-ro 20-gil, Gangnam-gu,
+          <br />
+          Seoul, Korea
+        </p>
+      </div>
+      <div className="space-y-1.5">
+        <p className="text-xs font-semibold text-white uppercase tracking-wide">Contact us</p>
+        <p className="text-xs text-zinc-500 leading-relaxed">
+          Tel: +82 70-4888-6191
+          <br />
+          Business Inquiry: mates@biteme.co.kr
+          <br />
+          Consumer Inquiry:{" "}
+          <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">
+            Chat with us on Whatsapp
+          </a>
+          <br />
+          We're here M–F 10am – 7pm KST
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function Footer() {
   return (
-    <footer className="bg-zinc-100 text-foreground mt-auto">
-
-      {/* Main nav section */}
+    <footer className="bg-zinc-900 text-white mt-auto">
       <div className="w-full max-w-6xl mx-auto px-6 pt-10 pb-8">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
+        {/* Desktop/tablet: all sections always expanded, side by side */}
+        <div className="hidden md:grid grid-cols-2 lg:grid-cols-[repeat(4,auto)] gap-8">
+          <NavColumn title="Shop" links={SHOP_LINKS} />
+          <NavColumn title="Support" links={SUPPORT_LINKS} />
+          <NavColumn title="Company" links={COMPANY_LINKS} />
+          <AboutContactColumn />
+        </div>
 
-          {/* Brand column */}
-          <div className="space-y-3">
-            <p className="text-sm font-bold tracking-wide text-foreground">BITE ME</p>
-            <ul className="space-y-2">
-              {BRAND_LINKS.map(({ label, to }) => (
-                <li key={to}>
-                  <Link to={to} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+        {/* Mobile: About us/Contact us stay expanded, link lists collapse into an accordion */}
+        <div className="md:hidden space-y-6">
+          <AboutContactColumn />
+          <div>
+            <AccordionSection title="Shop" links={SHOP_LINKS} />
+            <AccordionSection title="Support" links={SUPPORT_LINKS} />
+            <AccordionSection title="Company" links={COMPANY_LINKS} />
           </div>
-
-          <NavColumn title="Terms & Policies" links={POLICY_LINKS} />
-          <NavColumn title="Help" links={HELP_LINKS} />
         </div>
       </div>
 
-      {/* Company info section */}
-      <div className="w-full max-w-6xl mx-auto px-6 py-6 border-t border-border">
-        <p className="text-sm font-semibold text-foreground mb-2">BITE ME</p>
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          CEO: Jaeeun Kwak{" "}
-          <span className="mx-1 text-zinc-300">|</span>
-          Business Registration No.: 210-87-00613{" "}
-          <span className="mx-1 text-zinc-300">|</span>
-          Mail-order Business Report No.: 2019-SeoulGangnam-05372
-        </p>
-        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-          Tel: +82 70-4888-6191{" "}
-          <span className="mx-1 text-zinc-300">|</span>
-          E-mail: mates@biteme.co.kr{" "}
-          <span className="mx-1 text-zinc-300">|</span>
-          Mon – Fri: 10:00 am – 7:00 pm KST
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          8F, 10 Teheran-ro 20-gil, Gangnam-gu, Seoul, Republic of Korea
-        </p>
-      </div>
-
-      {/* Payment methods + Copyright */}
-      <div className="border-t border-border bg-zinc-200/50">
-        <div className="w-full max-w-6xl mx-auto px-6 py-4">
-          <div className="flex flex-wrap items-center gap-2.5 mb-3">
-            <span className="text-xs font-medium text-muted-foreground mr-2 shrink-0">Payment Method</span>
-
-            {/* PayPal */}
-            <span className="inline-flex items-center h-5">
-              <PayPalIcon />
-            </span>
-
-            {/* Mastercard */}
-            <span className="inline-flex items-center h-5">
-              <MastercardIcon />
-            </span>
-
-            {/* Text-based logos */}
-            {TEXT_PAYMENT_METHODS.map(({ name, style }) => (
-              <span
-                key={name}
-                className={`inline-flex items-center justify-center text-zinc-600 ${style}`}
-              >
-                {name}
-              </span>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground">© 2026 BITE ME. All rights reserved.</p>
+      <div className="border-t border-zinc-800">
+        <div className="w-full max-w-6xl mx-auto px-6 py-4 text-center">
+          <p className="text-xs text-zinc-500">© 2026 BITE ME. All rights reserved.</p>
         </div>
       </div>
-
     </footer>
   );
 }
