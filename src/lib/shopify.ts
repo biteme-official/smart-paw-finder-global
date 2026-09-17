@@ -1173,7 +1173,7 @@ export interface CollectionProductsResponse extends ProductsResponse {
   collectionTitle: string | null;
 }
 
-export type CollectionSortKey = 'COLLECTION_DEFAULT' | 'BEST_SELLING';
+export type CollectionSortKey = 'COLLECTION_DEFAULT' | 'BEST_SELLING' | 'CREATED';
 
 export async function fetchCollectionProducts(
   handle: string,
@@ -1186,7 +1186,8 @@ export async function fetchCollectionProducts(
     first,
     after,
     sortKey,
-    reverse: false,
+    // CREATED defaults oldest-first in the Storefront API — reverse to get newest-first.
+    reverse: sortKey === 'CREATED',
   });
   if (!data) return { products: [], pageInfo: { hasNextPage: false, endCursor: null }, collectionTitle: null };
 

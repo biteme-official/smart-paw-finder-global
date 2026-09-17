@@ -6,7 +6,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export type SortOption = "most-viewed" | "best-selling";
+export type SortOption = "most-viewed" | "best-selling" | "newest";
 
 interface ProductFiltersProps {
   sortOption: SortOption;
@@ -16,6 +16,7 @@ interface ProductFiltersProps {
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "most-viewed", label: "Most Viewed" },
   { value: "best-selling", label: "Best Selling" },
+  { value: "newest", label: "Newest" },
 ];
 
 export function ProductFilters({ sortOption, onSortChange }: ProductFiltersProps) {

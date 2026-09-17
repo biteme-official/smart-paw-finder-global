@@ -61,7 +61,8 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   const navigate = useNavigate();
   const location = useLocation();
 
-  const sortKey: CollectionSortKey = sortOption === "best-selling" ? "BEST_SELLING" : "COLLECTION_DEFAULT";
+  const sortKey: CollectionSortKey =
+    sortOption === "best-selling" ? "BEST_SELLING" : sortOption === "newest" ? "CREATED" : "COLLECTION_DEFAULT";
   const productListSortKey: ProductListSortKey = sortOption === "best-selling" ? "BEST_SELLING" : "CREATED_AT";
 
   useEffect(() => {
