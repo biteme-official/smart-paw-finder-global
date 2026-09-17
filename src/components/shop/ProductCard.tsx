@@ -89,8 +89,8 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
 
         {/* Sold out overlay */}
         {isSoldOut && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/60 z-10">
-            <span className="bg-foreground text-background px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded">
+          <div className="absolute inset-0 flex items-center justify-center z-10">
+            <span className="bg-transparent text-gray-700 text-base font-extrabold uppercase tracking-wider">
               Sold Out
             </span>
           </div>

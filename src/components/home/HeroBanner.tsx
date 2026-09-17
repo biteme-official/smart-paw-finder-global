@@ -60,16 +60,6 @@ export function HeroBanner() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [banners.length, startTimer]);
 
-  const goTo = useCallback(
-    (index: number) => {
-      const len = bannersLengthRef.current;
-      if (len === 0) return;
-      setCurrentIndex(((index % len) + len) % len);
-      startTimer();
-    },
-    [startTimer]
-  );
-
   const goPrev = useCallback(() => {
     setCurrentIndex((prev) => {
       const len = bannersLengthRef.current;
@@ -86,7 +76,7 @@ export function HeroBanner() {
   if (loading) {
     return (
       <div className="w-full px-6 py-8 sm:px-10">
-        <Skeleton className="w-full aspect-[9/10] md:aspect-[2/1] rounded-lg" />
+        <Skeleton className="w-full aspect-[9/10] md:aspect-[2/1]" />
       </div>
     );
   }
@@ -96,7 +86,7 @@ export function HeroBanner() {
   return (
     <section className="w-full bg-white">
       {/* Slides */}
-      <div className="relative overflow-hidden">
+      <div className="relative overflow-x-hidden">
         <div
           className="flex transition-transform duration-500 ease-in-out"
           style={{ transform: `translateX(-${currentIndex * 100}%)` }}
@@ -111,50 +101,64 @@ export function HeroBanner() {
             return (
               <div key={banner.id} className="w-full flex-shrink-0">
                 {hasText ? (
-                  <div className="relative aspect-[9/10] w-full overflow-hidden rounded-lg md:aspect-[2/1]">
-                    {/* 모바일: Mobile_image(9:10, 세로형) 풀블리드 */}
-                    <img
-                      src={banner.mobileImage!.url}
-                      alt={banner.mobileImage!.altText || headline || "Main banner"}
-                      onClick={() => handleBannerClick(banner.linkUrl)}
-                      className={cn(
-                        "absolute inset-0 h-full w-full object-cover md:hidden",
-                        banner.linkUrl && "cursor-pointer"
-                      )}
-                      loading="lazy"
-                    />
-                    {/* PC/태블릿: PC_image(2:1) 풀블리드 */}
-                    <img
-                      src={banner.pcImage!.url}
-                      alt={banner.pcImage!.altText || headline || "Main banner"}
-                      onClick={() => handleBannerClick(banner.linkUrl)}
-                      className={cn(
-                        "absolute inset-0 hidden h-full w-full object-cover md:block",
-                        banner.linkUrl && "cursor-pointer"
-                      )}
-                      loading="lazy"
-                    />
+                  <div className="relative w-full">
+                    {/* Image box — this is the only element that clips (aspect-ratio + overflow-hidden).
+                        The text overlay below is a sibling, NOT a descendant, so it can spill past
+                        this box's bottom edge instead of being cut off when content is long. */}
+                    <div className="relative aspect-[9/10] w-full overflow-hidden md:aspect-[2/1]">
+                      {/* 모바일: Mobile_image(9:10, 세로형) 풀블리드 */}
+                      <img
+                        src={banner.mobileImage!.url}
+                        alt={banner.mobileImage!.altText || headline || "Main banner"}
+                        onClick={() => handleBannerClick(banner.linkUrl)}
+                        className={cn(
+                          "absolute inset-0 h-full w-full object-cover md:hidden",
+                          banner.linkUrl && "cursor-pointer"
+                        )}
+                        loading="lazy"
+                      />
+                      {/* PC/태블릿: PC_image(2:1) 풀블리드 */}
+                      <img
+                        src={banner.pcImage!.url}
+                        alt={banner.pcImage!.altText || headline || "Main banner"}
+                        onClick={() => handleBannerClick(banner.linkUrl)}
+                        className={cn(
+                          "absolute inset-0 hidden h-full w-full object-cover md:block",
+                          banner.linkUrl && "cursor-pointer"
+                        )}
+                        loading="lazy"
+                      />
+                    </div>
                     {/*
                       텍스트 오버레이 위치는 PC/모바일 공통(Mobile_image는 상단 여백 구도라 상단,
                       PC_image는 세로 중앙)이지만, 텍스트 스타일 자체는 모바일 전용 세트로 완전히
                       분리한다 — PC 스타일(좌측 정렬/검은 배지/밑줄 링크)을 그대로 축소 복사하지 않음.
                       모바일: 전체 가운데 정렬, 배지는 배경 없이 주황 텍스트, 서브텍스트는 브라운 톤,
                       CTA는 주황 알약형 버튼. PC(md 이상): 기존 좌측 정렬 오버레이 스타일 그대로 유지.
+                      텍스트 전체 노출이 이미지와의 겹침보다 우선이라 overflow를 절대 자르지 않는다
+                      (긴 헤드라인/서브텍스트는 이미지 박스 아래로 자연스럽게 흘러나가도 그대로 둠).
                     */}
-                    <div className="pointer-events-none absolute inset-0 flex items-start justify-center pt-6 text-center sm:pt-7 md:items-center md:justify-start md:pt-0 md:text-left">
-                      <div className="flex w-full max-w-[85%] flex-col items-center gap-0 px-6 sm:px-10 md:w-auto md:max-w-md md:items-start md:gap-3 md:px-16">
+                    <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-center pt-6 text-center sm:pt-7 md:items-center md:justify-start md:pt-0 md:text-left">
+                      {/* md:pl-[12.8125%] mirrors the Perk banner artwork's left inset (205px of
+                          its 1600px-wide source image = 12.8125%). Both banners are full-bleed
+                          and scale with viewport width, so this has to be a percentage — not a
+                          fixed px value — to stay aligned with the image below at any width. */}
+                      <div className="flex w-full max-w-[85%] flex-col items-center gap-0 px-6 sm:px-10 md:w-auto md:max-w-none md:items-start md:gap-3 md:pl-[12.8125%] md:pr-16">
                         {badge && (
-                          <span className="text-[11px] font-bold uppercase leading-none tracking-widest text-orange-500 md:whitespace-nowrap md:rounded-full md:bg-neutral-900 md:px-3 md:py-1 md:text-xs md:leading-normal md:tracking-wide md:text-white">
+                          <span className="text-xs font-bold uppercase leading-none tracking-widest text-orange-500 md:whitespace-nowrap md:rounded-full md:bg-neutral-900 md:px-4 md:py-2 md:text-base md:leading-normal md:tracking-wide md:text-white">
                             {badge}
                           </span>
                         )}
                         {headline && (
-                          <h2 className="mt-5 line-clamp-3 text-balance whitespace-pre-line text-2xl font-bold leading-tight text-neutral-900 md:mt-0 md:text-4xl md:leading-snug">
+                          <h2
+                            className="mt-5 whitespace-pre-line uppercase text-2xl font-black leading-tight text-neutral-900 md:mt-0 md:max-w-2xl md:text-balance md:text-5xl md:leading-snug"
+                            style={{ WebkitTextStroke: "0.6px currentColor" }}
+                          >
                             {headline}
                           </h2>
                         )}
                         {subtext && (
-                          <p className="mt-3 whitespace-pre-line text-xs leading-snug text-amber-700 md:mt-0 md:text-base md:leading-relaxed md:text-neutral-600">
+                          <p className="mt-3 whitespace-nowrap text-xs leading-snug text-amber-700 md:mt-0 md:text-2xl md:leading-relaxed md:text-neutral-600">
                             {subtext}
                           </p>
                         )}
@@ -162,7 +166,7 @@ export function HeroBanner() {
                           <button
                             type="button"
                             onClick={() => handleBannerClick(banner.linkUrl)}
-                            className="pointer-events-auto mt-3 rounded-full bg-orange-500 px-3 py-1.5 text-xs font-bold leading-none text-white transition-colors hover:bg-orange-600 md:mt-2 md:rounded-none md:border-b-2 md:border-neutral-900 md:bg-transparent md:px-0 md:py-0 md:text-base md:leading-normal md:text-neutral-900 md:transition-opacity md:hover:bg-transparent md:hover:opacity-60 md:pb-0.5"
+                            className="pointer-events-auto mt-3 rounded-full bg-orange-500 px-3 py-1.5 text-xs font-bold leading-none text-white transition-colors hover:bg-orange-600 md:mt-2 md:rounded-none md:border-b-2 md:border-neutral-900 md:bg-transparent md:px-0 md:py-0 md:text-lg md:leading-normal md:text-neutral-900 md:transition-opacity md:hover:bg-transparent md:hover:opacity-60 md:pb-0.5"
                           >
                             {buttonLabel}
                           </button>
@@ -216,25 +220,6 @@ export function HeroBanner() {
           </>
         )}
       </div>
-
-      {/* Dots */}
-      {banners.length > 1 && (
-        <div className="flex items-center justify-center gap-2 pb-2 pt-1 md:pb-5">
-          {banners.map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              aria-label={`${i + 1}번째 배너로 이동`}
-              aria-current={i === currentIndex}
-              onClick={() => goTo(i)}
-              className={cn(
-                "h-2 w-2 rounded-full transition-colors",
-                i === currentIndex ? "bg-neutral-900" : "bg-neutral-300 hover:bg-neutral-400"
-              )}
-            />
-          ))}
-        </div>
-      )}
     </section>
   );
 }
