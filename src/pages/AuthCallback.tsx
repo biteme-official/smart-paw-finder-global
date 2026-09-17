@@ -5,6 +5,7 @@ import { handleCallback } from '@/lib/customer-auth';
 import { fetchCustomerAccount, createStorefrontCustomerToken } from '@/lib/customer-account';
 import { useAuthStore, fetchB2BDiscountRate } from '@/stores/authStore';
 import { toast } from 'sonner';
+import { requestPetProfilePrompt, shouldPromptPetProfile } from '@/components/account/PetProfile';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -50,6 +51,14 @@ export default function AuthCallback() {
             displayName: profile.displayName || profile.emailAddress || 'Customer',
             email: profile.emailAddress || undefined,
           });
+
+          const promptData = {
+            customerId: profile.id,
+            emailMarketingState: profile.emailMarketingState,
+            petType: profile.petType,
+            petBirthday: profile.petBirthday,
+          };
+          if (shouldPromptPetProfile(promptData)) requestPetProfilePrompt(promptData);
 
           if (profile.emailAddress) {
             try {

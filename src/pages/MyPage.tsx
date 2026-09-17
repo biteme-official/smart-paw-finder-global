@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ import { formatPrice } from '@/lib/shopify';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
 import { useFavoritesStore, GUEST_FAVORITES_KEY } from '@/stores/favoritesStore';
+import { PetProfileForm } from '@/components/account/PetProfile';
 
 function MenuLink({ icon: Icon, label, badge, onClick }: {
   icon: typeof ShoppingBag; label: string; badge?: string | number; onClick?: () => void;
@@ -37,9 +38,10 @@ function MenuLink({ icon: Icon, label, badge, onClick }: {
   );
 }
 
-function MarketingConsent({ state, onChange }: {
+function MarketingConsent({ state, onChange, children }: {
   state: EmailMarketingState | null;
   onChange: (next: EmailMarketingState) => void;
+  children?: ReactNode;
 }) {
   const [saving, setSaving] = useState(false);
   const subscribed = state === 'SUBSCRIBED' || state === 'PENDING';
@@ -62,25 +64,30 @@ function MarketingConsent({ state, onChange }: {
   };
 
   return (
-    <div className="bg-card rounded-xl border border-border p-4 flex items-center justify-between gap-4">
-      <div className="flex items-center gap-3 min-w-0">
-        <Mail className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-        <div className="min-w-0">
-          <p className="text-sm">Marketing Emails</p>
-          <p className="text-xs text-muted-foreground">
-            Receive news, new arrivals and special offers.
-          </p>
+    <div className="bg-card rounded-xl border border-border p-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <Mail className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-sm">Marketing Emails</p>
+            <p className="text-xs text-muted-foreground">
+              Receive news, new arrivals and special offers.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {saving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          <Switch
+            checked={subscribed}
+            disabled={saving}
+            onCheckedChange={handleToggle}
+            aria-label="Marketing email consent"
+          />
         </div>
       </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
-        {saving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-        <Switch
-          checked={subscribed}
-          disabled={saving}
-          onCheckedChange={handleToggle}
-          aria-label="Marketing email consent"
-        />
-      </div>
+      {subscribed && children && (
+        <div className="mt-4 pt-4 border-t border-border">{children}</div>
+      )}
     </div>
   );
 }
@@ -282,7 +289,19 @@ export default function MyPage() {
               onChange={(next) =>
                 setCustomerData((prev) => (prev ? { ...prev, emailMarketingState: next } : prev))
               }
-            />
+            >
+              {customerData && (
+                <PetProfileForm
+                  key={`${customerData.petType}-${customerData.petBirthday}`}
+                  customerId={customerData.id}
+                  initialType={customerData.petType}
+                  initialBirthday={customerData.petBirthday}
+                  onSaved={(pet) =>
+                    setCustomerData((prev) => (prev ? { ...prev, ...pet } : prev))
+                  }
+                />
+              )}
+            </MarketingConsent>
 
             <Button variant="outline" onClick={handleLogout} className="w-full h-12">
               <LogOut className="h-4 w-4 mr-2" />
