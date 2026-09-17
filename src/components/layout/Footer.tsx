@@ -3,25 +3,15 @@ import { Link } from "react-router-dom";
 
 const WHATSAPP_URL = "https://wa.me/15559433437";
 
-const SHOP_LINKS = [
-  { label: "Shop All", to: "/" },
-  { label: "Best Sellers", to: "/" },
-  { label: "New Arrivals", to: "/new-products" },
-];
-
 const SUPPORT_LINKS = [
-  { label: "Shipping", to: "/refund-policy" },
-  { label: "Returns", to: "/refund-policy" },
-  { label: "FAQ", to: "/contact" },
+  { label: "Shipping & Returns", to: "/refund-policy" },
   { label: "B2B Inquiry", to: "/mypage/b2b-apply" },
 ];
 
 const COMPANY_LINKS = [
   { label: "About Us", to: "/about" },
-  { label: "Affiliate Program", to: "/affiliate" },
   { label: "Terms of Use", to: "/terms" },
   { label: "Privacy Policy", to: "/privacy" },
-  { label: "Contact", to: "/contact" },
 ];
 
 function NavColumn({ title, links }: { title: string; links: { label: string; to: string }[] }) {
@@ -112,8 +102,7 @@ export function Footer() {
     <footer className="bg-zinc-900 text-white mt-auto">
       <div className="w-full max-w-6xl mx-auto px-6 pt-10 pb-8">
         {/* Desktop/tablet: all sections always expanded, side by side */}
-        <div className="hidden md:grid grid-cols-2 lg:grid-cols-[repeat(4,auto)] gap-8">
-          <NavColumn title="Shop" links={SHOP_LINKS} />
+        <div className="hidden md:grid grid-cols-3 gap-8">
           <NavColumn title="Support" links={SUPPORT_LINKS} />
           <NavColumn title="Company" links={COMPANY_LINKS} />
           <AboutContactColumn />
@@ -123,7 +112,6 @@ export function Footer() {
         <div className="md:hidden space-y-6">
           <AboutContactColumn />
           <div>
-            <AccordionSection title="Shop" links={SHOP_LINKS} />
             <AccordionSection title="Support" links={SUPPORT_LINKS} />
             <AccordionSection title="Company" links={COMPANY_LINKS} />
           </div>
