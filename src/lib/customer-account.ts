@@ -49,6 +49,8 @@ export interface StoreCreditTransaction {
 export type EmailMarketingState =
   | 'INVALID' | 'NOT_SUBSCRIBED' | 'PENDING' | 'REDACTED' | 'SUBSCRIBED' | 'UNSUBSCRIBED';
 
+export type PetType = 'dog' | 'cat';
+
 export interface CustomerAccountProfile {
   id: string;
   displayName: string;
@@ -56,6 +58,8 @@ export interface CustomerAccountProfile {
   lastName: string | null;
   emailAddress: string | null;
   emailMarketingState: EmailMarketingState | null;
+  petType: PetType | null;
+  petBirthday: string | null;
   phoneNumber: string | null;
   defaultAddress: {
     address1: string | null;
@@ -97,6 +101,8 @@ const GET_CUSTOMER_QUERY = `
       firstName
       lastName
       emailAddress { emailAddress marketingState }
+      petType: metafield(namespace: "custom", key: "pet_type") { value }
+      petBirthday: metafield(namespace: "custom", key: "pet_birthday") { value }
       phoneNumber { phoneNumber }
       defaultAddress {
         address1 address2 city province zip
@@ -148,6 +154,8 @@ export async function fetchCustomerAccount(): Promise<CustomerAccountProfile | n
     lastName: c.lastName,
     emailAddress: c.emailAddress?.emailAddress || null,
     emailMarketingState: c.emailAddress?.marketingState || null,
+    petType: c.petType?.value === 'dog' || c.petType?.value === 'cat' ? c.petType.value : null,
+    petBirthday: c.petBirthday?.value || null,
     phoneNumber: c.phoneNumber?.phoneNumber || null,
     defaultAddress: c.defaultAddress ? {
       address1: c.defaultAddress.address1,
@@ -316,4 +324,42 @@ export async function cancelCustomerOrder(orderId: string): Promise<{ success: b
     body: JSON.stringify({ orderId, customerAccountToken: token }),
   });
   return response.json();
+}
+
+const METAFIELDS_SET_MUTATION = `
+  mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+    metafieldsSet(metafields: $metafields) {
+      metafields { key value }
+      userErrors { field message }
+    }
+  }
+`;
+
+interface MetafieldsSetMutationData {
+  metafieldsSet?: {
+    metafields: Array<{ key: string; value: string }> | null;
+    userErrors: Array<{ field: string[] | null; message: string }>;
+  };
+}
+
+// Saves the customer's pet info to customer metafields (custom.pet_type, custom.pet_birthday).
+// Requires metafield definitions with Customer Account API read/write access in Shopify Admin.
+export async function updatePetProfile(
+  customerId: string,
+  pet: { petType: PetType | null; petBirthday: string | null },
+): Promise<void> {
+  const metafields = [
+    pet.petType && { ownerId: customerId, namespace: 'custom', key: 'pet_type', type: 'single_line_text_field', value: pet.petType },
+    pet.petBirthday && { ownerId: customerId, namespace: 'custom', key: 'pet_birthday', type: 'date', value: pet.petBirthday },
+  ].filter(Boolean);
+  if (metafields.length === 0) return;
+
+  const data = await customerAccountRequest<MetafieldsSetMutationData>(METAFIELDS_SET_MUTATION, { metafields });
+  const userErrors = data?.metafieldsSet?.userErrors || [];
+  if (userErrors.length > 0) {
+    throw new Error(userErrors.map((e) => e.message).join(', '));
+  }
+  if (!data?.metafieldsSet?.metafields) {
+    throw new Error('Failed to save pet info');
+  }
 }

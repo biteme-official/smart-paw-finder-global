@@ -36,6 +36,7 @@ import RefundPolicy from "./pages/RefundPolicy";
 import About from "./pages/About";
 import { WhatsAppButton } from "./components/layout/WhatsAppButton";
 import { AnnouncementBar } from "./components/layout/AnnouncementBar";
+import { PetProfilePrompt } from "./components/account/PetProfile";
 
 const queryClient = new QueryClient();
 
@@ -140,6 +141,7 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
         </Routes>
         <WhatsAppButton />
+        <PetProfilePrompt />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
