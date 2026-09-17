@@ -12,9 +12,22 @@ import {
   updateEmailMarketingConsent, updatePetProfile, EmailMarketingState, PetType,
 } from '@/lib/customer-account';
 
-// Set by AuthCallback when a freshly logged-in customer is not subscribed or has no pet info yet.
+// Set by AuthCallback when a new customer is not subscribed or has no pet info yet.
 const PET_PROMPT_SESSION_KEY = 'pet_profile_prompt';
-// Remembers customers who already saw the prompt, so it only appears once per browser.
+// Set instead of the prompt when the new customer lands on My Page, which highlights its consent card.
+const PET_HIGHLIGHT_SESSION_KEY = 'pet_profile_highlight';
+// Customers created within this window before login count as a new sign-up.
+const NEW_SIGNUP_WINDOW_MS = 10 * 60 * 1000;
+// Fired after the prompt saves, so an open My Page can refresh its state.
+export const PET_PROFILE_UPDATED_EVENT = 'pet-profile-updated';
+
+export interface PetProfileUpdate {
+  emailMarketingState?: EmailMarketingState;
+  petType: PetType | null;
+  petBirthday: string | null;
+}
+
+// Remembers customers who were already prompted (popup or highlight), so it only happens once per browser.
 const PET_PROMPT_SEEN_PREFIX = 'pet_profile_prompt_seen:';
 
 export interface PetPromptData {
@@ -22,6 +35,11 @@ export interface PetPromptData {
   emailMarketingState: EmailMarketingState | null;
   petType: PetType | null;
   petBirthday: string | null;
+}
+
+export function isNewSignup(creationDate: string | null | undefined): boolean {
+  const created = creationDate ? Date.parse(creationDate) : NaN;
+  return !Number.isNaN(created) && Date.now() - created < NEW_SIGNUP_WINDOW_MS;
 }
 
 export function isMarketingSubscribed(state: EmailMarketingState | null): boolean {
@@ -38,11 +56,27 @@ export function shouldPromptPetProfile(data: PetPromptData): boolean {
   }
 }
 
-export function requestPetProfilePrompt(data: PetPromptData) {
+export function requestPetProfilePrompt(data: PetPromptData, returnTo: string) {
   try {
-    sessionStorage.setItem(PET_PROMPT_SESSION_KEY, JSON.stringify(data));
+    // My Page already shows the same form, so highlight it there instead of opening the prompt.
+    if (returnTo === '/mypage') {
+      sessionStorage.setItem(PET_HIGHLIGHT_SESSION_KEY, data.customerId);
+    } else {
+      sessionStorage.setItem(PET_PROMPT_SESSION_KEY, JSON.stringify(data));
+    }
+    localStorage.setItem(PET_PROMPT_SEEN_PREFIX + data.customerId, '1');
   } catch {
     // Storage unavailable: skip the prompt
+  }
+}
+
+export function consumePetHighlight(customerId: string): boolean {
+  try {
+    if (sessionStorage.getItem(PET_HIGHLIGHT_SESSION_KEY) !== customerId) return false;
+    sessionStorage.removeItem(PET_HIGHLIGHT_SESSION_KEY);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -151,7 +185,7 @@ export function PetProfileForm({ customerId, initialType, initialBirthday, onSav
   );
 }
 
-// Shown once right after login when the customer is not subscribed or has no pet info yet.
+// Shown once right after sign-up (outside My Page) when the customer is not subscribed or has no pet info yet.
 export function PetProfilePrompt() {
   const location = useLocation();
   const [data, setData] = useState<PetPromptData | null>(null);
@@ -176,16 +210,7 @@ export function PetProfilePrompt() {
     }
   }, [location.pathname]);
 
-  const close = () => {
-    if (data) {
-      try {
-        localStorage.setItem(PET_PROMPT_SEEN_PREFIX + data.customerId, '1');
-      } catch {
-        // Storage unavailable: prompt may show again next login
-      }
-    }
-    setData(null);
-  };
+  const close = () => setData(null);
 
   if (!data) return null;
 
@@ -207,10 +232,14 @@ export function PetProfilePrompt() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      if (consentChanged) await updateEmailMarketingConsent(subscribed);
+      const update: PetProfileUpdate = { petType: data.petType, petBirthday: data.petBirthday };
+      if (consentChanged) update.emailMarketingState = await updateEmailMarketingConsent(subscribed);
       if (petChanged && !cleared) {
         await updatePetProfile(data.customerId, { petType, petBirthday: petBirthday || null });
+        update.petType = petType;
+        update.petBirthday = petBirthday || null;
       }
+      window.dispatchEvent(new CustomEvent<PetProfileUpdate>(PET_PROFILE_UPDATED_EVENT, { detail: update }));
       toast.success('Saved. Thank you!', { position: 'top-center' });
       close();
     } catch (err) {

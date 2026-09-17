@@ -53,6 +53,7 @@ export type PetType = 'dog' | 'cat';
 
 export interface CustomerAccountProfile {
   id: string;
+  creationDate: string;
   displayName: string;
   firstName: string | null;
   lastName: string | null;
@@ -97,6 +98,7 @@ const GET_CUSTOMER_QUERY = `
   query GetCustomer {
     customer {
       id
+      creationDate
       displayName
       firstName
       lastName
@@ -149,6 +151,7 @@ export async function fetchCustomerAccount(): Promise<CustomerAccountProfile | n
   const c = data.customer;
   return {
     id: c.id,
+    creationDate: c.creationDate,
     displayName: c.displayName,
     firstName: c.firstName,
     lastName: c.lastName,

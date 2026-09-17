@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useRef, type ReactNode, type Ref } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,9 @@ import { formatPrice } from '@/lib/shopify';
 import { useAuthStore } from '@/stores/authStore';
 import { toast } from 'sonner';
 import { useFavoritesStore, GUEST_FAVORITES_KEY } from '@/stores/favoritesStore';
-import { PetProfileForm } from '@/components/account/PetProfile';
+import {
+  PetProfileForm, PET_PROFILE_UPDATED_EVENT, PetProfileUpdate, consumePetHighlight,
+} from '@/components/account/PetProfile';
 
 function MenuLink({ icon: Icon, label, badge, onClick }: {
   icon: typeof ShoppingBag; label: string; badge?: string | number; onClick?: () => void;
@@ -38,9 +40,11 @@ function MenuLink({ icon: Icon, label, badge, onClick }: {
   );
 }
 
-function MarketingConsent({ state, onChange, children }: {
+function MarketingConsent({ state, onChange, highlight, containerRef, children }: {
   state: EmailMarketingState | null;
   onChange: (next: EmailMarketingState) => void;
+  highlight?: boolean;
+  containerRef?: Ref<HTMLDivElement>;
   children?: ReactNode;
 }) {
   const [saving, setSaving] = useState(false);
@@ -64,7 +68,17 @@ function MarketingConsent({ state, onChange, children }: {
   };
 
   return (
-    <div className="bg-card rounded-xl border border-border p-4">
+    <div
+      ref={containerRef}
+      className={`bg-card rounded-xl p-4 scroll-mt-24 transition-shadow ${
+        highlight ? 'border-2 border-primary ring-4 ring-primary/15' : 'border border-border'
+      }`}
+    >
+      {highlight && (
+        <span className="inline-block mb-3 text-xs font-semibold text-accent-foreground bg-accent rounded-full px-2.5 py-1">
+          Welcome to BITE ME!
+        </span>
+      )}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <Mail className="h-5 w-5 text-muted-foreground flex-shrink-0" />
@@ -85,6 +99,11 @@ function MarketingConsent({ state, onChange, children }: {
           />
         </div>
       </div>
+      {highlight && !subscribed && (
+        <p className="mt-3 rounded-lg bg-accent px-3 py-2 text-xs text-accent-foreground">
+          Turn on to get offers and tell us about your pet.
+        </p>
+      )}
       {subscribed && children && (
         <div className="mt-4 pt-4 border-t border-border">{children}</div>
       )}
@@ -148,6 +167,8 @@ export default function MyPage() {
   const [customerData, setCustomerData] = useState<CustomerAccountProfile | null>(null);
   const [creditData, setCreditData] = useState<StoreCreditData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [highlightConsent, setHighlightConsent] = useState(false);
+  const consentRef = useRef<HTMLDivElement>(null);
 
   const authUser = useAuthStore((s) => s.user);
   const favoritesData = useFavoritesStore((s) => s.favorites);
@@ -177,6 +198,27 @@ export default function MyPage() {
       })
       .finally(() => setLoading(false));
   }, [loggedIn]);
+
+  // New sign-ups returning to My Page get the consent card highlighted instead of the prompt.
+  useEffect(() => {
+    if (loading || !customerData?.id || !consumePetHighlight(customerData.id)) return;
+    setHighlightConsent(true);
+    requestAnimationFrame(() => consentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, [loading, customerData?.id]);
+
+  // Keep My Page in sync when the first-login prompt saves.
+  useEffect(() => {
+    const handleUpdate = (e: Event) => {
+      const { emailMarketingState, ...pet } = (e as CustomEvent<PetProfileUpdate>).detail;
+      setCustomerData((prev) => (prev ? {
+        ...prev,
+        ...pet,
+        emailMarketingState: emailMarketingState ?? prev.emailMarketingState,
+      } : prev));
+    };
+    window.addEventListener(PET_PROFILE_UPDATED_EVENT, handleUpdate);
+    return () => window.removeEventListener(PET_PROFILE_UPDATED_EVENT, handleUpdate);
+  }, []);
 
   const handleLogout = () => {
     useAuthStore.getState().logout();
@@ -289,6 +331,8 @@ export default function MyPage() {
               onChange={(next) =>
                 setCustomerData((prev) => (prev ? { ...prev, emailMarketingState: next } : prev))
               }
+              highlight={highlightConsent}
+              containerRef={consentRef}
             >
               {customerData && (
                 <PetProfileForm
@@ -296,9 +340,10 @@ export default function MyPage() {
                   customerId={customerData.id}
                   initialType={customerData.petType}
                   initialBirthday={customerData.petBirthday}
-                  onSaved={(pet) =>
-                    setCustomerData((prev) => (prev ? { ...prev, ...pet } : prev))
-                  }
+                  onSaved={(pet) => {
+                    setCustomerData((prev) => (prev ? { ...prev, ...pet } : prev));
+                    setHighlightConsent(false);
+                  }}
                 />
               )}
             </MarketingConsent>
