@@ -87,23 +87,35 @@ function todayLocal(): string {
   return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
-function PetFields({ petType, petBirthday, disabled, onTypeChange, onBirthdayChange }: {
+// "2020-08-15" -> "Aug 15, 2020" (parsed as UTC so the day doesn't shift by timezone).
+function formatPetBirthday(date: string | null): string | null {
+  if (!date) return null;
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+}
+
+function PetFields({ petType, petBirthday, disabled, showOptional = true, onTypeChange, onBirthdayChange }: {
   petType: PetType | null;
   petBirthday: string;
   disabled: boolean;
+  showOptional?: boolean;
   onTypeChange: (next: PetType | null) => void;
   onBirthdayChange: (next: string) => void;
 }) {
+  const optional = showOptional && <span className="text-xs text-muted-foreground">(optional)</span>;
   return (
     <>
       <div className="space-y-2">
-        <p className="text-sm">Pet type <span className="text-xs text-muted-foreground">(optional)</span></p>
+        <p className="text-sm">Pet type {optional}</p>
         <div className="grid grid-cols-2 gap-2">
           {(['dog', 'cat'] as const).map((type) => (
             <Button
               key={type}
               type="button"
               variant={petType === type ? 'default' : 'outline'}
+              // Neutral hover so a just-deselected button doesn't look half-selected.
+              className={petType === type ? '' : 'hover:bg-secondary hover:text-foreground'}
               onClick={() => onTypeChange(petType === type ? null : type)}
               disabled={disabled}
             >
@@ -114,7 +126,7 @@ function PetFields({ petType, petBirthday, disabled, onTypeChange, onBirthdayCha
       </div>
       <div className="space-y-2">
         <label htmlFor="pet-birthday" className="text-sm block">
-          Birthday or adoption day <span className="text-xs text-muted-foreground">(optional)</span>
+          Birthday or adoption day {optional}
         </label>
         <Input
           id="pet-birthday"
@@ -136,6 +148,8 @@ export function PetProfileForm({ customerId, initialType, initialBirthday, onSav
   initialBirthday: string | null;
   onSaved: (pet: { petType: PetType | null; petBirthday: string | null }) => void;
 }) {
+  const hasSaved = !!(initialType || initialBirthday);
+  const [editing, setEditing] = useState(!hasSaved);
   const [petType, setPetType] = useState<PetType | null>(initialType);
   const [petBirthday, setPetBirthday] = useState(initialBirthday || '');
   const [saving, setSaving] = useState(false);
@@ -150,6 +164,7 @@ export function PetProfileForm({ customerId, initialType, initialBirthday, onSav
     try {
       await updatePetProfile(customerId, pet);
       toast.success('Pet info saved.', { position: 'top-center' });
+      setEditing(false);
       onSaved(pet);
     } catch (err) {
       console.error(err);
@@ -159,28 +174,68 @@ export function PetProfileForm({ customerId, initialType, initialBirthday, onSav
     }
   };
 
+  const handleCancel = () => {
+    setPetType(initialType);
+    setPetBirthday(initialBirthday || '');
+    setEditing(false);
+  };
+
+  if (!editing) {
+    const summary = [
+      initialType === 'dog' ? 'Dog' : initialType === 'cat' ? 'Cat' : null,
+      formatPetBirthday(initialBirthday),
+    ].filter(Boolean).join(' · ');
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <PawPrint className="h-5 w-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">My pet</p>
+            <p className="text-sm font-semibold truncate">{summary}</p>
+          </div>
+        </div>
+        <Button type="button" variant="outline" className="h-11 flex-shrink-0" onClick={() => setEditing(true)}>
+          Edit
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <PawPrint className="h-4 w-4 text-muted-foreground" />
-        <p className="text-sm">Tell us about your pet for tailored offers.</p>
+        <p className="text-sm">{hasSaved ? 'Edit your pet info' : 'Tell us about your pet for tailored offers.'}</p>
       </div>
       <PetFields
         petType={petType}
         petBirthday={petBirthday}
         disabled={saving}
+        showOptional={!hasSaved}
         onTypeChange={setPetType}
         onBirthdayChange={setPetBirthday}
       />
-      <Button
-        type="button"
-        onClick={handleSave}
-        disabled={saving || unchanged || cleared || (!petType && !petBirthday)}
-        className="w-full md:w-auto"
-      >
-        {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-        Save
-      </Button>
+      {cleared && (
+        <p className="text-xs text-muted-foreground">Saved info can be changed but not removed.</p>
+      )}
+      <div className={`grid gap-2 ${hasSaved ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        {hasSaved && (
+          <Button type="button" variant="outline" className="h-11" onClick={handleCancel} disabled={saving}>
+            Cancel
+          </Button>
+        )}
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || unchanged || cleared || (!petType && !petBirthday)}
+          className="h-11"
+        >
+          {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+          Save
+        </Button>
+      </div>
     </div>
   );
 }
@@ -190,6 +245,8 @@ export function PetProfilePrompt() {
   const location = useLocation();
   const [data, setData] = useState<PetPromptData | null>(null);
   const [subscribed, setSubscribed] = useState(false);
+  // True while consent was switched on by entering pet info rather than by the customer.
+  const [autoSubscribed, setAutoSubscribed] = useState(false);
   const [petType, setPetType] = useState<PetType | null>(null);
   const [petBirthday, setPetBirthday] = useState('');
   const [saving, setSaving] = useState(false);
@@ -201,10 +258,13 @@ export function PetProfilePrompt() {
       if (!raw) return;
       sessionStorage.removeItem(PET_PROMPT_SESSION_KEY);
       const next = JSON.parse(raw) as PetPromptData;
-      setData(next);
       setSubscribed(isMarketingSubscribed(next.emailMarketingState));
+      setAutoSubscribed(false);
       setPetType(next.petType);
       setPetBirthday(next.petBirthday || '');
+      // Open slightly later so it doesn't land on top of the login toast.
+      // (Not cleared on route change: the prompt is global and the session key is already consumed.)
+      setTimeout(() => setData(next), 500);
     } catch {
       // Storage unavailable or malformed: skip the prompt
     }
@@ -219,14 +279,23 @@ export function PetProfilePrompt() {
   const consentChanged = subscribed !== initiallySubscribed;
   const cleared = (!!data.petType && !petType) || (!!data.petBirthday && !petBirthday);
 
-  // Entering pet info switches marketing consent on; the customer can still turn it off before saving.
-  const handleTypeChange = (next: PetType | null) => {
-    setPetType(next);
-    if (next) setSubscribed(true);
+  // Entering pet info switches marketing consent on; clearing it again reverts only that automatic switch.
+  const applyPetInfo = (nextType: PetType | null, nextBirthday: string) => {
+    setPetType(nextType);
+    setPetBirthday(nextBirthday);
+    if (initiallySubscribed) return;
+    const hasInfo = !!(nextType || nextBirthday);
+    if (hasInfo && !subscribed) {
+      setSubscribed(true);
+      setAutoSubscribed(true);
+    } else if (!hasInfo && autoSubscribed) {
+      setSubscribed(false);
+      setAutoSubscribed(false);
+    }
   };
-  const handleBirthdayChange = (next: string) => {
-    setPetBirthday(next);
-    if (next) setSubscribed(true);
+  const handleConsentChange = (checked: boolean) => {
+    setSubscribed(checked);
+    setAutoSubscribed(false);
   };
 
   const handleSave = async () => {
@@ -263,40 +332,43 @@ export function PetProfilePrompt() {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="rounded-xl border border-border p-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <Mail className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-              <div className="min-w-0">
-                <p className="text-sm">Marketing Emails</p>
-                <p className="text-xs text-muted-foreground">News, new arrivals and special offers.</p>
-              </div>
-            </div>
-            <Switch
-              checked={subscribed}
-              disabled={saving}
-              onCheckedChange={setSubscribed}
-              aria-label="Marketing email consent"
-            />
-          </div>
           <PetFields
             petType={petType}
             petBirthday={petBirthday}
             disabled={saving}
-            onTypeChange={handleTypeChange}
-            onBirthdayChange={handleBirthdayChange}
+            showOptional={false}
+            onTypeChange={(next) => applyPetInfo(next, petBirthday)}
+            onBirthdayChange={(next) => applyPetInfo(petType, next)}
           />
-          <div className="flex flex-col-reverse md:flex-row gap-2 md:justify-end">
-            <Button type="button" variant="ghost" onClick={close} disabled={saving} className="w-full md:w-auto">
-              Maybe later
-            </Button>
+          {!initiallySubscribed && (
+            <div className="rounded-xl border border-border bg-card p-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Mail className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm">Get offers by email</p>
+                  <p className="text-xs text-muted-foreground">News, new arrivals and special offers.</p>
+                </div>
+              </div>
+              <Switch
+                checked={subscribed}
+                disabled={saving}
+                onCheckedChange={handleConsentChange}
+                aria-label="Marketing email consent"
+              />
+            </div>
+          )}
+          <div className="flex flex-col gap-2">
             <Button
               type="button"
               onClick={handleSave}
               disabled={saving || (!consentChanged && (!petChanged || cleared))}
-              className="w-full md:w-auto"
+              className="w-full h-11"
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Save
+            </Button>
+            <Button type="button" variant="ghost" onClick={close} disabled={saving} className="w-full h-11">
+              Maybe later
             </Button>
           </div>
         </div>
