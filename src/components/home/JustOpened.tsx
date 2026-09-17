@@ -1,19 +1,14 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { ShopifyProduct, fetchBestSellingProducts } from "@/lib/shopify";
+import { ShopifyProduct, fetchLatestProducts } from "@/lib/shopify";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductOptionDialog } from "@/components/shop/ProductOptionDialog";
 import { ProductCard, ProductCardBadge } from "@/components/shop/ProductCard";
 
-const BADGES: ProductCardBadge[] = [
-  { label: "BEST", className: "bg-red-500 text-white" },
-  { label: "HOT",  className: "bg-orange-500 text-white" },
-  { label: "PICK", className: "bg-primary text-primary-foreground" },
-  { label: "TOP",  className: "bg-amber-500 text-white" },
-];
+const NEW_BADGE: ProductCardBadge = { label: "NEW", className: "bg-emerald-500 text-white" };
 
-export function PopularProducts() {
+export function JustOpened() {
   const navigate = useNavigate();
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,7 +44,7 @@ export function PopularProducts() {
   };
 
   useEffect(() => {
-    fetchBestSellingProducts(12)
+    fetchLatestProducts(12)
       .then((result) => setProducts(result.filter(p => p.node.variants.edges.some(v => v.node.availableForSale))))
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -83,7 +78,7 @@ export function PopularProducts() {
   return (
     <section className="md:mt-24 md:pb-8 animate-fade-up" style={{ animationDelay: "0.3s" }}>
       <div className="max-w-7xl mx-auto px-4 mb-8">
-        <h2 className="text-base font-bold text-foreground text-center md:text-xl">Best Selling</h2>
+        <h2 className="text-base font-bold text-foreground text-center md:text-xl">Just Opened</h2>
       </div>
 
       <div className="relative group max-w-7xl mx-auto px-4">
@@ -92,11 +87,11 @@ export function PopularProducts() {
             ref={scrollRef}
             className="flex gap-3 md:gap-4 overflow-x-auto pb-2 scrollbar-hide"
           >
-            {products.map((product, index) => (
+            {products.map((product) => (
               <div key={product.node.id} className="flex-shrink-0 w-40 md:w-[calc((100%-4rem)/5)]">
                 <ProductCard
                   product={product}
-                  badge={BADGES[index % BADGES.length]}
+                  badge={NEW_BADGE}
                   onClick={() => navigate(`/product/${product.node.handle}`)}
                   onAddToCart={() => { setSelectedProduct(product); setOptionDialogOpen(true); }}
                 />
