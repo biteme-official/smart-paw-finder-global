@@ -1,7 +1,8 @@
 # 어필리에이트 프로그램 설계안 — 글로벌몰(biteme.one) 버전
 
 > 원본: BITE ME JAPAN(biteme.co.jp) 어필리에이트 프로그램 설계안 개정 7 (2026-09-17, 외부 공유용)
-> 이 문서는 원본의 구조(승인제 폐지·링크 귀속·캠페인 기반 우대·정산 자동화)를 글로벌몰(biteme.one, `smart-paw-finder-global` 저장소) 인프라에 맞게 재작성한 것이다.
+> 이 문서는 원본의 기능 구조(링크 귀속·캠페인 기반 우대·정산 자동화)를 글로벌몰(biteme.one, `smart-paw-finder-global` 저장소) 인프라에 맞게 재작성한 기술 설계안이다.
+> **운영 정책(커미션율·귀속창·환불처리·정산주기·부정행위·세무 등)은 JP를 그대로 따르지 않고 Shopify Collabs 정책과 비교해 별도로 정리했다 — [Global Affiliate 운영 정책 비교](affiliate-policy-global.md) 참고.**
 > 작성 2026-09-18 · Issue #141
 
 ## 0. 원본과 달라지는 지점 — 요약
