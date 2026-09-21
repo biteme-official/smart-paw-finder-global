@@ -2,7 +2,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createSign } from 'crypto';
 
 const GA4_PROPERTY_ID = process.env.GA4_PROPERTY_ID || '';
-const GOOGLE_SERVICE_ACCOUNT_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '';
+// GA4-only service account (separate from GOOGLE_SERVICE_ACCOUNT_JSON, which api/affiliate.ts uses for Sheets).
+// Strip a leading BOM — pasting the key JSON into Vercel can prepend one and break JSON.parse.
+const GA4_SERVICE_ACCOUNT_JSON = (process.env.GA4_SERVICE_ACCOUNT_JSON || '').replace(/^\uFEFF/, '').trim();
 const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
 
 const ALLOWED_ORIGINS = [
@@ -20,7 +22,7 @@ async function getGA4AccessToken(): Promise<string> {
   const now = Date.now();
   if (ga4Token && now < ga4TokenExpiresAt - 60_000) return ga4Token;
 
-  const sa = JSON.parse(GOOGLE_SERVICE_ACCOUNT_JSON);
+  const sa = JSON.parse(GA4_SERVICE_ACCOUNT_JSON);
   const iat = Math.floor(now / 1000);
   const exp = iat + 3600;
 
@@ -154,8 +156,8 @@ async function handleGA4(req: VercelRequest, res: VercelResponse) {
     dateRange = { startDate, endDate: 'today' };
   }
 
-  if (!GA4_PROPERTY_ID || !GOOGLE_SERVICE_ACCOUNT_JSON) {
-    return res.status(500).json({ error: 'GA4 not configured. Set GA4_PROPERTY_ID and GOOGLE_SERVICE_ACCOUNT_JSON env vars.' });
+  if (!GA4_PROPERTY_ID || !GA4_SERVICE_ACCOUNT_JSON) {
+    return res.status(500).json({ error: 'GA4 not configured. Set GA4_PROPERTY_ID and GA4_SERVICE_ACCOUNT_JSON env vars.' });
   }
 
   const token = await getGA4AccessToken();
