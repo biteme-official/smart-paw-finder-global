@@ -1030,7 +1030,7 @@ export async function fetchProductRecommendations(productId: string): Promise<Sh
 }
 
 // API Functions
-export type ProductListSortKey = 'CREATED_AT' | 'BEST_SELLING';
+export type ProductListSortKey = 'CREATED_AT' | 'BEST_SELLING' | 'PRICE_ASC' | 'PRICE_DESC';
 
 export async function fetchProducts(
   first: number = 20,
@@ -1042,8 +1042,8 @@ export async function fetchProducts(
     first,
     query,
     after,
-    sortKey,
-    reverse: sortKey === 'CREATED_AT',
+    sortKey: sortKey === 'PRICE_ASC' || sortKey === 'PRICE_DESC' ? 'PRICE' : sortKey,
+    reverse: sortKey === 'CREATED_AT' || sortKey === 'PRICE_DESC',
   });
   if (!data) return { products: [], pageInfo: { hasNextPage: false, endCursor: null } };
 
@@ -1177,21 +1177,21 @@ export interface CollectionProductsResponse extends ProductsResponse {
   collectionTitle: string | null;
 }
 
-export type CollectionSortKey = 'COLLECTION_DEFAULT' | 'BEST_SELLING' | 'CREATED';
+export type CollectionSortKey = 'COLLECTION_DEFAULT' | 'BEST_SELLING' | 'CREATED' | 'PRICE_ASC' | 'PRICE_DESC';
 
 export async function fetchCollectionProducts(
   handle: string,
   first: number = 20,
   after?: string,
-  sortKey: CollectionSortKey = 'COLLECTION_DEFAULT'
+  sortKey: CollectionSortKey = 'CREATED'
 ): Promise<CollectionProductsResponse> {
   const data = await storefrontApiRequest(GET_COLLECTION_PRODUCTS_QUERY, {
     handle,
     first,
     after,
-    sortKey,
+    sortKey: sortKey === 'PRICE_ASC' || sortKey === 'PRICE_DESC' ? 'PRICE' : sortKey,
     // CREATED defaults oldest-first in the Storefront API — reverse to get newest-first.
-    reverse: sortKey === 'CREATED',
+    reverse: sortKey === 'CREATED' || sortKey === 'PRICE_DESC',
   });
   if (!data) return { products: [], pageInfo: { hasNextPage: false, endCursor: null }, collectionTitle: null };
 

@@ -52,27 +52,21 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
 
-  // Sort state — "best-selling" is applied server-side via CollectionSortKey; "most-viewed"
-  // fetches the collection in its default order and re-sorts client-side by GA4 view count
-  // (Shopify's Storefront API has no native "most viewed" sortKey).
-  const [sortOption, setSortOption] = useState<SortOption>("most-viewed");
-  const [viewCounts, setViewCounts] = useState<Map<string, number> | null>(null);
+  const [sortOption, setSortOption] = useState<SortOption>("best-selling");
 
   const navigate = useNavigate();
   const location = useLocation();
 
   const sortKey: CollectionSortKey =
-    sortOption === "best-selling" ? "BEST_SELLING" : sortOption === "newest" ? "CREATED" : "COLLECTION_DEFAULT";
-  const productListSortKey: ProductListSortKey = sortOption === "best-selling" ? "BEST_SELLING" : "CREATED_AT";
-
-  useEffect(() => {
-    fetch("/api/top-viewed-products?limit=100")
-      .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
-      .then((data: { items: { productId: string; views: number }[] }) => {
-        setViewCounts(new Map(data.items.map((item) => [item.productId, item.views])));
-      })
-      .catch((err) => console.error("[ProductGrid] view-count fetch failed", err));
-  }, []);
+    sortOption === "best-selling" ? "BEST_SELLING"
+    : sortOption === "newest" ? "CREATED"
+    : sortOption === "price-asc" ? "PRICE_ASC"
+    : "PRICE_DESC";
+  const productListSortKey: ProductListSortKey =
+    sortOption === "best-selling" ? "BEST_SELLING"
+    : sortOption === "newest" ? "CREATED_AT"
+    : sortOption === "price-asc" ? "PRICE_ASC"
+    : "PRICE_DESC";
 
   const isProductSoldOut = useCallback((product: ShopifyProduct) => {
     if (product.node.availableForSale === false) return true;
@@ -83,25 +77,15 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
     return false;
   }, []);
 
-  // "best-selling" arrives already sorted from Shopify. "most-viewed" is re-sorted here by
-  // GA4 view count (products with no view data keep their fetched order, pushed after any
-  // with data). Sold-out items are always pinned to the bottom, on top of either sort.
+  // Products arrive already sorted server-side. Sold-out items are always pinned to the bottom.
   const filteredAndSortedProducts = useMemo(() => {
-    let result = allProducts;
-    if (sortOption === "most-viewed" && viewCounts) {
-      result = [...allProducts].sort((a, b) => {
-        const viewsA = viewCounts.get(a.node.id) ?? -1;
-        const viewsB = viewCounts.get(b.node.id) ?? -1;
-        return viewsB - viewsA;
-      });
-    }
     if (hasNextPage) {
-      return result.filter(p => !isProductSoldOut(p));
+      return allProducts.filter(p => !isProductSoldOut(p));
     }
-    const notSoldOut = result.filter(p => !isProductSoldOut(p));
-    const soldOut = result.filter(p => isProductSoldOut(p));
+    const notSoldOut = allProducts.filter(p => !isProductSoldOut(p));
+    const soldOut = allProducts.filter(p => isProductSoldOut(p));
     return [...notSoldOut, ...soldOut];
-  }, [allProducts, sortOption, viewCounts, hasNextPage, isProductSoldOut]);
+  }, [allProducts, hasNextPage, isProductSoldOut]);
 
   // GA4: view_item_list — fire once per search/collection change
   useEffect(() => {
@@ -128,7 +112,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   }, [searchQuery]);
 
   useEffect(() => {
-    setSortOption("most-viewed");
+    setSortOption("best-selling");
   }, [searchQuery, collectionHandle, multiCollections]);
 
   // Initial load
