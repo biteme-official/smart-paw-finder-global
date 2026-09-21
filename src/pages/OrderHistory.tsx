@@ -168,7 +168,7 @@ export default function OrderHistory() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <header className="sticky top-[calc(57px+var(--announcement-bar-h,0px))] z-40 bg-background border-b border-border">
+      <header className="sticky top-[57px] z-40 bg-background border-b border-border">
         <div className="max-w-md mx-auto flex items-center px-4 h-12">
           <button onClick={() => navigate('/mypage')} className="p-2 -ml-2">
             <ChevronLeft className="h-5 w-5" />

@@ -37,7 +37,7 @@ export function Header({ onSearch, onCollectionSelect }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-[var(--announcement-bar-h,0px)] z-50 bg-background">
+    <header className="sticky top-0 z-50 bg-background">
       <HeaderDesktop onSearch={handleSearch} onCollectionSelect={onCollectionSelect} />
       <HeaderMobile menu={menu} collections={collections} onSearch={handleSearch} onCollectionSelect={onCollectionSelect} />
     </header>

@@ -99,7 +99,7 @@ export default function Checkout() {
 
   return (
     <div className="min-h-screen bg-background pb-32">
-      <header className="sticky top-[var(--announcement-bar-h,0px)] z-50 bg-background border-b border-border">
+      <header className="sticky top-0 z-50 bg-background border-b border-border">
         <div className="max-w-lg mx-auto flex items-center px-4 h-14">
           <button onClick={() => navigate(-1)} className="p-2 -ml-2">
             <ChevronLeft className="h-5 w-5" />

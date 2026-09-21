@@ -30,7 +30,7 @@ export default function CheckoutReturn() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Confetti />
-      <header className="sticky top-[var(--announcement-bar-h,0px)] z-50 bg-card border-b border-border">
+      <header className="sticky top-0 z-50 bg-card border-b border-border">
         <div className="flex items-center justify-center px-4 h-14">
           <h1 className="font-semibold text-foreground">{t('checkout.returnTitle')}</h1>
         </div>
