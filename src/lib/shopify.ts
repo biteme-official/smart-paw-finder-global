@@ -728,6 +728,7 @@ export interface AnnouncementItem {
   linkUrl: string | null;
   sortOrder: number;
   isActive: boolean;
+  endAt: string | null;
 }
 
 const GET_ANNOUNCEMENTS_QUERY = `
@@ -776,11 +777,14 @@ export async function fetchAnnouncements(first: number = 10): Promise<Announceme
       linkUrl,
       sortOrder: Number(fields.sort_order) || 0,
       isActive: fields.is_active === 'true',
+      endAt: fields.end_at || null,
     };
   });
 
+  const now = Date.now();
   return items
     .filter((item: AnnouncementItem) => item.isActive && item.message)
+    .filter((item: AnnouncementItem) => !item.endAt || now <= Date.parse(item.endAt))
     .sort((a: AnnouncementItem, b: AnnouncementItem) => a.sortOrder - b.sortOrder);
 }
 
