@@ -1,91 +1,80 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Menu, Phone, ChevronRight, ChevronDown, Package, User, LogOut, MapPin, BookOpen } from "lucide-react";
+import {
+  Menu,
+  Phone,
+  ChevronDown,
+  User,
+  LogOut,
+  MapPin,
+  BookOpen,
+  ShoppingBag,
+  Tag,
+  Info,
+  Handshake,
+  Store,
+  type LucideIcon,
+} from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import { SearchAutocomplete } from "@/components/layout/SearchAutocomplete";
-import { ShopifyMenuItem, ShopifyMenu, ShopifyCollection, extractHandleFromUrl } from "@/lib/shopify";
+import { GNB_LINKS, GnbBrandLink } from "./gnbLinks";
 import biteMeLogo from "@/assets/bite-me-logo.png";
 import { cn } from "@/lib/utils";
 
 interface HeaderMobileProps {
-  menu: ShopifyMenu | null;
-  collections: ShopifyCollection[];
   onSearch: (query: string) => void;
   onCollectionSelect?: (handle: string | null) => void;
 }
 
-// Recursive menu item component for nested categories
-function MenuItemComponent({
-  item,
-  depth = 0,
-  onNavigate,
-  ancestorHandles = [],
+// Icons keyed by the GNB label — mirrors gnbLinks.ts order, mobile just adds icons for the same items.
+const GNB_ICONS: Record<string, LucideIcon> = {
+  "SHOP ALL": ShoppingBag,
+  BRAND: Tag,
+  BLOG: BookOpen,
+  "POP-UP": MapPin,
+  "ABOUT US": Info,
+  AFFILIATE: Handshake,
+  WHOLESALE: Store,
+};
+
+// BRAND expands into its 5 sub-brands in place (same order/links as the desktop dropdown)
+// instead of navigating directly.
+function BrandAccordionItem({
+  brands,
+  onSelectBrand,
 }: {
-  item: ShopifyMenuItem;
-  depth?: number;
-  onNavigate: (item: ShopifyMenuItem, ancestorHandles: string[]) => void;
-  ancestorHandles?: string[];
+  brands: GnbBrandLink[];
+  onSelectBrand: (handle: string) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const hasChildren = item.items && item.items.length > 0;
-  const currentHandle = extractHandleFromUrl(item.url) ?? item.title.toLowerCase().replace(/\s+/g, '-');
 
   return (
-    <div>
-      <div
-        className={cn(
-          "w-full flex items-center justify-between hover:bg-secondary/50 transition-colors",
-          depth === 0 && "px-4",
-          depth === 1 && "pl-8 pr-4",
-          depth === 2 && "pl-12 pr-4",
-          depth >= 3 && "pl-16 pr-4",
-        )}
+    <div className="border-b border-border/50">
+      <button
+        onClick={() => setIsExpanded((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-secondary/50 transition-colors"
       >
-        {/* Title - navigates to the collection */}
-        <button
-          onClick={() => onNavigate(item, ancestorHandles)}
-          className={cn(
-            "flex-1 text-left py-3",
-            "text-sm",
-            depth === 0 && "font-medium",
-            depth > 0 && "text-muted-foreground",
-          )}
-        >
-          {item.title}
-        </button>
-
-        {/* Expand/collapse toggle for items with children */}
-        {hasChildren ? (
-          <button
-            onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
-            className="p-2 -mr-2 hover:bg-secondary rounded-md"
-          >
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 text-muted-foreground transition-transform duration-200",
-                isExpanded && "rotate-180"
-              )}
-            />
-          </button>
-        ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        )}
-      </div>
-
-      {/* Children — pass current handle as part of ancestor path */}
-      {hasChildren && isExpanded && (
-        <div className="border-l-2 border-border/40 ml-6">
-          {item.items.map((child) => (
-            <MenuItemComponent
-              key={child.id}
-              item={child}
-              depth={depth + 1}
-              onNavigate={onNavigate}
-              ancestorHandles={[...ancestorHandles, currentHandle]}
-            />
+        <div className="flex items-center gap-3">
+          <Tag className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium text-sm">BRAND</span>
+        </div>
+        <ChevronDown
+          className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", isExpanded && "rotate-180")}
+        />
+      </button>
+      {isExpanded && (
+        <div className="pb-2">
+          {brands.map((brand) => (
+            <button
+              key={brand.label}
+              onClick={() => onSelectBrand(brand.handle)}
+              className="w-full text-left pl-11 pr-4 py-2 text-sm text-muted-foreground hover:bg-secondary/50 transition-colors"
+            >
+              {brand.label}
+            </button>
           ))}
         </div>
       )}
@@ -93,51 +82,12 @@ function MenuItemComponent({
   );
 }
 
-export function HeaderMobile({ menu, collections, onSearch, onCollectionSelect }: HeaderMobileProps) {
+export function HeaderMobile({ onSearch, onCollectionSelect }: HeaderMobileProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
   const { user, isLoggedIn, logout } = useAuthStore();
 
-  const handleMenuItemNavigate = (item: ShopifyMenuItem, ancestorHandles: string[]) => {
-    const handle = extractHandleFromUrl(item.url);
-    setIsMenuOpen(false);
-
-    if (ancestorHandles.length > 0 && handle) {
-      onCollectionSelect?.(handle);
-      if (window.location.pathname !== '/') navigate('/');
-      return;
-    }
-
-    if (item.type === 'COLLECTION' || item.url.includes('/collections/')) {
-      if (window.location.pathname === '/') {
-        onCollectionSelect?.(handle);
-      } else {
-        navigate(handle ? `/?collection=${encodeURIComponent(handle)}` : '/');
-      }
-    } else if (item.type === 'PRODUCT' || item.url.includes('/products/')) {
-      if (handle) navigate(`/product/${handle}`);
-    } else if (item.url.includes('/pages/wishlist') || item.url.includes('/wishlist')) {
-      navigate('/wishlist');
-    } else if (item.url.includes('/pages/contact') || item.url.includes('/contact')) {
-      navigate('/contact');
-    } else if (item.type === 'FRONTPAGE') {
-      if (window.location.pathname === '/') {
-        onCollectionSelect?.(null);
-      } else {
-        navigate('/');
-      }
-    } else {
-      if (handle) {
-        if (window.location.pathname === '/') {
-          onCollectionSelect?.(handle);
-        } else {
-          navigate(`/?collection=${encodeURIComponent(handle)}`);
-        }
-      }
-    }
-  };
-
-  const handleCollectionClick = (handle: string | null) => {
+  const handleNavClick = (handle: string | null) => {
     setIsMenuOpen(false);
     if (window.location.pathname === '/') {
       onCollectionSelect?.(handle);
@@ -145,10 +95,6 @@ export function HeaderMobile({ menu, collections, onSearch, onCollectionSelect }
       navigate(handle ? `/?collection=${encodeURIComponent(handle)}` : '/');
     }
   };
-
-  // Filter out the default "frontpage" collection
-  const menuCollections = collections.filter(c => c.handle !== 'frontpage');
-  const hasMenu = menu && menu.items.length > 0;
 
   return (
     <div className="md:hidden">
@@ -172,96 +118,31 @@ export function HeaderMobile({ menu, collections, onSearch, onCollectionSelect }
                 </SheetTitle>
               </SheetHeader>
 
-              {/* All Products */}
-              <div className="border-b border-border/50">
-                <button
-                  onClick={() => handleCollectionClick("all")}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-secondary/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <Package className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">All Products</span>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </button>
-              </div>
-
-              {/* Navigation Menu (from Shopify theme) */}
-              {hasMenu && (
-                <div className="border-b border-border/50">
-                  <p className="px-4 pt-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Categories
-                  </p>
-                  {menu.items.map((item) => (
-                    <MenuItemComponent
-                      key={item.id}
-                      item={item}
-                      depth={0}
-                      onNavigate={handleMenuItemNavigate}
-                      ancestorHandles={[]}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Fallback: Collections (flat list) */}
-              {!hasMenu && menuCollections.length > 0 && (
-                <div className="border-b border-border/50">
-                  <p className="px-4 pt-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Categories
-                  </p>
-                  {menuCollections.map((collection) => (
+              {/* GNB items — same order/links as the desktop nav */}
+              {GNB_LINKS.map((link) => {
+                if (link.type === "dropdown") {
+                  return <BrandAccordionItem key={link.label} brands={link.children} onSelectBrand={handleNavClick} />;
+                }
+                const Icon = GNB_ICONS[link.label] ?? Tag;
+                return (
+                  <div className="border-b border-border/50" key={link.label}>
                     <button
-                      key={collection.id}
-                      onClick={() => handleCollectionClick(collection.handle)}
-                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-secondary/50 transition-colors"
+                      onClick={() => {
+                        if (link.type === "collection") {
+                          handleNavClick(link.handle);
+                        } else {
+                          setIsMenuOpen(false);
+                          navigate(link.path);
+                        }
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors"
                     >
-                      <div className="flex items-center gap-3">
-                        {collection.image ? (
-                          <img
-                            src={collection.image.url}
-                            alt={collection.image.altText || collection.title}
-                            className="h-8 w-8 rounded-md object-cover"
-                          />
-                        ) : (
-                          <div className="h-8 w-8 rounded-md bg-secondary flex items-center justify-center">
-                            <Package className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        )}
-                        <div className="text-left">
-                          <span className="font-medium text-sm">{collection.title}</span>
-                          {collection.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-1">{collection.description}</p>
-                          )}
-                        </div>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium text-sm">{link.label}</span>
                     </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Pop-up & Offline */}
-              <div className="border-b border-border/50">
-                <button
-                  onClick={() => { navigate("/popup-offline-stores"); setIsMenuOpen(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors"
-                >
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium text-sm">Pop-up & Offline Stores</span>
-                </button>
-              </div>
-
-              {/* Blog */}
-              <div className="border-b border-border/50">
-                <button
-                  onClick={() => { navigate("/blog"); setIsMenuOpen(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors"
-                >
-                  <BookOpen className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium text-sm">Blog</span>
-                </button>
-              </div>
+                  </div>
+                );
+              })}
 
               {/* Contact Us */}
               <div className="border-b border-border/50">
@@ -270,49 +151,37 @@ export function HeaderMobile({ menu, collections, onSearch, onCollectionSelect }
                   className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors"
                 >
                   <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium text-sm">Contact Us</span>
+                  <span className="font-medium text-sm">CONTACT US</span>
                 </button>
               </div>
 
-              {/* Auth Section */}
-              <div className="p-4">
-                {isLoggedIn && user ? (
-                  <div className="space-y-3">
-                    <button
-                      onClick={() => { navigate("/mypage"); setIsMenuOpen(false); }}
-                      className="w-full flex items-center gap-3 px-0 py-1 hover:opacity-80 transition-opacity"
-                    >
-                      {user.pictureUrl ? (
-                        <img
-                          src={user.pictureUrl}
-                          alt={user.displayName}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
-                      <span className="font-medium text-sm">{user.displayName}</span>
-                    </button>
-                    <button
-                      onClick={() => { logout(); setIsMenuOpen(false); }}
-                      className="w-full flex items-center gap-3 px-0 py-1 text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <LogOut className="h-4 w-4" />
-                      <span className="text-sm">Logout</span>
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => { navigate("/mypage"); setIsMenuOpen(false); }}
-                    className="w-full flex items-center gap-3 px-0 py-1 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <User className="h-4 w-4" />
-                    <span className="text-sm font-medium">My Page</span>
-                  </button>
-                )}
+              {/* My Page */}
+              <div className="border-b border-border/50">
+                <button
+                  onClick={() => { navigate("/mypage"); setIsMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors"
+                >
+                  {isLoggedIn && user?.pictureUrl ? (
+                    <img src={user.pictureUrl} alt={user.displayName} className="w-4 h-4 rounded-full object-cover" />
+                  ) : (
+                    <User className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  <span className="font-medium text-sm">{isLoggedIn && user ? user.displayName : "MY PAGE"}</span>
+                </button>
               </div>
+
+              {/* Logout — only when signed in */}
+              {isLoggedIn && (
+                <div className="border-b border-border/50">
+                  <button
+                    onClick={() => { logout(); setIsMenuOpen(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-muted-foreground hover:bg-secondary/50 transition-colors"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span className="text-sm">Logout</span>
+                  </button>
+                </div>
+              )}
             </SheetContent>
           </Sheet>
 

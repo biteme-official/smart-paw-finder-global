@@ -235,12 +235,15 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
     }
   }, [collectionHandle]);
 
-  const displayTitle = searchQuery ? getSearchText() : overrideTitle || collectionTitle || "ALL";
+  // "For Pet Parents" is the collection's raw Shopify title — overridden here to match the
+  // other category pages' short, plain naming (the icon row's own label is unaffected).
+  const categoryTitleOverride = collectionHandle === 'for-pet-parents' ? 'Pet Parents' : null;
+  const displayTitle = searchQuery ? getSearchText() : categoryTitleOverride || overrideTitle || collectionTitle || "ALL";
 
   if (loadError) {
     return (
       <section className="py-8 px-4">
-        <h2 className="text-2xl font-bold text-center mb-6">{displayTitle}</h2>
+        <h2 className="text-2xl font-bold text-center uppercase mb-6">{displayTitle}</h2>
         <div className="bg-muted/50 rounded-xl p-12 text-center">
           <p className="text-muted-foreground text-lg mb-4">Failed to load products.</p>
           <Button variant="outline" onClick={() => setRetryKey(k => k + 1)}>
@@ -254,7 +257,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   if (loading) {
     return (
       <section className="py-8 px-4">
-        <h2 className="text-2xl font-bold text-center mb-4">{displayTitle}</h2>
+        <h2 className="text-2xl font-bold text-center uppercase mb-4">{displayTitle}</h2>
         <div className="flex items-center gap-2 mb-4">
           <Skeleton className="h-9 w-[140px]" />
           <Skeleton className="h-9 w-20" />
@@ -271,7 +274,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   if (allProducts.length === 0) {
     return (
       <section className="py-8 px-4">
-        <h2 className="text-2xl font-bold text-center mb-6">{displayTitle}</h2>
+        <h2 className="text-2xl font-bold text-center uppercase mb-6">{displayTitle}</h2>
         <div className="bg-muted/50 rounded-xl p-12 text-center">
           <p className="text-muted-foreground text-lg mb-4">
             {getNoSearchResultsText()}
@@ -286,7 +289,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
 
   return (
     <section id="product-grid" className="py-8 px-4">
-      <h2 className="text-2xl font-bold text-center mb-4">{displayTitle}</h2>
+      <h2 className="text-2xl font-bold text-center uppercase mb-4">{displayTitle}</h2>
       <div className="flex items-center justify-between mb-4">
         <span className="text-sm text-muted-foreground">
           {totalProductCount !== null ? `${totalProductCount} products` : ""}

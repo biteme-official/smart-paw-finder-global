@@ -1,16 +1,70 @@
 import { useNavigate } from "react-router-dom";
+import { useRef, useState } from "react";
 import { Search, User } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import { SearchAutocomplete } from "@/components/layout/SearchAutocomplete";
-import { NAV_CATEGORIES } from "./navCategories";
+import { GNB_LINKS, GnbBrandLink } from "./gnbLinks";
 import biteMeLogo from "@/assets/bite-me-logo.png";
 
 interface HeaderDesktopProps {
   onSearch: (query: string) => void;
   onCollectionSelect?: (handle: string | null) => void;
+}
+
+// Hover-intent delay before closing, so moving the cursor from the trigger down
+// to the dropdown content doesn't cause a flicker-close in the gap between them.
+const CLOSE_DELAY_MS = 150;
+
+// Plain CSS positioning (left: 50% + translateX(-50%)) anchored to this own trigger's
+// wrapping box, deliberately NOT Radix Popper/Popover — Popper's collision-aware placement
+// kept re-centering against the whole viewport instead of just BRAND, reading as "shifted
+// right". The wrapping div is the sole positioning parent, so the dropdown always centers
+// under BRAND itself regardless of viewport width or where BRAND sits in the GNB row.
+function BrandNavItem({ brands, onSelectBrand }: { brands: GnbBrandLink[]; onSelectBrand: (handle: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const openMenu = () => {
+    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    setOpen(true);
+  };
+  const scheduleClose = () => {
+    closeTimeoutRef.current = setTimeout(() => setOpen(false), CLOSE_DELAY_MS);
+  };
+
+  return (
+    // h-full so this box's bottom edge is the GNB row's own bottom border — the dropdown's
+    // top:100% then sits flush against it, no gap. Trigger + dropdown share this one hover
+    // region so moving the cursor down into the dropdown never closes it.
+    <div className="relative h-full flex items-center" onMouseEnter={openMenu} onMouseLeave={scheduleClose}>
+      <button
+        onClick={() => (open ? scheduleClose() : openMenu())}
+        aria-expanded={open}
+        className="h-full flex items-center text-sm font-medium text-foreground hover:text-primary transition-colors whitespace-nowrap"
+      >
+        BRAND
+      </button>
+      {open && (
+        <div className="absolute left-1/2 top-full -translate-x-1/2 z-50 rounded-b-md border border-t-0 bg-background py-2 shadow-lg">
+          <ul className="flex flex-col">
+            {brands.map((brand) => (
+              <li key={brand.label}>
+                <button
+                  onClick={() => { onSelectBrand(brand.handle); setOpen(false); }}
+                  className="block w-full whitespace-nowrap px-6 py-2 text-center text-sm text-foreground outline-none transition-colors hover:bg-secondary/50 focus-visible:bg-secondary/50"
+                >
+                  {brand.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function HeaderDesktop({ onSearch, onCollectionSelect }: HeaderDesktopProps) {
@@ -78,16 +132,22 @@ export function HeaderDesktop({ onSearch, onCollectionSelect }: HeaderDesktopPro
 
       {/* Row 2: nav centered */}
       <nav className="border-t border-border">
-        <div className="max-w-7xl mx-auto flex items-center justify-center gap-6 px-4 h-12">
-          {NAV_CATEGORIES.map(({ label, handle }) => (
-            <button
-              key={label}
-              onClick={() => handleNavClick(handle)}
-              className="text-sm font-medium text-foreground hover:text-primary transition-colors whitespace-nowrap"
-            >
-              {label}
-            </button>
-          ))}
+        <div className="max-w-7xl mx-auto flex items-center justify-center gap-9 px-4 h-12">
+          {GNB_LINKS.map((link) =>
+            link.type === "dropdown" ? (
+              <BrandNavItem key={link.label} brands={link.children} onSelectBrand={handleNavClick} />
+            ) : (
+              <button
+                key={link.label}
+                onClick={() =>
+                  link.type === "collection" ? handleNavClick(link.handle) : navigate(link.path)
+                }
+                className="text-sm font-medium text-foreground hover:text-primary transition-colors whitespace-nowrap"
+              >
+                {link.label}
+              </button>
+            ),
+          )}
         </div>
       </nav>
     </div>

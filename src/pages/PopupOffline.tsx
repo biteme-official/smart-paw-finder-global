@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 const IMAGE_BASE = "https://www.biteme.co.kr/asset/images/company/detail";
@@ -96,31 +98,19 @@ const PopupOffline = () => {
       <Header onSearch={handleSearch} />
 
       <main className="flex-1">
-        <section className="max-w-4xl mx-auto px-4 py-12 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
-            LET'S
-            <br />
-            MAKE WAVE
-          </h1>
-          <p className="mt-6 text-base md:text-lg font-semibold text-foreground leading-relaxed">
-            BITE ME has operated over 30 pop-up shops
-            <br />
-            and offline stores across the country!
-          </p>
-          <p className="mt-3 text-sm md:text-base text-muted-foreground leading-relaxed">
-            We will continue to work hard so that
-            <br />
-            our customers can experience BITE ME more easily.
-          </p>
-        </section>
+        <PageHeader
+          title={<>BITE ME<br />EVERYWHERE</>}
+          description={<>BITE ME has operated over 30 pop-up shops<br />and offline stores across the country!</>}
+        />
 
-        <section className="max-w-5xl mx-auto px-4 pb-16">
+        <section>
+        <PageContainer className="pb-16">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
             {popupStores.map((store) => (
               <button
                 key={store.id}
                 onClick={() => setSelectedStore(store)}
-                className="group relative aspect-[4/3] rounded-lg overflow-hidden bg-secondary"
+                className="group relative aspect-[4/3] overflow-hidden bg-secondary"
               >
                 <img
                   src={`${IMAGE_BASE}/project03_${store.id}_main.jpg`}
@@ -138,6 +128,7 @@ const PopupOffline = () => {
               </button>
             ))}
           </div>
+        </PageContainer>
         </section>
       </main>
 

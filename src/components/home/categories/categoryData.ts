@@ -12,7 +12,8 @@ export interface CategoryDef {
   handle: string;
 }
 
-// Handles verified against the store's actual collection list (see navCategories.ts for the header nav's copy).
+// Handles verified against the store's actual collection list. The desktop GNB (gnbLinks.ts)
+// no longer mirrors this list — it links to primary pages, not product categories.
 export const CATEGORY_DEFS: CategoryDef[] = [
   { label: "Shop All",     icon: LayoutGrid,     bgClass: "bg-orange-100",  iconClass: "text-primary",      activeBorderClass: "border-orange-300",  handle: "all" },
   { label: "Toys",         icon: ToyBrick,       bgClass: "bg-amber-100",   iconClass: "text-amber-600",    activeBorderClass: "border-amber-300",   handle: "toy" },
