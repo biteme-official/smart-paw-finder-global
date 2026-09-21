@@ -26,13 +26,14 @@ export function AnnouncementBar() {
       {items.map((item) => {
         const { title, body } = splitTitle(item.message);
         return (
-          <div
+          <p
             key={item.id}
-            className="max-w-7xl mx-auto px-4 py-2 text-xs sm:text-sm leading-relaxed flex flex-col items-center text-center sm:flex-row sm:justify-center sm:gap-x-4"
+            className="max-w-7xl mx-auto px-4 py-1.5 md:py-2 text-xs md:text-sm leading-snug text-center"
           >
             {title && <span className="font-bold">{title}</span>}
-            {body && <span>{body}</span>}
-          </div>
+            {title && body && " "}
+            {body}
+          </p>
         );
       })}
     </div>
