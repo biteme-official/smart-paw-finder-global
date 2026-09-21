@@ -79,7 +79,7 @@ export function TopSellersGrid() {
   return (
     <section className="md:mt-24 mb-12 md:mb-24 px-4">
       <h2 className="text-lg font-bold text-foreground mb-8 text-center md:text-xl md:mb-8">
-        Fan Favorites
+        Trending Now
       </h2>
       <div className="grid grid-cols-4 md:grid-cols-5 gap-2 md:gap-4 max-w-7xl mx-auto">
         {products.map((product, i) => (
