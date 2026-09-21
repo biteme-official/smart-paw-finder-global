@@ -29,7 +29,7 @@ function ProductDetailSkeleton() {
   return (
     <div className="max-w-lg mx-auto bg-background min-h-screen pb-32">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-sm border-b border-border">
+      <header className="sticky top-[var(--announcement-bar-h,0px)] z-50 bg-card/95 backdrop-blur-sm border-b border-border">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-4 h-14">
           <Skeleton className="h-9 w-9 rounded-md" />
           <div className="flex items-center gap-2">
@@ -422,7 +422,7 @@ export default function ProductDetail() {
   return (
     <div className="bg-background min-h-screen pb-24">
       {/* Product Detail Header */}
-      <header className="sticky top-0 z-50 bg-background border-b border-border">
+      <header className="sticky top-[var(--announcement-bar-h,0px)] z-50 bg-background border-b border-border">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-2">
 
