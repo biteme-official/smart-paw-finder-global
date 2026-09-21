@@ -1,13 +1,3 @@
-import { useState } from "react";
-import { SlidersHorizontal, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -15,157 +5,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { Badge } from "@/components/ui/badge";
-import { useTranslation } from "@/hooks/useTranslation";
 
-export type SortOption = "default" | "price-asc" | "price-desc" | "title-asc" | "title-desc";
-
-export interface FilterState {
-  priceRange: [number, number];
-}
+export type SortOption = "best-selling" | "newest" | "price-asc" | "price-desc";
 
 interface ProductFiltersProps {
   sortOption: SortOption;
   onSortChange: (sort: SortOption) => void;
-  filters: FilterState;
-  onFiltersChange: (filters: FilterState) => void;
-  minPrice: number;
-  maxPrice: number;
-  activeFilterCount: number;
 }
 
-export function ProductFilters({
-  sortOption,
-  onSortChange,
-  filters,
-  onFiltersChange,
-  minPrice,
-  maxPrice,
-  activeFilterCount,
-}: ProductFiltersProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [tempFilters, setTempFilters] = useState<FilterState>(filters);
-  const { t, formatPrice } = useTranslation();
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "best-selling", label: "Best Selling" },
+  { value: "newest", label: "Newest" },
+  { value: "price-asc", label: "Price: Low to High" },
+  { value: "price-desc", label: "Price: High to Low" },
+];
 
-  const handleOpenChange = (open: boolean) => {
-    if (open) {
-      setTempFilters(filters);
-    }
-    setIsOpen(open);
-  };
-
-  const sortOptions: { value: SortOption; labelKey: string }[] = [
-    { value: "default", labelKey: "filters.sortOptions.default" },
-    { value: "price-asc", labelKey: "filters.sortOptions.priceAsc" },
-    { value: "price-desc", labelKey: "filters.sortOptions.priceDesc" },
-    { value: "title-asc", labelKey: "filters.sortOptions.titleAsc" },
-    { value: "title-desc", labelKey: "filters.sortOptions.titleDesc" },
-  ];
-
-  const handleApplyFilters = () => {
-    onFiltersChange(tempFilters);
-    setIsOpen(false);
-  };
-
-  const handleResetFilters = () => {
-    const defaultFilters: FilterState = {
-      priceRange: [minPrice, maxPrice],
-    };
-    setTempFilters(defaultFilters);
-    onFiltersChange(defaultFilters);
-  };
-
+export function ProductFilters({ sortOption, onSortChange }: ProductFiltersProps) {
   return (
-    <div className="flex items-center gap-2 mb-4">
-      {/* Sort Dropdown */}
-      <Select value={sortOption} onValueChange={(value) => onSortChange(value as SortOption)}>
-        <SelectTrigger className="w-[160px] h-9 text-sm">
-          <SelectValue placeholder={t('filters.sortOptions.default')} />
-        </SelectTrigger>
-        <SelectContent>
-          {sortOptions.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {t(option.labelKey)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      {/* Filter Button */}
-      <Sheet open={isOpen} onOpenChange={handleOpenChange}>
-        <SheetTrigger asChild>
-          <Button variant="outline" size="sm" className="h-9 gap-2">
-            <SlidersHorizontal className="h-4 w-4" />
-            {t('filters.filter')}
-            {activeFilterCount > 0 && (
-              <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                {activeFilterCount}
-              </Badge>
-            )}
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="bottom" className="h-[70vh] rounded-t-2xl">
-          <SheetHeader className="pb-4 border-b border-border">
-            <div className="flex items-center justify-between">
-              <SheetTitle>{t('filters.filter')}</SheetTitle>
-              <Button variant="ghost" size="sm" onClick={handleResetFilters}>
-                {t('filters.reset')}
-              </Button>
-            </div>
-          </SheetHeader>
-
-          <div className="py-6 space-y-8 overflow-y-auto max-h-[calc(70vh-140px)]">
-            {/* Price Range */}
-            <div>
-              <h3 className="text-sm font-semibold mb-4">{t('filters.priceRange')}</h3>
-              <div className="px-2">
-                <Slider
-                  value={tempFilters.priceRange}
-                  onValueChange={(value) =>
-                    setTempFilters((prev) => ({ ...prev, priceRange: value as [number, number] }))
-                  }
-                  max={maxPrice}
-                  min={minPrice}
-                  step={(() => { const range = maxPrice - minPrice; return range <= 10 ? 0.5 : range <= 50 ? 1 : range <= 200 ? 2 : 5; })()}
-                  className="mb-4"
-                />
-                <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                  <span>{formatPrice(minPrice, 'USD')}</span>
-                  <span>{formatPrice(Math.round((minPrice + maxPrice) / 2), 'USD')}</span>
-                  <span>{formatPrice(maxPrice, 'USD')}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm font-medium">
-                  <span>{formatPrice(tempFilters.priceRange[0], 'USD')}</span>
-                  <span className="text-muted-foreground">~</span>
-                  <span>{formatPrice(tempFilters.priceRange[1], 'USD')}</span>
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Apply Button */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 bg-background border-t border-border">
-            <Button onClick={handleApplyFilters} className="w-full">
-              {t('filters.apply')}
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Active Filters */}
-      {activeFilterCount > 0 && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleResetFilters}
-          className="h-9 text-muted-foreground"
-        >
-          <X className="h-4 w-4 mr-1" />
-          {t('filters.clearFilters')}
-        </Button>
-      )}
-    </div>
+    <Select value={sortOption} onValueChange={(value) => onSortChange(value as SortOption)}>
+      <SelectTrigger className="w-[140px] h-9 text-sm">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {SORT_OPTIONS.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

@@ -115,8 +115,8 @@ async function adminApiRequest(query: string, variables: Record<string, unknown>
 
 // GraphQL Queries
 const GET_PRODUCTS_QUERY = `
-  query GetProducts($first: Int!, $query: String, $after: String) {
-    products(first: $first, query: $query, after: $after, sortKey: CREATED_AT, reverse: true) {
+  query GetProducts($first: Int!, $query: String, $after: String, $sortKey: ProductSortKeys, $reverse: Boolean) {
+    products(first: $first, query: $query, after: $after, sortKey: $sortKey, reverse: $reverse) {
       pageInfo {
         hasNextPage
         endCursor
@@ -389,12 +389,12 @@ const GET_MENU_QUERY = `
 `;
 
 const GET_COLLECTION_PRODUCTS_QUERY = `
-  query GetCollectionProducts($handle: String!, $first: Int!, $after: String) {
+  query GetCollectionProducts($handle: String!, $first: Int!, $after: String, $sortKey: ProductCollectionSortKeys, $reverse: Boolean) {
     collection(handle: $handle) {
       id
       title
       handle
-      products(first: $first, after: $after, sortKey: CREATED, reverse: true) {
+      products(first: $first, after: $after, sortKey: $sortKey, reverse: $reverse) {
         pageInfo {
           hasNextPage
           endCursor
@@ -943,6 +943,56 @@ export async function fetchNewProducts(first: number = 12, filterDays?: number):
   return data.data?.products?.edges || [];
 }
 
+// Identical to GET_NEW_PRODUCTS_QUERY (same CREATED_AT-desc sort, same fields) minus
+// variants.quantityAvailable, which requires the `unauthenticated_read_product_inventory`
+// Storefront scope. Only fetchLatestProducts (home "Just Opened" preview) uses this —
+// it never reads quantityAvailable, unlike /new-products (fetchNewProducts), which does
+// and must keep requesting it. Do not use this for anything that needs stock-accurate
+// sold-out detection.
+const GET_LATEST_PRODUCTS_QUERY = `
+  query GetLatestProducts($first: Int!) {
+    products(first: $first, sortKey: CREATED_AT, reverse: true) {
+      edges {
+        node {
+          id
+          title
+          handle
+          availableForSale
+          productType
+          tags
+          vendor
+          priceRange {
+            minVariantPrice { amount currencyCode }
+          }
+          images(first: 1) {
+            edges { node { url altText } }
+          }
+          variants(first: 50) {
+            edges {
+              node {
+                id
+                title
+                price { amount currencyCode }
+                compareAtPrice { amount currencyCode }
+                availableForSale
+                image { url altText }
+                selectedOptions { name value }
+              }
+            }
+          }
+          options { name values }
+        }
+      }
+    }
+  }
+`;
+
+export async function fetchLatestProducts(first: number = 12): Promise<ShopifyProduct[]> {
+  const data = await storefrontApiRequest(GET_LATEST_PRODUCTS_QUERY, { first });
+  if (!data) return [];
+  return data.data?.products?.edges || [];
+}
+
 const GET_PRODUCT_RECOMMENDATIONS_QUERY = `
   query GetProductRecommendations($productId: ID!) {
     productRecommendations(productId: $productId) {
@@ -980,8 +1030,21 @@ export async function fetchProductRecommendations(productId: string): Promise<Sh
 }
 
 // API Functions
-export async function fetchProducts(first: number = 20, query?: string, after?: string): Promise<ProductsResponse> {
-  const data = await storefrontApiRequest(GET_PRODUCTS_QUERY, { first, query, after });
+export type ProductListSortKey = 'CREATED_AT' | 'BEST_SELLING' | 'PRICE_ASC' | 'PRICE_DESC';
+
+export async function fetchProducts(
+  first: number = 20,
+  query?: string,
+  after?: string,
+  sortKey: ProductListSortKey = 'CREATED_AT'
+): Promise<ProductsResponse> {
+  const data = await storefrontApiRequest(GET_PRODUCTS_QUERY, {
+    first,
+    query,
+    after,
+    sortKey: sortKey === 'PRICE_ASC' || sortKey === 'PRICE_DESC' ? 'PRICE' : sortKey,
+    reverse: sortKey === 'CREATED_AT' || sortKey === 'PRICE_DESC',
+  });
   if (!data) return { products: [], pageInfo: { hasNextPage: false, endCursor: null } };
 
   const productsData = data.data?.products;
@@ -1060,6 +1123,24 @@ export async function fetchProductsByHandles(handles: string[]): Promise<Record<
   return result;
 }
 
+const GET_PRODUCTS_BY_IDS_QUERY = `
+  query GetProductsByIds($ids: [ID!]!) {
+    nodes(ids: $ids) {
+      ... on Product {
+        ${PRODUCT_BY_HANDLE_FRAGMENT}
+      }
+    }
+  }
+`;
+
+// Batch product fetch by Storefront GID — preserves input order, nulls for missing/non-product ids
+export async function fetchProductsByIds(ids: string[]): Promise<(ShopifyProduct['node'] | null)[]> {
+  if (!ids.length) return [];
+  const data = await storefrontApiRequest(GET_PRODUCTS_BY_IDS_QUERY, { ids });
+  if (!data) return ids.map(() => null);
+  return (data.data?.nodes || []).map((node: ShopifyProduct['node'] | null) => node || null);
+}
+
 export async function fetchCollections(first: number = 20): Promise<ShopifyCollection[]> {
   const data = await storefrontApiRequest(GET_COLLECTIONS_QUERY, { first });
   if (!data) return [];
@@ -1096,8 +1177,22 @@ export interface CollectionProductsResponse extends ProductsResponse {
   collectionTitle: string | null;
 }
 
-export async function fetchCollectionProducts(handle: string, first: number = 20, after?: string): Promise<CollectionProductsResponse> {
-  const data = await storefrontApiRequest(GET_COLLECTION_PRODUCTS_QUERY, { handle, first, after });
+export type CollectionSortKey = 'COLLECTION_DEFAULT' | 'BEST_SELLING' | 'CREATED' | 'PRICE_ASC' | 'PRICE_DESC';
+
+export async function fetchCollectionProducts(
+  handle: string,
+  first: number = 20,
+  after?: string,
+  sortKey: CollectionSortKey = 'CREATED'
+): Promise<CollectionProductsResponse> {
+  const data = await storefrontApiRequest(GET_COLLECTION_PRODUCTS_QUERY, {
+    handle,
+    first,
+    after,
+    sortKey: sortKey === 'PRICE_ASC' || sortKey === 'PRICE_DESC' ? 'PRICE' : sortKey,
+    // CREATED defaults oldest-first in the Storefront API — reverse to get newest-first.
+    reverse: sortKey === 'CREATED' || sortKey === 'PRICE_DESC',
+  });
   if (!data) return { products: [], pageInfo: { hasNextPage: false, endCursor: null }, collectionTitle: null };
 
   const collection = data.data?.collection;

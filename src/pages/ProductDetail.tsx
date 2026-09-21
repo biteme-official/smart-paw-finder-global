@@ -588,10 +588,10 @@ export default function ProductDetail() {
           };
 
           return (
-            <div key={option.name} className="mb-5">
+            <div key={option.name} className="mb-5 pb-5 border-b border-border">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{option.name}:</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{option.name}</span>
                   <span className="text-sm font-medium text-foreground">{selectedOptions[option.name]}</span>
                 </div>
                 {showSwatchUI && (
@@ -704,7 +704,7 @@ export default function ProductDetail() {
         {/* Quantity */}
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-foreground">{t('product.quantity')}</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('product.quantity')}</h3>
             {maxQuantity !== null && maxQuantity < 99 && (
               <span className="text-xs text-muted-foreground">
                 {maxQuantity} available
