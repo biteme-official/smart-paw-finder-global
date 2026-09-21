@@ -117,9 +117,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ items });
   } catch (error) {
     console.error('[top-viewed-products]', error);
-    return res.status(500).json({
-      error: 'Failed to fetch top viewed products',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+    return res.status(500).json({ error: 'Failed to fetch top viewed products' });
   }
 }
