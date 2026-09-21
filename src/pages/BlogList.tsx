@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { ScrollToTop } from "@/components/ui/ScrollToTop";
 import { blogPosts, getAllCategories } from "@/data/blog/posts";
 import { Badge } from "@/components/ui/badge";
@@ -20,24 +22,28 @@ export default function BlogList() {
     <div className="bg-background min-h-screen">
       <Header />
 
-      <main className="max-w-4xl mx-auto px-4 pt-6 pb-24">
-        <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
-            Blog
-          </h1>
-          <p className="text-muted-foreground mt-2 text-sm sm:text-base">
-            Guides, tips, and stories for life with your dog.
-          </p>
-        </div>
+      <main>
+      <PageHeader
+        title={<>LEARN MORE<br />ABOUT YOUR PET</>}
+        description={
+          <>
+            Discover helpful tips and insights{' '}
+            <br className="hidden md:inline" />
+            for a happier, healthier life with your pet.
+          </>
+        }
+      />
 
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
+      <section>
+      <PageContainer className="pb-24">
+        <div className="flex flex-wrap justify-center gap-2 mb-8 md:flex-nowrap md:justify-start md:overflow-x-auto md:pb-2 scrollbar-hide">
           <button
             onClick={() => setSelectedCategory(null)}
             className={cn(
               "shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors",
               !selectedCategory
                 ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                : "bg-primary/10 text-primary hover:bg-primary/20"
             )}
           >
             All
@@ -50,7 +56,7 @@ export default function BlogList() {
                 "shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors",
                 selectedCategory === cat
                   ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  : "bg-primary/10 text-primary hover:bg-primary/20"
               )}
             >
               {cat}
@@ -58,61 +64,21 @@ export default function BlogList() {
           ))}
         </div>
 
-        {/* Featured post — horizontal layout */}
         {filtered.length > 0 && (
-          <Link
-            to={`/blog/${filtered[0].slug}`}
-            className="group block mb-8"
-          >
-            <article className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-md transition-shadow sm:flex">
-              <div className="aspect-square sm:w-60 sm:flex-shrink-0 overflow-hidden bg-secondary">
-                <img
-                  src={filtered[0].coverImage}
-                  alt={filtered[0].title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  loading="eager"
-                />
-              </div>
-              <div className="p-5 sm:p-6 flex flex-col justify-center">
-                <div className="flex items-center gap-2 mb-3">
-                  <Badge variant="secondary" className="text-xs">
-                    {filtered[0].category}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {filtered[0].readingTime} min read
-                  </span>
-                </div>
-                <h2 className="text-lg sm:text-xl font-semibold text-foreground group-hover:text-primary transition-colors leading-snug">
-                  {filtered[0].title}
-                </h2>
-                <p className="text-muted-foreground text-sm mt-2 line-clamp-2">
-                  {filtered[0].description}
-                </p>
-                <span className="inline-flex items-center gap-1 text-primary text-sm font-medium mt-4">
-                  Read more <ArrowRight className="h-4 w-4" />
-                </span>
-              </div>
-            </article>
-          </Link>
-        )}
-
-        {/* Grid for remaining posts */}
-        {filtered.length > 1 && (
           <div className="grid gap-6 sm:grid-cols-2">
-            {filtered.slice(1).map((post) => (
+            {filtered.map((post, i) => (
               <Link
                 key={post.slug}
                 to={`/blog/${post.slug}`}
                 className="group block"
               >
-                <article className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-md transition-shadow h-full flex flex-col">
+                <article className="bg-card border border-border overflow-hidden hover:shadow-md transition-shadow h-full flex flex-col">
                   <div className="aspect-[4/3] overflow-hidden bg-secondary">
                     <img
                       src={post.coverImage}
                       alt={post.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      loading="lazy"
+                      loading={i === 0 ? "eager" : "lazy"}
                     />
                   </div>
                   <div className="p-4 flex flex-col flex-1">
@@ -146,6 +112,8 @@ export default function BlogList() {
             No posts in this category yet.
           </div>
         )}
+      </PageContainer>
+      </section>
       </main>
 
       <Footer />

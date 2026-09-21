@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageContainer } from '@/components/layout/PageContainer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Upload, FileText, X, Loader2, ArrowLeft, CheckCircle, Clock, XCircle, LogIn, UserPlus, FileUp, ShieldCheck, Tag, ShoppingBag } from 'lucide-react';
+import { Upload, FileText, X, Loader2, ArrowLeft, ArrowRight, ChevronRight, CheckCircle, Clock, XCircle, UserPlus, FileUp, ShieldCheck, Tag, ShoppingBag } from 'lucide-react';
 import { Footer } from '@/components/layout/Footer';
-import { isLoggedIn as isCustomerLoggedIn, initiateLogin } from '@/lib/customer-auth';
+import { initiateLogin } from '@/lib/customer-auth';
 import { fetchCustomerAccount, type CustomerAccountProfile } from '@/lib/customer-account';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -18,43 +20,36 @@ import { zodResolver } from '@hookform/resolvers/zod';
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
-const STEPS: { icon: React.ElementType; label: string; desc: string; note?: string }[] = [
-  { icon: UserPlus, label: 'Sign Up', desc: 'Create an account with your business email.' },
-  { icon: FileUp, label: 'Submit B2B Business Verification', desc: 'Submit your business information and required documents for verification.' },
-  { icon: ShieldCheck, label: 'Admin Approval', desc: 'Our team reviews your submission and approves your B2B access.', note: 'Usually takes 2–3 business days.' },
-  { icon: LogIn, label: 'Log In', desc: 'Log in to your approved account.' },
-  { icon: Tag, label: 'B2B Prices Displayed', desc: 'Enjoy B2B pricing exclusively on eligible products.' },
-  { icon: ShoppingBag, label: 'Enjoy Shopping', desc: 'Browse and order with exclusive B2B pricing.' },
+const STEPS: { icon: React.ElementType; label: string; desc: string }[] = [
+  { icon: UserPlus, label: 'Create an Account', desc: 'Sign up with your business email.' },
+  { icon: FileUp, label: 'Apply for B2B', desc: 'Submit your business information and required documents.' },
+  { icon: ShieldCheck, label: 'Get Approved', desc: "We'll review your application within 2–3 business days." },
+  { icon: ShoppingBag, label: 'Start Shopping', desc: 'Log in to view B2B prices and place your orders.' },
 ];
 
 function HowToSteps() {
   return (
-    <section className="mt-8">
-      <div className="text-center mb-10">
-        <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
-          How to sign up for B2B
-        </h2>
-        <p className="text-muted-foreground text-sm">
-          Follow the steps below to unlock exclusive B2B pricing.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <section className="mt-4 md:mt-8">
+      <div className="flex flex-col md:flex-row md:items-stretch gap-4">
         {STEPS.map((step, i) => {
           const Icon = step.icon;
           return (
-            <div key={i} className="w-full border border-border rounded-2xl p-5 bg-card hover:shadow-sm transition-shadow flex flex-col items-center gap-3 text-center">
-              <div className="relative">
-                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Icon className="h-7 w-7 text-primary" />
+            <div key={i} className="flex items-center gap-4 md:contents">
+              <div className="flex-1 border border-border p-5 bg-card hover:shadow-sm transition-shadow flex flex-col items-center gap-3 text-center">
+                <div className="relative">
+                  <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Icon className="h-7 w-7 text-primary" />
+                  </div>
+                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-white text-[11px] font-bold flex items-center justify-center">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
                 </div>
-                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-white text-[11px] font-bold flex items-center justify-center">
-                  {i + 1}
-                </span>
+                <p className="font-bold text-sm text-foreground uppercase leading-tight">{step.label}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
               </div>
-              <p className="font-semibold text-sm text-foreground leading-tight">{step.label}</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
-              {step.note && <p className="text-[11px] text-muted-foreground/70 leading-relaxed">{step.note}</p>}
+              {i < STEPS.length - 1 && (
+                <ChevronRight className="hidden md:block h-5 w-5 text-muted-foreground flex-shrink-0" />
+              )}
             </div>
           );
         })}
@@ -91,8 +86,54 @@ function LoginRequired() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main className="max-w-4xl mx-auto px-4 py-6 pb-24 flex-1">
-        <HowToSteps />
+      <main className="flex-1">
+        <PageHeader
+          title={<>START BITE ME<br />WHOLESALE</>}
+          description={
+            <>
+              <span className="block">Create your account, submit your business details,</span>
+              <span className="block">
+                <span className="block md:inline">and get access to exclusive B2B pricing</span>{' '}
+                <span className="block md:inline whitespace-nowrap">in just a few simple steps.</span>
+              </span>
+            </>
+          }
+        />
+
+        <section>
+        <PageContainer className="pb-9 md:pb-24">
+          <HowToSteps />
+
+          <div className="mt-10 bg-primary/10 p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-6">
+            <div className="flex items-center gap-4 flex-1">
+              <div className="w-12 h-12 rounded-full bg-background flex items-center justify-center flex-shrink-0">
+                <Tag className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="font-bold text-foreground text-sm uppercase">Exclusive B2B Pricing</p>
+                <p className="text-sm text-muted-foreground">Enjoy special wholesale prices and grow your business with BITE ME.</p>
+              </div>
+            </div>
+            <div className="hidden md:block w-px self-stretch bg-border" />
+            <div className="flex flex-col items-center gap-2">
+              <Button
+                onClick={handleLogin}
+                disabled={loginLoading}
+                className="h-12 px-8 rounded-full bg-foreground text-background hover:bg-foreground/90 font-semibold"
+              >
+                {loginLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Apply for B2B <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Already have a B2B account?{' '}
+                <button type="button" onClick={handleLogin} className="underline hover:text-foreground">
+                  Log in
+                </button>
+              </p>
+            </div>
+          </div>
+        </PageContainer>
+        </section>
       </main>
       <Footer />
     </div>
@@ -141,7 +182,10 @@ export default function B2BApply() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [loggedIn, setLoggedIn] = useState(() => isCustomerLoggedIn());
+  // Optimistic: an expired-but-refreshable access token would make isCustomerLoggedIn() report
+  // false even though the user is still signed in, so the real check below always runs the
+  // account fetch (which transparently refreshes the token) instead of gating on this synchronously.
+  const [loggedIn, setLoggedIn] = useState(true);
   const [b2bStatus, setB2bStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [customerData, setCustomerData] = useState<CustomerAccountProfile | null>(null);
@@ -152,7 +196,6 @@ export default function B2BApply() {
   });
 
   useEffect(() => {
-    if (!loggedIn) { setLoading(false); return; }
     (async () => {
       try {
         const data = await fetchCustomerAccount();
@@ -186,7 +229,7 @@ export default function B2BApply() {
         setLoading(false);
       }
     })();
-  }, [loggedIn]);
+  }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -259,7 +302,7 @@ export default function B2BApply() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main className="max-w-4xl mx-auto px-4 py-6 pb-24 flex-1">
+      <main className="max-w-4xl mx-auto px-4 py-6 pb-10 flex-1">
         <Button variant="ghost" onClick={() => navigate('/mypage')} className="mb-4 -ml-2 text-muted-foreground">
           <ArrowLeft className="h-4 w-4 mr-1" /> My Page
         </Button>
@@ -365,8 +408,6 @@ export default function B2BApply() {
           </CardContent>
         </Card>
         </div>
-
-        <HowToSteps />
       </main>
       <Footer />
     </div>

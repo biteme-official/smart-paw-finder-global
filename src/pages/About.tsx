@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { ShieldCheck, Sparkles, BadgePercent, Heart } from "lucide-react";
 
 const SOCIAL_LINKS = [
@@ -67,18 +68,15 @@ export default function About() {
 
       <main className="flex-1">
 
-        {/* Hero */}
-        <section className="max-w-3xl mx-auto px-6 py-14 md:py-20 text-center">
-          <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-4">About BITE ME</p>
-          <h1 className="text-3xl md:text-5xl font-bold text-foreground tracking-wide mb-6">
-            <span className="block mb-3">Making every day</span>
-            <span className="block">meaningful — together.</span>
-          </h1>
-          <p className="text-muted-foreground leading-relaxed max-w-xl mx-auto">
-            Pets age six times faster than we do. BITE ME exists to make every one of those days count —
-            with products designed to bring joy, health, and comfort to dogs and their people around the world.
-          </p>
-        </section>
+        <PageHeader
+          title={<>Making every day<br />meaningful — together.</>}
+          description={
+            <>
+              Pets age six times faster than we do. BITE ME exists to make every one of those days count —
+              with products designed to bring joy, health, and comfort to dogs and their people around the world.
+            </>
+          }
+        />
 
         <div className="border-t border-zinc-200 max-w-5xl mx-auto" />
 
@@ -89,7 +87,7 @@ export default function About() {
             <p className="text-muted-foreground text-center text-sm mb-10">The four values that guide everything we do.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {MISSIONS.map(({ icon: Icon, title, desc }) => (
-                <div key={title} className="bg-card border border-border rounded-2xl p-6 flex gap-4">
+                <div key={title} className="bg-card border border-border p-6 flex gap-4">
                   <span className="shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mt-0.5">
                     <Icon className="h-5 w-5 text-primary" />
                   </span>
@@ -109,15 +107,15 @@ export default function About() {
         <section className="max-w-4xl mx-auto px-6 py-10 md:py-14 text-center">
           <h2 className="text-2xl font-bold text-foreground mb-8">Our Policies</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-left">
-            <a href="/refund-policy" className="border border-border rounded-xl p-5 hover:border-primary/50 transition-colors group">
+            <a href="/refund-policy" className="border border-border p-5 hover:border-primary/50 transition-colors group">
               <p className="font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">Shipping & Returns</p>
               <p className="text-muted-foreground">International shipping, return & refund policy.</p>
             </a>
-            <a href="/privacy" className="border border-border rounded-xl p-5 hover:border-primary/50 transition-colors group">
+            <a href="/privacy" className="border border-border p-5 hover:border-primary/50 transition-colors group">
               <p className="font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">Privacy Policy</p>
               <p className="text-muted-foreground">How we collect, use, and protect your data.</p>
             </a>
-            <a href="/terms" className="border border-border rounded-xl p-5 hover:border-primary/50 transition-colors group">
+            <a href="/terms" className="border border-border p-5 hover:border-primary/50 transition-colors group">
               <p className="font-semibold text-foreground mb-1 group-hover:text-primary transition-colors">Terms of Use</p>
               <p className="text-muted-foreground">Terms governing the use of our service.</p>
             </a>
@@ -127,10 +125,10 @@ export default function About() {
         <div className="border-t border-zinc-200 max-w-5xl mx-auto" />
 
         {/* Social Media */}
-        <section className="max-w-4xl mx-auto px-6 py-10 md:py-14 text-center">
+        <section className="max-w-4xl mx-auto px-6 pt-6 pb-10 md:pt-8 md:pb-14 text-center">
           <h2 className="text-2xl font-bold text-foreground mb-2">Social Media</h2>
-          <p className="text-sm text-muted-foreground mb-10">Check out more about our brand</p>
-          <div className="flex justify-center items-start gap-8">
+          <p className="text-sm text-muted-foreground mb-4">Check out more about our brand</p>
+          <div className="flex justify-center items-start gap-5">
             {SOCIAL_LINKS.map(({ label, platform, href }) => (
               <a
                 key={label}
@@ -139,7 +137,7 @@ export default function About() {
                 rel="noopener noreferrer"
                 className="flex flex-col items-center gap-2 group"
               >
-                <span className="w-12 h-12 rounded-full bg-zinc-400 group-hover:bg-zinc-500 transition-colors flex items-center justify-center text-white">
+                <span className="w-10 h-10 rounded-full bg-zinc-400 group-hover:bg-zinc-500 transition-colors flex items-center justify-center text-white">
                   <SocialIcon platform={platform} />
                 </span>
                 <span className="text-xs text-muted-foreground">{label}</span>

@@ -52,9 +52,9 @@ export function AffiliatePageContent({ apply }: Props) {
   return (
     <div className="max-w-7xl mx-auto px-4 mt-4 md:mt-6">
       {/* Hero banner — text overlaid on the image bottom (mobile 4:5) / center-left (desktop wide) */}
-      <section className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-[#f4eede]">
+      <section className="relative overflow-hidden bg-[#f4eede]">
         {/* Mobile uses a dedicated 4:5 image (subject pre-centered); desktop keeps the wide banner. */}
-        <div className="aspect-[4/5] md:aspect-[21/9]">
+        <div className="aspect-[14/15] md:aspect-[21/9]">
           <picture>
             <source media="(min-width: 768px)" srcSet={heroBanner} />
             <img
@@ -64,29 +64,22 @@ export function AffiliatePageContent({ apply }: Props) {
             />
           </picture>
         </div>
-        <div className="absolute inset-x-0 bottom-0 px-6 pb-12 md:inset-0 md:flex md:flex-col md:items-start md:justify-center md:px-16 md:pb-0 md:max-w-2xl">
+        <div className="absolute inset-x-0 bottom-0 translate-y-3 px-6 pb-12 md:inset-0 md:flex md:flex-col md:translate-y-0 md:items-start md:justify-center md:px-16 md:pb-0 md:max-w-2xl">
           <span className="mt-10 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs md:mt-0 md:px-4 md:py-1.5 md:text-sm font-semibold text-orange-600">
             <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5" strokeWidth={2} />
             Affiliate Collab
           </span>
-          <h1 className="mt-2 text-[28px] font-extrabold uppercase leading-[1.05] tracking-tight text-stone-800 md:mt-2 md:text-5xl md:font-bold md:normal-case md:leading-[1.4] md:tracking-normal">
-            <span className="md:hidden">
-              Share Bite Me &amp;
-              <br />
-              Earn Together
-            </span>
-            <span className="hidden md:inline">
-              Share Bite Me
-              <br />
-              earn together
-            </span>
+          <h1 className="mt-3 text-[32px] font-extrabold uppercase leading-[1.05] tracking-tight text-stone-800 md:mt-2 md:text-5xl md:font-bold md:normal-case md:leading-[1.4] md:tracking-normal">
+            SHARE BITE ME
+            <br />
+            EARN TOGETHER
           </h1>
-          <p className="mt-1 hidden max-w-[92%] text-sm text-stone-600 md:block md:max-w-none md:text-lg">
+          <p className="mt-6 hidden max-w-[92%] text-sm text-stone-600 md:block md:max-w-none md:text-lg">
             Share your BITE ME favorites and earn with every sale!
           </p>
-          <p className="mt-1 flex items-center gap-1 text-[13px] font-semibold text-orange-600 md:mt-2 md:gap-1.5 md:text-sm md:text-stone-700">
+          <p className="mt-2 flex items-center gap-1 text-[13px] font-semibold text-orange-600 md:mt-2 md:gap-1.5 md:text-sm md:text-stone-700">
             <ArrowDown className="h-3 w-3 shrink-0 md:h-4 md:w-4" />
-            <span className="md:hidden">Scroll down to join!</span>
+            <span className="md:hidden">Scroll down and submit your application!</span>
             <span className="hidden md:inline">Scroll down and submit your application to join!</span>
           </p>
         </div>
@@ -100,7 +93,7 @@ export function AffiliatePageContent({ apply }: Props) {
         <div className="grid grid-cols-2 auto-rows-fr gap-3 md:flex md:items-stretch md:gap-4">
           {STEPS.map(({ icon: Icon, title, desc }, index) => (
             <div key={title} className="contents md:flex md:items-stretch md:flex-1 md:gap-4">
-              <div className="relative flex h-full flex-col items-center justify-center text-center gap-1.5 md:gap-3 w-full md:flex-1 rounded-2xl bg-orange-100 shadow-sm py-4 px-3 md:py-10 md:px-4">
+              <div className="relative flex h-full flex-col items-center justify-center text-center gap-1.5 md:gap-3 w-full md:flex-1 bg-orange-100 shadow-sm py-4 px-3 md:py-10 md:px-4">
                 <span className="absolute left-3 top-2.5 text-[11px] font-bold text-orange-400 md:hidden">{index + 1}</span>
                 <Icon className="h-6 w-6 md:h-9 md:w-9 text-orange-500" strokeWidth={1.75} />
                 <p className="text-sm md:text-base font-extrabold text-foreground">{title}</p>
@@ -125,7 +118,7 @@ export function AffiliatePageContent({ apply }: Props) {
           {BENEFITS.map(({ icon: Icon, value, bgClass, accentClass, title, desc }) => (
             <div
               key={title}
-              className={`flex h-full min-h-[190px] flex-col items-center text-center md:min-h-0 md:flex-1 rounded-2xl py-6 px-3 md:py-10 md:px-4 ${bgClass}`}
+              className={`flex h-full min-h-[190px] flex-col items-center text-center md:min-h-0 md:flex-1 py-6 px-3 md:py-10 md:px-4 ${bgClass}`}
             >
               <div className="flex h-10 items-center justify-center md:h-12">
                 {value ? (

@@ -106,7 +106,7 @@ const ContactUs = () => {
 
           {/* Right — Image */}
           <div className="w-full md:w-[420px] shrink-0">
-            <div className="rounded-2xl overflow-hidden aspect-square shadow-md">
+            <div className="overflow-hidden aspect-square shadow-md">
               <img
                 src={contactImage}
                 alt="BITE ME — cute dog with toys"
