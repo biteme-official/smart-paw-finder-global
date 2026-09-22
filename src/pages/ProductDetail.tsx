@@ -17,6 +17,8 @@ import { useCartStore } from "@/stores/cartStore";
 import { useFavoriteAction } from "@/hooks/useFavoriteAction";
 import { toast } from "sonner";
 import { isLoggedIn as isCustomerLoggedIn, initiateLogin } from "@/lib/customer-auth";
+import { isDevPreviewActive } from "@/lib/dev-preview";
+import { getMockAffiliateDashboard } from "@/components/affiliate/affiliateDashboardData";
 import { useTranslation } from "@/hooks/useTranslation";
 import { decorateWithGaLinker, appendUtmToUrl } from "@/lib/browser-utils";
 import { CartDrawer } from "@/components/cart/CartDrawer";
@@ -362,11 +364,12 @@ export default function ProductDetail() {
     });
   };
 
-  // The affiliate share sheet (link generation, tracking) isn't built yet — see
-  // PR #157. Guests are sent to login as agreed; signed-in taps get a
-  // placeholder until that sheet lands.
+  // The full affiliate share sheet (real link issuance, tracking) isn't built
+  // yet — see PR #157. Guests are sent to login as agreed; a logged-in tap
+  // copies a per-product link built from the same sample code shown on the
+  // My Page > Affiliate dashboard.
   const handleAffiliateBannerClick = async () => {
-    if (!isCustomerLoggedIn()) {
+    if (!isCustomerLoggedIn() && !isDevPreviewActive()) {
       try {
         await initiateLogin(window.location.pathname);
       } catch {
@@ -374,7 +377,12 @@ export default function ProductDetail() {
       }
       return;
     }
-    toast.info('Affiliate sharing — coming soon.', { position: 'top-center' });
+    if (!product) return;
+    const { code } = getMockAffiliateDashboard();
+    const link = `https://www.biteme.one/product/${product.handle}?ref=${code}`;
+    navigator.clipboard.writeText(link)
+      .then(() => toast.success('Copied!', { position: 'top-center' }))
+      .catch(() => toast.error('Failed to copy.', { position: 'top-center' }));
   };
 
   const [isBuyingNow, setIsBuyingNow] = useState(false);

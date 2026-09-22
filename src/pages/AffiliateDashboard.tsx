@@ -181,9 +181,11 @@ export default function AffiliateDashboard() {
             </div>
 
             <div className="bg-card rounded-xl border border-border p-4">
-              <p className="text-xs text-muted-foreground mb-1">This month's commission</p>
               <div className="flex items-center justify-between mb-3">
-                <p className="text-2xl font-bold leading-none">${data.earningsThisMonth.toFixed(2)}</p>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">This month's commission</p>
+                  <p className="text-2xl font-bold">${data.earningsThisMonth.toFixed(2)}</p>
+                </div>
                 <Button
                   variant="secondary"
                   size="sm"
