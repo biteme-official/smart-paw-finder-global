@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import {
   LogOut, User, ShoppingBag, Heart, HelpCircle, ChevronRight,
-  MapPin, Loader2, Search, Building2, Wallet, Mail,
+  MapPin, Loader2, Search, Building2, Wallet, Mail, Share2,
 } from 'lucide-react';
 import { initiateLogin, isLoggedIn as isCustomerLoggedIn, logout as customerLogout } from '@/lib/customer-auth';
 import {
@@ -316,6 +316,7 @@ export default function MyPage() {
                 badge={orders.length > 0 ? orders.length : undefined}
                 onClick={() => navigate('/mypage/order-history')}
               />
+              <MenuLink icon={Share2} label="Affiliate" onClick={() => navigate('/mypage/affiliate')} />
               <MenuLink
                 icon={Heart}
                 label="Favorites"
