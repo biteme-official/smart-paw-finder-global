@@ -731,16 +731,17 @@ export default function ProductDetail() {
         </div>
 
         {/* Trust Badges */}
-        <div className="flex gap-6 mb-6 py-4 border-y border-border justify-center">
+        <div className="flex items-center justify-between mb-6 py-4 border-y border-border">
           <div className="flex items-center gap-2">
-            <Truck className="h-5 w-5 text-primary" />
+            <Truck className="h-5 w-5 text-primary shrink-0" />
             <div>
               <p className="text-xs font-medium text-foreground">{t('product.shippingBenefit')}</p>
               <p className="text-[10px] text-muted-foreground">{t('product.shippingBenefitDesc')}</p>
             </div>
           </div>
+          <div className="w-px self-stretch bg-border mx-4 md:mx-8" />
           <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
+            <Shield className="h-5 w-5 text-primary shrink-0" />
             <div>
               <p className="text-xs font-medium text-foreground">{t('product.qualityGuarantee')}</p>
               <p className="text-[10px] text-muted-foreground">{t('product.qualityGuaranteeDesc')}</p>
