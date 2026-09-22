@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { fetchAnnouncements, AnnouncementItem } from "@/lib/shopify";
-import { TextSegment, stripExplicitLineMarker, splitLinesPreservingBold, parseBoldSegments } from "@/lib/announcement-text";
+import { TextSegment, stripExplicitLineMarker, applyExplicitLineMarker, parseBoldSegments } from "@/lib/announcement-text";
 
 function renderSegments(segments: TextSegment[], keyPrefix: string) {
   return segments.map((segment, i) =>
@@ -69,18 +69,13 @@ export function AnnouncementBar() {
             >
               {renderSegments(parseBoldSegments(stripExplicitLineMarker(item.message)), "pc")}
             </p>
-            {/* 모바일: "\n" 마커 지점에서만 줄바꿈 (자동 줄바꿈 없음). 볼드(*...*)는 줄바꿈 전에
-                전체 메시지 기준으로 먼저 파싱하므로 *A\nB* 처럼 볼드 구간이 줄바꿈에 걸쳐 있어도
-                양쪽 줄 모두 볼드가 유지된다. */}
+            {/* 모바일: "\n" 마커 지점은 반드시 줄바꿈되고, 그 외 구간은 화면 폭에 따라 자동
+                줄바꿈 허용(whitespace-pre-line) — 마커 없는 긴 문구가 화면 밖으로 잘리지 않도록. */}
             <p
-              className="md:hidden max-w-7xl mx-auto px-4 py-1.5 text-xs leading-snug text-center"
+              className="md:hidden max-w-7xl mx-auto px-4 py-1.5 text-xs leading-snug text-center whitespace-pre-line"
               style={{ color: item.textColor ?? undefined }}
             >
-              {splitLinesPreservingBold(item.message).map((line, li) => (
-                <span key={li} className="block whitespace-nowrap">
-                  {renderSegments(line, `m${li}`)}
-                </span>
-              ))}
+              {renderSegments(parseBoldSegments(applyExplicitLineMarker(item.message)), "mobile")}
             </p>
           </div>
         ))}
