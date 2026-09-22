@@ -31,9 +31,9 @@ function LinkChip({ label, value, onCopy }: { label: string; value: string; onCo
   return (
     <button
       onClick={onCopy}
-      className="flex-1 flex items-center justify-center gap-1 h-7 px-2.5 rounded-full bg-primary text-primary-foreground font-semibold text-[11px] hover:bg-primary/90 transition-colors"
+      className="flex-none w-fit flex items-center justify-center gap-1 h-7 px-2.5 rounded-full bg-primary text-primary-foreground font-semibold text-[11px] whitespace-nowrap hover:bg-primary/90 transition-colors"
     >
-      <span className="truncate">{label}</span>
+      <span>{label}</span>
       <Copy className="h-2.5 w-2.5 flex-shrink-0" />
     </button>
   );
@@ -141,7 +141,7 @@ export default function AffiliateDashboard() {
         ) : (
           <>
             <div className="bg-card rounded-xl border border-border p-5">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center gap-3">
                 <LinkChip label="MY LINK" value={data.linkUrl} onCopy={() => copy(data.linkUrl)} />
                 <LinkChip label={data.code} value={data.code} onCopy={() => copy(data.code)} />
               </div>
@@ -187,7 +187,7 @@ export default function AffiliateDashboard() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="border border-border"
+                  className="h-6 px-2.5 border border-border text-[11px] font-medium text-muted-foreground"
                   disabled={data.earningsAvailable <= 0}
                   onClick={() => ComingSoon('Convert to store credit')}
                 >
