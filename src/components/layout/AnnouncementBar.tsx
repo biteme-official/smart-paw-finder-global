@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { fetchAnnouncements, AnnouncementItem } from "@/lib/shopify";
-import { TextSegment, stripExplicitLineMarker, applyExplicitLineMarker, parseBoldSegments } from "@/lib/announcement-text";
+import { TextSegment, applyExplicitLineMarker, parseBoldSegments } from "@/lib/announcement-text";
 
 function renderSegments(segments: TextSegment[], keyPrefix: string) {
   return segments.map((segment, i) =>
@@ -62,20 +62,13 @@ export function AnnouncementBar() {
             className="w-full flex-shrink-0"
             style={{ backgroundColor: item.backgroundColor ?? undefined }}
           >
-            {/* PC: "\n" 마커는 무시(공백으로 치환)하고 항상 한 줄로 표시 */}
+            {/* "\n" 마커 지점은 PC/모바일 공통으로 반드시 줄바꿈되고, 그 외 구간은 화면 폭에
+                따라 자동 줄바꿈 허용(whitespace-pre-line) — 마커 없는 긴 문구도 잘리지 않는다. */}
             <p
-              className="hidden md:block max-w-7xl mx-auto px-4 py-2 text-sm leading-snug text-center whitespace-nowrap"
+              className="max-w-7xl mx-auto px-4 py-1.5 md:py-2 text-xs md:text-sm leading-snug text-center whitespace-pre-line"
               style={{ color: item.textColor ?? undefined }}
             >
-              {renderSegments(parseBoldSegments(stripExplicitLineMarker(item.message)), "pc")}
-            </p>
-            {/* 모바일: "\n" 마커 지점은 반드시 줄바꿈되고, 그 외 구간은 화면 폭에 따라 자동
-                줄바꿈 허용(whitespace-pre-line) — 마커 없는 긴 문구가 화면 밖으로 잘리지 않도록. */}
-            <p
-              className="md:hidden max-w-7xl mx-auto px-4 py-1.5 text-xs leading-snug text-center whitespace-pre-line"
-              style={{ color: item.textColor ?? undefined }}
-            >
-              {renderSegments(parseBoldSegments(applyExplicitLineMarker(item.message)), "mobile")}
+              {renderSegments(parseBoldSegments(applyExplicitLineMarker(item.message)), "line")}
             </p>
           </div>
         ))}

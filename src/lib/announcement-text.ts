@@ -23,14 +23,9 @@ export function parseBoldSegments(text: string): TextSegment[] {
   return segments;
 }
 
-// PC(마커 무시) — "\n" 마커를 줄바꿈이 아닌 공백으로 치환해 항상 한 줄로 표시
-export function stripExplicitLineMarker(message: string): string {
-  return message.replace(/\\n/g, " ");
-}
-
-// 모바일(마커 지점만 강제 줄바꿈, 그 외에는 화면 폭에 따라 자동 줄바꿈 허용) — 리터럴 "\n"을
-// 실제 개행문자로 치환한다. `whitespace-pre-line`과 함께 쓰면 이 개행 지점은 반드시 줄이
-// 바뀌고, 나머지 구간은 폭에 맞춰 자연스럽게 자동 줄바꿈된다.
+// "\n" 마커 지점만 강제 줄바꿈되고, 그 외에는 화면 폭에 따라 자동 줄바꿈 허용(PC/모바일 공통)
+// — 리터럴 "\n"을 실제 개행문자로 치환한다. `whitespace-pre-line`과 함께 쓰면 이 개행 지점은
+// 반드시 줄이 바뀌고, 나머지 구간은 폭에 맞춰 자연스럽게 자동 줄바꿈된다.
 export function applyExplicitLineMarker(message: string): string {
   return message.replace(/\\n/g, "\n");
 }

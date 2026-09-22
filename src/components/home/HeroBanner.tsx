@@ -151,13 +151,12 @@ export function HeroBanner() {
                         )}
                         {headline && (
                           <h2
-                            className="mt-5 whitespace-pre-line uppercase text-2xl font-black leading-tight text-neutral-900 md:mt-0 md:max-w-2xl md:whitespace-pre md:text-5xl md:leading-snug"
+                            className="mt-5 whitespace-pre-line uppercase text-2xl font-black leading-tight text-neutral-900 md:mt-0 md:max-w-2xl md:text-5xl md:leading-snug"
                             style={{ WebkitTextStroke: "0.6px currentColor" }}
                           >
                             {/* Headline 필드에 리터럴 "\n"(백슬래시+n)을 넣은 지점은 PC/모바일 공통
-                                으로 반드시 줄바꿈된다. 마커가 없는 나머지 구간은 모바일에서는 화면
-                                폭에 따라 자동 줄바꿈되고(whitespace-pre-line), PC에서는 기존처럼
-                                자동 줄바꿈 없이 한 줄로 유지된다(md:whitespace-pre). */}
+                                으로 반드시 줄바꿈된다. 마커가 없는 나머지 구간은 PC/모바일 공통으로
+                                화면 폭에 따라 자동 줄바꿈된다(whitespace-pre-line). */}
                             {headline.replace(/\\n/g, "\n")}
                           </h2>
                         )}
