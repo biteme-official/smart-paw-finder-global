@@ -389,7 +389,7 @@
     "global_handle": "biteme-buddy-fork-3colors",
     "kr_product_cd": "1000045823",
     "kr_name": "바잇미 버디 포크 (3 colors)",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119173316662",
@@ -461,7 +461,7 @@
     "global_handle": "biteme-cloudy-bag-3-colors",
     "kr_product_cd": "1000042745",
     "kr_name": "바잇미 클라우디 백 (3 colors)",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119174135862",
@@ -683,9 +683,9 @@
     "global_numeric_id": "8119176626230",
     "global_title": "Comfy Ravioli Downtown bag (3 colors)",
     "global_handle": "comfy-ravioli-downtown-bag-3-colors",
-    "kr_product_cd": "1000033489",
-    "kr_name": "컴피라비올리 미니 타운백 (3 colors)",
-    "confidence": "haiku_match"
+    "kr_product_cd": null,
+    "kr_name": null,
+    "confidence": "no_match"
   },
   {
     "global_numeric_id": "8119176921142",
@@ -699,9 +699,9 @@
     "global_numeric_id": "8119177084982",
     "global_title": "Biteme Double Rolly Chew (Expiration Date: 2026-07-20)",
     "global_handle": "double-rolly-chew",
-    "kr_product_cd": null,
+    "kr_product_cd": "1000037305",
     "kr_name": null,
-    "confidence": "no_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119177117750",
@@ -733,7 +733,7 @@
     "global_handle": "biteme-jellybear-round-face-comb",
     "kr_product_cd": "1000035324",
     "kr_name": "바잇미 젤리곰 라운드 페이스콤",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119178625078",
@@ -797,7 +797,7 @@
     "global_handle": "comfy-ravioli-city-bag-3-colors",
     "kr_product_cd": "1000033488",
     "kr_name": "컴피라비올리 시티백 (3 colors)",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119179837494",
@@ -805,7 +805,7 @@
     "global_handle": "comfy-ravioli-mini-town-bag-3-colors",
     "kr_product_cd": "1000033489",
     "kr_name": "컴피라비올리 미니 타운백 (3 colors)",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119180427318",
@@ -1445,7 +1445,7 @@
     "global_handle": "microfiber-towel-dry-me",
     "kr_product_cd": "1000000757",
     "kr_name": "바잇미 마이크로화이버 펫타올 드라이미",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119202578486",
@@ -1595,9 +1595,9 @@
     "global_numeric_id": "8154504036406",
     "global_title": "Comfy Ravioli Urban Pillow Bag (2 colors)",
     "global_handle": "comfy-ravioli-urban-pillow-bag-charcoal-1",
-    "kr_product_cd": "1000033488",
-    "kr_name": "컴피라비올리 시티백 (3 colors)",
-    "confidence": "haiku_match"
+    "kr_product_cd": null,
+    "kr_name": null,
+    "confidence": "no_match"
   },
   {
     "global_numeric_id": "8154504200246",
@@ -1693,7 +1693,7 @@
     "global_handle": "probiotics-lactobacillus-dr-inner-peace",
     "kr_product_cd": "1000001377",
     "kr_name": "바잇미 닥터이너피스 장튼튼 유산균",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8154527957046",
@@ -1851,9 +1851,9 @@
     "global_numeric_id": "8156238544950",
     "global_title": "Biteme 2026 New Year's Lucky Pouch",
     "global_handle": "bite-me-2026-new-years-lucky-pouch",
-    "kr_product_cd": "1000025386",
-    "kr_name": "[웰컴딜] 바잇미 젤리곰 장난감 (삑삑)",
-    "confidence": "haiku_match"
+    "kr_product_cd": null,
+    "kr_name": null,
+    "confidence": "no_match"
   },
   {
     "global_numeric_id": "8156242673718",
@@ -1949,7 +1949,7 @@
     "global_handle": "biteme-napa-cabbage-toy",
     "kr_product_cd": "1000026262",
     "kr_name": "[웰컴딜] 바잇미 양배추 킁킁볼 장난감 (삑삑/바스락/노즈워크)",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8487275855926",
@@ -1990,5 +1990,21 @@
     "kr_product_cd": null,
     "kr_name": null,
     "confidence": "no_match"
+  },
+  {
+    "global_numeric_id": "8119173218358",
+    "global_title": "Biteme Mochi Sleeveless (6 types)",
+    "global_handle": "biteme-mochi-sleeveless-6-colors",
+    "kr_product_cd": "1000042184",
+    "kr_name": null,
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8149197324342",
+    "global_title": "Biteme Slipper Tug Toys",
+    "global_handle": "biteme-slipper-tug-toys-1",
+    "kr_product_cd": "1000031807",
+    "kr_name": null,
+    "confidence": "confirmed"
   }
 ]
