@@ -154,7 +154,7 @@ export default function AffiliateDashboard() {
 
             <Popover open={calOpen} onOpenChange={setCalOpen}>
               <PopoverTrigger asChild>
-                <button className="w-full flex items-center justify-center gap-2 h-10 rounded-full border border-border text-sm font-medium hover:bg-secondary/50 transition-colors">
+                <button className="w-full flex items-center justify-center gap-2 h-10 rounded-full border border-border bg-card shadow-sm text-sm font-medium hover:bg-secondary/50 transition-colors">
                   <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
                   {rangeLabel}
                   <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
