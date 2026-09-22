@@ -35,7 +35,8 @@ export interface AffiliateDashboardData {
 }
 
 export function getMockAffiliateDashboard(displayName?: string): AffiliateDashboardData {
-  const code = (displayName || 'ZOEY').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) + '123';
+  const firstName = (displayName || 'Zoey').split(' ')[0];
+  const code = firstName.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) + '123';
   return {
     code,
     linkUrl: `https://www.biteme.one/?ref=${code}`,
