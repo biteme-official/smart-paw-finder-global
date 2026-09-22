@@ -151,10 +151,13 @@ export function HeroBanner() {
                         )}
                         {headline && (
                           <h2
-                            className="mt-5 whitespace-pre-line uppercase text-2xl font-black leading-tight text-neutral-900 md:mt-0 md:max-w-2xl md:text-balance md:text-5xl md:leading-snug"
+                            className="mt-5 whitespace-pre uppercase text-2xl font-black leading-tight text-neutral-900 md:mt-0 md:max-w-2xl md:text-5xl md:leading-snug"
                             style={{ WebkitTextStroke: "0.6px currentColor" }}
                           >
-                            {headline}
+                            {/* 자동 줄바꿈 없음(whitespace-pre) — Headline 필드에 리터럴 "\n"
+                                (백슬래시+n)을 넣은 지점에서만 PC/모바일 공통으로 줄바꿈된다.
+                                이전의 폭 기반 자동 2줄 wrap(text-balance)은 제거됨. */}
+                            {headline.replace(/\\n/g, "\n")}
                           </h2>
                         )}
                         {subtext && (
