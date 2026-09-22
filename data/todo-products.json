@@ -6,54 +6,6 @@
     "handle": "bite-me-christmas-friends-toy-hot-chocolate-slipper"
   },
   {
-    "id": "gid://shopify/Product/8119169777718",
-    "numericId": "8119169777718",
-    "title": "SSFW Cozy Bib Set up (3colors)",
-    "handle": "ssfw-cozy-bib-set-up-3colors"
-  },
-  {
-    "id": "gid://shopify/Product/8119171645494",
-    "numericId": "8119171645494",
-    "title": "SSFW Summer Knit Top (3colors)",
-    "handle": "ssfw-summer-knit-top-3colors"
-  },
-  {
-    "id": "gid://shopify/Product/8119173251126",
-    "numericId": "8119173251126",
-    "title": "Biteme Mochi T-shirts (6colors)",
-    "handle": "biteme-mochi-t-shirts-6colors"
-  },
-  {
-    "id": "gid://shopify/Product/8119173283894",
-    "numericId": "8119173283894",
-    "title": "Biteme Mochi All-in-one (6colors)",
-    "handle": "biteme-mochi-all-in-one-6colors"
-  },
-  {
-    "id": "gid://shopify/Product/8119175479350",
-    "numericId": "8119175479350",
-    "title": "SSFW My Little Summer Poncho (3 types)",
-    "handle": "ssfw-my-little-summer-poncho"
-  },
-  {
-    "id": "gid://shopify/Product/8119185047606",
-    "numericId": "8119185047606",
-    "title": "Biteme Bosom Diapers - Female (XS ~ L)",
-    "handle": "biteme-bosom-diapers-female-xs-l"
-  },
-  {
-    "id": "gid://shopify/Product/8119185113142",
-    "numericId": "8119185113142",
-    "title": "Biteme Bosom Diapers - Male (S ~ XL)",
-    "handle": "biteme-bosom-diapers-male-s-xl"
-  },
-  {
-    "id": "gid://shopify/Product/8119187570742",
-    "numericId": "8119187570742",
-    "title": "[Bite Me X Samjin Amook] Fish Cake Croquette Toy",
-    "handle": "bite-me-x-samjin-amook-fish-cake-croquette-toy"
-  },
-  {
     "id": "gid://shopify/Product/8154524975158",
     "numericId": "8154524975158",
     "title": "Biteme Easy-Fuzzy Waterless Foot&Facial Cleanser (Expiration date: 2026-07-16)",
@@ -64,30 +16,6 @@
     "numericId": "8156238544950",
     "title": "Biteme 2026 New Year's Lucky Pouch",
     "handle": "bite-me-2026-new-years-lucky-pouch"
-  },
-  {
-    "id": "gid://shopify/Product/8265994534966",
-    "numericId": "8265994534966",
-    "title": "Latta Filmcover Windbreaker Jacket for people (3types)",
-    "handle": "latta-filmcover-windbreaker-jacket-for-people-3types"
-  },
-  {
-    "id": "gid://shopify/Product/8265996992566",
-    "numericId": "8265996992566",
-    "title": "Latta Filmcover All-in-one windbreaker (3types)",
-    "handle": "latta-filmcover-all-in-one-windbreaker-3types"
-  },
-  {
-    "id": "gid://shopify/Product/8266004627510",
-    "numericId": "8266004627510",
-    "title": "Latta Filmcover Windbreaker Jacket (3types)",
-    "handle": "latta-filmcover-windbreaker-jacket-3types"
-  },
-  {
-    "id": "gid://shopify/Product/8616092270646",
-    "numericId": "8616092270646",
-    "title": "Biteme Little Farm Veggie Mix 30g",
-    "handle": "biteme-little-farm-veggie-mix-30g-1"
   },
   {
     "id": "gid://shopify/Product/8627310362678",
@@ -106,60 +34,6 @@
     "numericId": "8695912562742",
     "title": "Biteme All Day Cooling Mat + Pillow set (3 types)",
     "handle": "biteme-all-day-cooling-mat-pillow-set-3-types"
-  },
-  {
-    "id": "gid://shopify/Product/8752641572918",
-    "numericId": "8752641572918",
-    "title": "SSFW New Coolette Bag (3types)",
-    "handle": "ssfw-new-coolette-bag-3types"
-  },
-  {
-    "id": "gid://shopify/Product/8752676700214",
-    "numericId": "8752676700214",
-    "title": "Biteme Ocean Tails Latex Toy (3types)",
-    "handle": "biteme-tails-latex-toy-사본"
-  },
-  {
-    "id": "gid://shopify/Product/8955887976502",
-    "numericId": "8955887976502",
-    "title": "Biteme Roll-up Nosework Toy (2types)",
-    "handle": "biteme-roll-up-nosework-toy-2types"
-  },
-  {
-    "id": "gid://shopify/Product/9002699587638",
-    "numericId": "9002699587638",
-    "title": "Biteme Honey Treat Mini (2types)",
-    "handle": "biteme-honey-treat-mini-2types"
-  },
-  {
-    "id": "gid://shopify/Product/9020467970102",
-    "numericId": "9020467970102",
-    "title": "Biteme Sweet Halloween Ball Toy set",
-    "handle": "biteme-sweet-halloween-ball-toy-set"
-  },
-  {
-    "id": "gid://shopify/Product/9020468985910",
-    "numericId": "9020468985910",
-    "title": "Biteme Halloween Pumpkin Puppy Stretchy Toy",
-    "handle": "biteme-halloween-pumpkin-puppy-stretchy-toy"
-  },
-  {
-    "id": "gid://shopify/Product/9026023260214",
-    "numericId": "9026023260214",
-    "title": "Biteme Yogurt Trio Latex Toy",
-    "handle": "biteme-yogurt-trio-latex-toy"
-  },
-  {
-    "id": "gid://shopify/Product/9194873782326",
-    "numericId": "9194873782326",
-    "title": "Biteme Square Pocket Nosework Toy (2 types)",
-    "handle": "biteme-square-pocket-nowework-toy-2types"
-  },
-  {
-    "id": "gid://shopify/Product/9194886430774",
-    "numericId": "9194886430774",
-    "title": "Biteme Panda Jelly Bear Toy",
-    "handle": "biteme-panda-jelly-bear-toy"
   },
   {
     "id": "gid://shopify/Product/9237911273526",
@@ -192,21 +66,9 @@
     "handle": "livepet-breath-60g"
   },
   {
-    "id": "gid://shopify/Product/9294012121142",
-    "numericId": "9294012121142",
-    "title": "Biteme Fruit Friends Ball Toy (3pcs)",
-    "handle": "biteme-fruit-friends-ball-toy-3pcs"
-  },
-  {
     "id": "gid://shopify/Product/9340997959734",
     "numericId": "9340997959734",
     "title": "SSFW Mellow Stripe T-Shirt (3colors)",
     "handle": "ssfw-mellow-stripe-t-shirt-3colors"
-  },
-  {
-    "id": "gid://shopify/Product/9341005561910",
-    "numericId": "9341005561910",
-    "title": "SSFW Bebe Powder Poncho (2colors)",
-    "handle": "ssfw-bebe-powder-poncho-2colors"
   }
 ]

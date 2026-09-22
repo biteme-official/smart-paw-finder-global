@@ -1,0 +1,80 @@
+{
+  "product_cd": "1000057342",
+  "scraped_at": "2026-09-22T06:17:39.404Z",
+  "total": 6,
+  "reviews": [
+    {
+      "id": "629897",
+      "rating": 5,
+      "name": "다****",
+      "content": "배송 빠르고 강아지가 잘 가지고 놀아요~ 퀄리티 좋아요",
+      "date": "2026-09-17T08:19:09+09:00",
+      "images": [
+        "https://assets6.cre.ma/p/biteme-co-kr/reviews/00/00/62/98/97/image1/4609cbd78a6263ed.webp"
+      ],
+      "videos": [],
+      "content_en": "Fast shipping and my pup loves playing with it~ Great quality!"
+    },
+    {
+      "id": "628395",
+      "rating": 3,
+      "name": "최****",
+      "content": "장난감은 잘 가지고 노는데 사은품으로 껴주신 덴탈껌에 곰팡이 같은게 있네요 (유통기한도 흐린눈하고 보면 2028년도로 보이는데 2023같이 보임) 무튼 사은품 검수 잘 하시고 보내시든가 아예 안주는게 나을듯요 이런 델탈껌 원래 돈주고도 안사먹이는데 한번 먹여볼까하고 조각내다가 발견했네요",
+      "date": "2026-09-04T14:38:22+09:00",
+      "images": [
+        "https://assets6.cre.ma/p/biteme-co-kr/reviews/00/00/62/83/95/image1/13199d3f7dfb4c5b.webp",
+        "https://assets6.cre.ma/p/biteme-co-kr/reviews/00/00/62/83/95/image2/cc841c0a7e73022b.webp"
+      ],
+      "videos": [],
+      "content_en": "The toy is fun to play with, but the dental chew that came as a gift has what looks like mold on it (the expiration date is also hard to read - it looks like it says 2028 but could be 2023). Anyway, I'd suggest either checking the free gifts more carefully before sending them out or just not including them at all. These dental chews aren't usually something I'd even buy, but I thought I'd give it a try and found the mold while breaking it up into pieces."
+    },
+    {
+      "id": "628524",
+      "rating": 5,
+      "name": "김****",
+      "content": "소리만 들어도 얼마나 좋아하는지 ㅋㅋㅋㅋ",
+      "date": "2026-09-04T19:14:54+09:00",
+      "images": [],
+      "videos": [
+        "https://d2q2zwuq6juvrx.cloudfront.net/biteme.co.kr/00/00/01/65/83/c93ace1614973ff8eabd5a532ab30c1e_hd_encoded.mp4"
+      ],
+      "content_en": "Just hearing the sound gets her so excited lol 😂"
+    },
+    {
+      "id": "628745",
+      "rating": 5,
+      "name": "박****",
+      "content": "간식넣는구멍이 다따로인줄알았는디 연결되있어서 살짝 당황??했어요 ㅋㅋㅋ그래도 우리애기는 좋아해요",
+      "date": "2026-09-06T21:41:06+09:00",
+      "images": [
+        "https://assets6.cre.ma/p/biteme-co-kr/reviews/00/00/62/87/45/image1/7be618be6c331592.webp"
+      ],
+      "videos": [],
+      "content_en": "I thought the treat holes were separate but they're all connected?? 😂 But my baby loves it anyway!"
+    },
+    {
+      "id": "628996",
+      "rating": 5,
+      "name": "한****",
+      "content": "바잇미 장난감 젤조아해서\n나오면 다 주문 하게대용 ㅠㅠ \n인형 구신이라",
+      "date": "2026-09-09T06:09:18+09:00",
+      "images": [
+        "https://assets6.cre.ma/p/biteme-co-kr/reviews/00/00/62/89/96/image1/06bdaf03a52fdaa2.webp"
+      ],
+      "videos": [],
+      "content_en": "I love BITE ME toys so much that I end up ordering everything that comes out 😭 Great quality for the price!"
+    },
+    {
+      "id": "627952",
+      "rating": 5,
+      "name": "배****",
+      "content": "노즈워크는 자주 바꿔주는데\n이건 처음보네요\n잘가지고 놀것같아요~",
+      "date": "2026-09-01T14:13:59+09:00",
+      "images": [
+        "https://assets6.cre.ma/p/biteme-co-kr/reviews/00/00/62/79/52/image1/9e61cfd5001daa89.webp"
+      ],
+      "videos": [],
+      "content_en": "I usually switch up nose work toys often, but this is my first time trying this one. Looks like my pup will enjoy playing with it~"
+    }
+  ]
+}
