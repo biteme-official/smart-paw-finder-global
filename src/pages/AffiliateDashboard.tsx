@@ -6,14 +6,26 @@ import {
   ChevronLeft, ChevronDown, Calendar as CalendarIcon, Copy, Archive, PlusCircle,
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
 import { fetchCustomerAccount } from '@/lib/customer-account';
+import { fetchBestSellingProducts, type ShopifyProduct } from '@/lib/shopify';
 import { isDevPreviewActive, DEV_PREVIEW_CUSTOMER } from '@/lib/dev-preview';
 import { getMockAffiliateDashboard, type AffiliateDashboardData } from '@/components/affiliate/affiliateDashboardData';
+
+function Thumbnail({ image, alt, loading, className }: { image?: string; alt: string; loading: boolean; className?: string }) {
+  if (loading) return <Skeleton className={className} />;
+  if (image) return <img src={image} alt={alt} className={`${className} object-cover`} />;
+  return (
+    <div className={`${className} flex items-center justify-center bg-secondary text-muted-foreground text-[10px]`}>
+      No Image
+    </div>
+  );
+}
 
 function LinkChip({ label, value, onCopy }: { label: string; value: string; onCopy: () => void }) {
   return (
@@ -49,6 +61,15 @@ export default function AffiliateDashboard() {
     to: new Date(),
   });
   const [calOpen, setCalOpen] = useState(false);
+  const [products, setProducts] = useState<ShopifyProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchBestSellingProducts(3)
+      .then(setProducts)
+      .catch(() => {})
+      .finally(() => setProductsLoading(false));
+  }, []);
 
   useEffect(() => {
     if (isDevPreviewActive()) {
@@ -73,6 +94,18 @@ export default function AffiliateDashboard() {
   }, [navigate]);
 
   const data: AffiliateDashboardData = useMemo(() => getMockAffiliateDashboard(displayName), [displayName]);
+
+  // Sample stats (clicks/orders/earnings) have no tracking backend yet, but the
+  // thumbnails should still show real catalog products instead of empty boxes.
+  const topLinks = useMemo(() => data.topLinks.map((link, i) => {
+    const p = products[i]?.node;
+    return { ...link, title: p?.title ?? link.title, handle: p?.handle ?? link.handle, image: p?.images.edges[0]?.node.url };
+  }), [data.topLinks, products]);
+
+  const sharedProducts = useMemo(() => data.sharedProducts.map((product, i) => {
+    const p = products[i]?.node;
+    return { ...product, title: p?.title ?? product.title, handle: p?.handle ?? product.handle, image: p?.images.edges[0]?.node.url };
+  }), [data.sharedProducts, products]);
 
   const copy = (value: string) => {
     navigator.clipboard.writeText(value)
@@ -149,7 +182,18 @@ export default function AffiliateDashboard() {
 
             <div className="bg-card rounded-xl border border-border p-4">
               <p className="text-xs text-muted-foreground mb-1">This month's earnings</p>
-              <p className="text-2xl font-bold mb-3">${data.earningsThisMonth.toFixed(2)}</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-2xl font-bold">${data.earningsThisMonth.toFixed(2)}</p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="border border-border"
+                  disabled={data.earningsAvailable <= 0}
+                  onClick={() => ComingSoon('Convert to store credit')}
+                >
+                  Convert Now
+                </Button>
+              </div>
               <div className="flex items-center pt-3 border-t border-border">
                 <div className="flex-1">
                   <p className="text-base font-semibold">${data.earningsAvailable.toFixed(2)}</p>
@@ -161,7 +205,7 @@ export default function AffiliateDashboard() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-3">
-                Earnings convert to store credit automatically 30 days after each purchase is confirmed.
+                Earnings become available to convert 30 days after each purchase is confirmed.
               </p>
             </div>
 
@@ -171,10 +215,10 @@ export default function AffiliateDashboard() {
               </div>
               <p className="text-xs text-muted-foreground mb-2">Ranked by clicks</p>
               <div className="divide-y divide-border">
-                {data.topLinks.map((link) => (
+                {topLinks.map((link) => (
                   <div key={link.handle} className="flex items-center gap-3 py-3">
-                    <div className="w-12 h-12 rounded-lg bg-secondary flex-shrink-0 overflow-hidden">
-                      {link.image && <img src={link.image} alt={link.title} className="w-full h-full object-cover" />}
+                    <div className="w-12 h-12 rounded-lg flex-shrink-0 overflow-hidden">
+                      <Thumbnail image={link.image} alt={link.title} loading={productsLoading} className="w-12 h-12" />
                     </div>
                     <p className="flex-1 text-sm truncate">{link.title}</p>
                     <div className="text-right flex-shrink-0">
@@ -202,10 +246,10 @@ export default function AffiliateDashboard() {
                 </button>
               </div>
               <div className="grid grid-cols-3 gap-3">
-                {data.sharedProducts.map((product) => (
+                {sharedProducts.map((product) => (
                   <div key={product.handle}>
-                    <div className="aspect-square bg-secondary rounded-xl relative overflow-hidden">
-                      {product.image && <img src={product.image} alt={product.title} className="w-full h-full object-cover" />}
+                    <div className="aspect-square rounded-xl relative overflow-hidden">
+                      <Thumbnail image={product.image} alt={product.title} loading={productsLoading} className="w-full h-full" />
                       <span className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-sm z-10 bg-primary text-primary-foreground">
                         Earn ${product.earnAmount.toFixed(2)}
                       </span>
