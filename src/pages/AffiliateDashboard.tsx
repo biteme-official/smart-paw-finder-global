@@ -13,6 +13,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
 import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
 import { fetchCustomerAccount } from '@/lib/customer-account';
+import { isDevPreviewActive, DEV_PREVIEW_CUSTOMER } from '@/lib/dev-preview';
 import { getMockAffiliateDashboard, type AffiliateDashboardData } from '@/components/affiliate/affiliateDashboardData';
 
 function LinkChip({ label, value, onCopy }: { label: string; value: string; onCopy: () => void }) {
@@ -51,14 +52,19 @@ export default function AffiliateDashboard() {
   const [calOpen, setCalOpen] = useState(false);
 
   useEffect(() => {
+    if (isDevPreviewActive()) {
+      setDisplayName(DEV_PREVIEW_CUSTOMER.displayName);
+      setLoading(false);
+      return;
+    }
     if (!isCustomerLoggedIn()) {
-      navigate('/mypage');
+      navigate('/mypage', { state: { returnTo: '/mypage/affiliate' } });
       return;
     }
     fetchCustomerAccount()
       .then((data) => {
         if (!data) {
-          navigate('/mypage');
+          navigate('/mypage', { state: { returnTo: '/mypage/affiliate' } });
           return;
         }
         setDisplayName(data.displayName);

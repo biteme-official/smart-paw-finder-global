@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type ReactNode, type Ref } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,6 +20,7 @@ import { useFavoritesStore, GUEST_FAVORITES_KEY } from '@/stores/favoritesStore'
 import {
   PetProfileForm, PET_PROFILE_UPDATED_EVENT, PetProfileUpdate, consumePetHighlight,
 } from '@/components/account/PetProfile';
+import { isDevPreviewActive, DEV_PREVIEW_CUSTOMER } from '@/lib/dev-preview';
 
 function MenuLink({ icon: Icon, label, badge, onClick }: {
   icon: typeof ShoppingBag; label: string; badge?: string | number; onClick?: () => void;
@@ -113,6 +114,8 @@ function MarketingConsent({ state, onChange, highlight, containerRef, children }
 
 function AuthScreen() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo || '/mypage';
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -126,7 +129,7 @@ function AuthScreen() {
   const handleLogin = async () => {
     setLoading(true);
     try {
-      await initiateLogin('/mypage');
+      await initiateLogin(returnTo);
     } catch {
       toast.error('Failed to start login. Please try again.', { position: 'top-center' });
       setLoading(false);
@@ -163,7 +166,8 @@ function AuthScreen() {
 
 export default function MyPage() {
   const navigate = useNavigate();
-  const [loggedIn, setLoggedIn] = useState(() => isCustomerLoggedIn());
+  const devPreview = isDevPreviewActive();
+  const [loggedIn, setLoggedIn] = useState(() => isCustomerLoggedIn() || devPreview);
   const [customerData, setCustomerData] = useState<CustomerAccountProfile | null>(null);
   const [creditData, setCreditData] = useState<StoreCreditData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -176,6 +180,11 @@ export default function MyPage() {
 
   useEffect(() => {
     if (!loggedIn) {
+      setLoading(false);
+      return;
+    }
+    if (devPreview) {
+      setCustomerData(DEV_PREVIEW_CUSTOMER);
       setLoading(false);
       return;
     }
@@ -197,7 +206,7 @@ export default function MyPage() {
         toast.error('Failed to load account. Please sign in again.', { position: 'top-center' });
       })
       .finally(() => setLoading(false));
-  }, [loggedIn]);
+  }, [loggedIn, devPreview]);
 
   // New sign-ups returning to My Page get the consent card highlighted instead of the prompt.
   useEffect(() => {
