@@ -683,9 +683,9 @@
     "global_numeric_id": "8119176626230",
     "global_title": "Comfy Ravioli Downtown bag (3 colors)",
     "global_handle": "comfy-ravioli-downtown-bag-3-colors",
-    "kr_product_cd": null,
-    "kr_name": null,
-    "confidence": "no_match"
+    "kr_product_cd": "1000038112",
+    "kr_name": "컴피라비올리 다운타운백 (3 colors)",
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119176921142",
@@ -1595,9 +1595,9 @@
     "global_numeric_id": "8154504036406",
     "global_title": "Comfy Ravioli Urban Pillow Bag (2 colors)",
     "global_handle": "comfy-ravioli-urban-pillow-bag-charcoal-1",
-    "kr_product_cd": null,
-    "kr_name": null,
-    "confidence": "no_match"
+    "kr_product_cd": "1000044625",
+    "kr_name": "컴피라비올리 어반 필로우백 (2 colors)",
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8154504200246",
@@ -1965,7 +1965,7 @@
     "global_handle": "biteme-baby-pup-latex-toy-3types",
     "kr_product_cd": "1000034884",
     "kr_name": "[웰컴딜] 바잇미 내동생 라텍스 장난감",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8615128825910",
