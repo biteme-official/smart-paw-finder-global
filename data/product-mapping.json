@@ -1971,9 +1971,9 @@
     "global_numeric_id": "8615128825910",
     "global_title": "Biteme Rainbow Cherry Tomato Latex Toy (4pcs)",
     "global_handle": "biteme-rainbow-cherry-tomato-latex-toy-4pcs",
-    "kr_product_cd": null,
-    "kr_name": null,
-    "confidence": "no_match"
+    "kr_product_cd": "1000056758",
+    "kr_name": "바잇미 무지개 방울토마토 라텍스 토이 (4개입)",
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8616092270646",
@@ -2005,6 +2005,70 @@
     "global_handle": "biteme-slipper-tug-toys-1",
     "kr_product_cd": "1000031807",
     "kr_name": null,
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8684462571574",
+    "global_title": "Biteme Boong Boong Squirrel Float",
+    "global_handle": "biteme-boong-boong-squirrel-float",
+    "kr_product_cd": "1000056601",
+    "kr_name": "바잇미 붕붕 다람쥐 강아지 물놀이 튜브",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8688347512886",
+    "global_title": "Biteme All Day Cooling Mat (3 types)",
+    "global_handle": "biteme-all-day-cooling-mat-3-types",
+    "kr_product_cd": "1000056937",
+    "kr_name": "바잇미 올데이 쿨링 매트 기능성 냉감 쿨매트 (3 sizes)",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8688374317110",
+    "global_title": "Biteme All Day Cooling Pillow",
+    "global_handle": "biteme-all-day-cooling-pillow",
+    "kr_product_cd": "1000056940",
+    "kr_name": "바잇미 올데이 쿨링 필로우 기능성 냉감 베개",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8843439636534",
+    "global_title": "Biteme Pocket Fruits Nosework Toy (2types)",
+    "global_handle": "biteme-pocket-fruits-nosework-toy-2types",
+    "kr_product_cd": "1000057622",
+    "kr_name": "바잇미 포켓후르츠 노즈워크 장난감 2종",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9115012595766",
+    "global_title": "[Bundle] Biteme Hate Me Band (3 types) - 5pcs",
+    "global_handle": "bundle-biteme-hate-me-band-3-types-5pcs",
+    "kr_product_cd": "1000048009",
+    "kr_name": "바잇미 헤잇미 밴드 - 3 colors",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9115013349430",
+    "global_title": "[Bundle] Biteme Hate Me Band (3 types) - 10pcs",
+    "global_handle": "bundle-biteme-hate-me-band-3-types-10pcs",
+    "kr_product_cd": "1000048009",
+    "kr_name": "바잇미 헤잇미 밴드 - 3 colors",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9334830727222",
+    "global_title": "Biteme Hug Me Koala Rope Ball Toy",
+    "global_handle": "biteme-hug-me-koala-rope-ball-toy",
+    "kr_product_cd": "1000058686",
+    "kr_name": "바잇미 허그미 코알라 로프볼 장난감 (터그/삑삑)",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9340974366774",
+    "global_title": "SSFW Tiny Garden Knit Bib (3colors)",
+    "global_handle": "ssfw-tiny-garden-knit-bib-3colors",
+    "kr_product_cd": "1000058738",
+    "kr_name": "SSFW 타이니 가든 니트 빕 (3 colors)",
     "confidence": "confirmed"
   }
 ]
