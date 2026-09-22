@@ -181,9 +181,9 @@ export default function AffiliateDashboard() {
             </div>
 
             <div className="bg-card rounded-xl border border-border p-4">
-              <p className="text-xs text-muted-foreground mb-1">This month's earnings</p>
+              <p className="text-xs text-muted-foreground mb-1">This month's commission</p>
               <div className="flex items-center justify-between mb-3">
-                <p className="text-2xl font-bold">${data.earningsThisMonth.toFixed(2)}</p>
+                <p className="text-2xl font-bold leading-none">${data.earningsThisMonth.toFixed(2)}</p>
                 <Button
                   variant="secondary"
                   size="sm"
@@ -205,7 +205,7 @@ export default function AffiliateDashboard() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-3">
-                Earnings become available to convert 30 days after each purchase is confirmed.
+                Commission becomes available to convert 30 days after each purchase is confirmed.
               </p>
             </div>
 
