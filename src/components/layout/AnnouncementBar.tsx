@@ -22,13 +22,17 @@ export function AnnouncementBar() {
   if (pathname.startsWith("/admin") || items.length === 0) return null;
 
   return (
-    <div role="status" className="w-full bg-accent text-accent-foreground border-b border-accent-foreground/15">
+    <div role="status" className="w-full border-b border-border">
       {items.map((item) => {
         const { title, body } = splitTitle(item.message);
         return (
           <p
             key={item.id}
             className="max-w-7xl mx-auto px-4 py-1.5 md:py-2 text-xs md:text-sm leading-snug text-center"
+            style={{
+              backgroundColor: item.backgroundColor ?? undefined,
+              color: item.textColor ?? undefined,
+            }}
           >
             {title && <span className="font-bold">{title}</span>}
             {title && body && " "}

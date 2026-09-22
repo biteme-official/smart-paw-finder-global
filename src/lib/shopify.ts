@@ -727,7 +727,9 @@ export interface AnnouncementItem {
   message: string;
   linkUrl: string | null;
   sortOrder: number;
-  isActive: boolean;
+  textColor: string | null;
+  backgroundColor: string | null;
+  startAt: string | null;
   endAt: string | null;
 }
 
@@ -756,36 +758,36 @@ export async function fetchAnnouncements(first: number = 10): Promise<Announceme
   const items = (data.data?.metaobjects?.edges || []).map((edge: any) => {
     const node = edge.node;
     const fields: Record<string, string> = {};
-    let linkUrl: string | null = null;
 
     for (const field of node.fields) {
-      if (field.type === 'link' && field.value) {
-        try {
-          const parsed = JSON.parse(field.value);
-          linkUrl = parsed.url || null;
-        } catch {
-          linkUrl = null;
-        }
-      } else if (field.value) {
-        fields[field.key] = field.value;
-      }
+      if (field.value) fields[field.key] = field.value;
     }
 
     return {
       id: node.id,
       message: fields.message || '',
-      linkUrl,
+      linkUrl: fields.link_url || null,
       sortOrder: Number(fields.sort_order) || 0,
-      isActive: fields.is_active === 'true',
+      textColor: fields.text_color || null,
+      backgroundColor: fields.background_color || null,
+      startAt: fields.start_at || null,
       endAt: fields.end_at || null,
+      active: fields.active,
     };
   });
 
   const now = Date.now();
   return items
-    .filter((item: AnnouncementItem) => item.isActive && item.message)
-    .filter((item: AnnouncementItem) => !item.endAt || now <= Date.parse(item.endAt))
-    .sort((a: AnnouncementItem, b: AnnouncementItem) => a.sortOrder - b.sortOrder);
+    // 노출(active) 필드 — 메인 배너와 동일한 문자열 비교 패턴 ('노출'일 때만 노출 대상)
+    .filter((item) => item.active === '노출' && item.message)
+    // start_at/end_at(선택) — 값이 있을 때만 해당 방향으로 기간을 제한 (메인 배너와 동일 패턴)
+    .filter((item) => {
+      if (item.startAt && new Date(item.startAt).getTime() > now) return false;
+      if (item.endAt && new Date(item.endAt).getTime() < now) return false;
+      return true;
+    })
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map(({ active, ...item }) => item);
 }
 
 export interface ProductsResponse {
