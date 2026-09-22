@@ -2206,5 +2206,13 @@
     "kr_product_cd": "1000058740",
     "kr_name": "SSFW 베베 파우더 판초 (2 colors)",
     "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8695912562742",
+    "global_title": "Biteme All Day Cooling Mat + Pillow set (3 types)",
+    "global_handle": "biteme-all-day-cooling-mat-pillow-set-3-types",
+    "kr_product_cd": "combo-56937-56940",
+    "kr_name": "바잇미 올데이 쿨링 매트+필로우 (Mat 1000056937 + Pillow 1000056940 합산)",
+    "confidence": "confirmed"
   }
 ]
