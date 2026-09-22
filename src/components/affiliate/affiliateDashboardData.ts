@@ -28,7 +28,8 @@ export interface AffiliateDashboardData {
   clicks: number;
   sales: number;
   earningsThisMonth: number;
-  payoutThreshold: number;
+  earningsAvailable: number;
+  earningsPending: number;
   topLinks: AffiliateLinkStat[];
   sharedProducts: AffiliateSharedProduct[];
 }
@@ -44,7 +45,8 @@ export function getMockAffiliateDashboard(displayName?: string): AffiliateDashbo
     clicks: 289,
     sales: 15,
     earningsThisMonth: 18.7,
-    payoutThreshold: 50,
+    earningsAvailable: 6.3,
+    earningsPending: 12.4,
     topLinks: [
       { handle: 'koala-rope-ball-toy', title: 'Koala Rope Ball Toy', clicks: 142, orders: 9, earningPerOrder: 1.09 },
       { handle: 'comfort-harness-v2', title: 'Comfort Harness v2', clicks: 96, orders: 4, earningPerOrder: 2.8 },

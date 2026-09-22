@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
@@ -20,7 +19,7 @@ function LinkChip({ label, value, onCopy }: { label: string; value: string; onCo
   return (
     <button
       onClick={onCopy}
-      className="flex-1 flex items-center justify-center gap-2 h-11 px-4 rounded-full border-2 border-primary text-primary font-semibold text-sm hover:bg-primary/5 transition-colors"
+      className="flex-1 flex items-center justify-center gap-2 h-11 px-4 rounded-full bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors"
     >
       <span className="truncate">{label}</span>
       <Copy className="h-3.5 w-3.5 flex-shrink-0" />
@@ -28,9 +27,9 @@ function LinkChip({ label, value, onCopy }: { label: string; value: string; onCo
   );
 }
 
-function StatColumn({ value, label }: { value: string | number; label: string }) {
+function StatColumn({ value, label, withDivider }: { value: string | number; label: string; withDivider?: boolean }) {
   return (
-    <div className="flex-1 text-center">
+    <div className={`flex-1 text-center ${withDivider ? 'border-l border-border' : ''}`}>
       <p className="text-xl font-bold">{value}</p>
       <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
     </div>
@@ -86,8 +85,6 @@ export default function AffiliateDashboard() {
       ? `${format(range.from, 'MMM d')} – ${format(range.to, 'MMM d')}`
       : format(range.from, 'MMM d')
     : 'Select dates';
-
-  const earningsPct = Math.min(100, (data.earningsThisMonth / data.payoutThreshold) * 100);
 
   return (
     <div className="min-h-screen bg-background">
@@ -145,17 +142,26 @@ export default function AffiliateDashboard() {
               <p className="text-xs text-muted-foreground mb-3">Performance</p>
               <div className="flex items-center">
                 <StatColumn value={data.views.toLocaleString()} label="Views" />
-                <StatColumn value={data.clicks.toLocaleString()} label="Clicks" />
-                <StatColumn value={data.sales.toLocaleString()} label="Sales" />
+                <StatColumn value={data.clicks.toLocaleString()} label="Clicks" withDivider />
+                <StatColumn value={data.sales.toLocaleString()} label="Sales" withDivider />
               </div>
             </div>
 
             <div className="bg-card rounded-xl border border-border p-4">
               <p className="text-xs text-muted-foreground mb-1">This month's earnings</p>
               <p className="text-2xl font-bold mb-3">${data.earningsThisMonth.toFixed(2)}</p>
-              <Progress value={earningsPct} className="h-2 mb-2" />
-              <p className="text-xs text-muted-foreground">
-                ${data.earningsThisMonth.toFixed(2)} of ${data.payoutThreshold} — reach ${data.payoutThreshold} to convert to store credit
+              <div className="flex items-center pt-3 border-t border-border">
+                <div className="flex-1">
+                  <p className="text-base font-semibold">${data.earningsAvailable.toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Available</p>
+                </div>
+                <div className="flex-1">
+                  <p className="text-base font-semibold">${data.earningsPending.toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Pending</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                Earnings convert to store credit automatically 30 days after each purchase is confirmed.
               </p>
             </div>
 
