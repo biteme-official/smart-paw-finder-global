@@ -31,10 +31,10 @@ function LinkChip({ label, value, onCopy }: { label: string; value: string; onCo
   return (
     <button
       onClick={onCopy}
-      className="flex-none w-fit flex items-center justify-center gap-1 h-7 px-2.5 rounded-full bg-primary text-primary-foreground font-semibold text-[11px] whitespace-nowrap hover:bg-primary/90 transition-colors"
+      className="flex-none w-fit flex items-center justify-center gap-1.5 h-8 px-3.5 rounded-full bg-primary text-primary-foreground font-semibold text-xs whitespace-nowrap hover:bg-primary/90 transition-colors"
     >
       <span>{label}</span>
-      <Copy className="h-2.5 w-2.5 flex-shrink-0" />
+      <Copy className="h-3 w-3 flex-shrink-0" />
     </button>
   );
 }
