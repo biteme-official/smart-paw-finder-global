@@ -10,7 +10,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Upload, FileText, X, Loader2, ArrowLeft, ArrowRight, ChevronRight, BadgeCheck, Hourglass, XCircle, UserPlus, FileUp, ShieldCheck, Tag, ShoppingBag } from 'lucide-react';
 import { Footer } from '@/components/layout/Footer';
-import { initiateLogin, getAccessToken, refreshAccessToken } from '@/lib/customer-auth';
+import { initiateLogin } from '@/lib/customer-auth';
+import { fetchB2BStatus, type B2BStatus as B2BState } from '@/lib/b2b-status';
 import { fetchCustomerAccount, type CustomerAccountProfile } from '@/lib/customer-account';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -140,7 +141,7 @@ function LoginRequired() {
   );
 }
 
-type B2BStatus = 'pending' | 'approved' | 'rejected';
+type B2BStatus = Exclude<B2BState, 'none'>;
 
 const STATUS_CONFIG: Record<B2BStatus, { icon: React.ElementType; circle: string; iconColor: string; title: string; desc: string }> = {
   approved: { icon: BadgeCheck, circle: 'bg-accent', iconColor: 'text-primary', title: 'Your B2B account is verified!', desc: 'You can now shop at wholesale prices.' },
@@ -207,7 +208,7 @@ export default function B2BApply() {
   // false even though the user is still signed in, so the real check below always runs the
   // account fetch (which transparently refreshes the token) instead of gating on this synchronously.
   const [loggedIn, setLoggedIn] = useState(true);
-  const [b2bStatus, setB2bStatus] = useState<'none' | B2BStatus>('none');
+  const [b2bStatus, setB2bStatus] = useState<B2BState>('none');
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [customerData, setCustomerData] = useState<CustomerAccountProfile | null>(null);
   const [file, setFile] = useState<{ name: string; type: string; data: string } | null>(null);
@@ -223,32 +224,9 @@ export default function B2BApply() {
         if (!data) { setLoggedIn(false); setLoading(false); return; }
         setCustomerData(data);
 
-        const [tagsRes, statusRes] = await Promise.all([
-          fetch('/api/customer-tags', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: data.emailAddress }),
-          }),
-          fetch('/api/b2b-status', { headers: { Authorization: getAccessToken() || (await refreshAccessToken()) || '' } }),
-        ]);
-
-        const tagsData = await tagsRes.json();
-        const tags: string[] = tagsData.tags || [];
-        const statusData = await statusRes.json();
-
-        const hasTag = (tag: string) => tags.some((t) => t.toUpperCase() === tag);
-
-        // Verified follows the same `B2B` tag that unlocks wholesale pricing (see B2BDiscountSync),
-        // so this page never says "verified" while prices are still retail.
-        if (hasTag('B2B')) {
-          setB2bStatus('approved');
-        } else if (statusData.status === 'rejected') {
-          setB2bStatus('rejected');
-          setRejectionReason(statusData.rejectionReason || null);
-        } else if (hasTag('B2B-PENDING') || statusData.status === 'pending' || statusData.status === 'approved') {
-          // KV `approved` without the `B2B` tag means tagging failed on approval — pricing isn't live yet.
-          setB2bStatus('pending');
-        }
+        const result = await fetchB2BStatus(data.emailAddress || '');
+        setB2bStatus(result.status);
+        setRejectionReason(result.rejectionReason);
       } catch {
         toast.error('Failed to load account data.', { position: 'top-center' });
       } finally {

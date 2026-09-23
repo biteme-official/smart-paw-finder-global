@@ -15,14 +15,15 @@ import {
 } from '@/lib/customer-account';
 import { formatPrice } from '@/lib/shopify';
 import { useAuthStore } from '@/stores/authStore';
+import { fetchB2BStatus, type B2BStatus } from '@/lib/b2b-status';
 import { toast } from 'sonner';
 import { useFavoritesStore, GUEST_FAVORITES_KEY } from '@/stores/favoritesStore';
 import {
   PetProfileForm, PET_PROFILE_UPDATED_EVENT, PetProfileUpdate, consumePetHighlight,
 } from '@/components/account/PetProfile';
 
-function MenuLink({ icon: Icon, label, badge, onClick }: {
-  icon: typeof ShoppingBag; label: string; badge?: string | number; onClick?: () => void;
+function MenuLink({ icon: Icon, label, badge, badgeClassName = 'bg-primary/10 text-primary', onClick }: {
+  icon: typeof ShoppingBag; label: string; badge?: string | number; badgeClassName?: string; onClick?: () => void;
 }) {
   return (
     <button onClick={onClick} className="w-full flex items-center justify-between py-3.5 hover:bg-secondary/50 transition-colors">
@@ -32,7 +33,7 @@ function MenuLink({ icon: Icon, label, badge, onClick }: {
       </div>
       <div className="flex items-center gap-2">
         {badge !== undefined && (
-          <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">{badge}</span>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badgeClassName}`}>{badge}</span>
         )}
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
       </div>
@@ -111,6 +112,14 @@ function MarketingConsent({ state, onChange, highlight, containerRef, children }
   );
 }
 
+// Status colors follow the Order History status badges.
+const B2B_MENU: Record<B2BStatus, { label: string; badge: string; cls: string }> = {
+  none: { label: 'B2B Application', badge: 'Apply', cls: 'bg-gray-100 text-gray-600' },
+  pending: { label: 'B2B Application', badge: 'Pending', cls: 'bg-yellow-100 text-yellow-700' },
+  approved: { label: 'B2B Account', badge: 'Verified', cls: 'bg-orange-100 text-orange-700' },
+  rejected: { label: 'B2B Application', badge: 'Not approved', cls: 'bg-red-100 text-red-600' },
+};
+
 function AuthScreen() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -172,6 +181,7 @@ export default function MyPage() {
 
   const authUser = useAuthStore((s) => s.user);
   const isB2B = useAuthStore((s) => s.isB2B);
+  const [b2bStatus, setB2bStatus] = useState<B2BStatus | null>(null);
   const favoritesData = useFavoritesStore((s) => s.favorites);
   const favoritesKey = authUser?.userId || customerData?.emailAddress || customerData?.id || GUEST_FAVORITES_KEY;
 
@@ -190,6 +200,7 @@ export default function MyPage() {
           setCustomerData(data);
           if (data.emailAddress) {
             fetchStoreCredit(data.emailAddress).then(setCreditData);
+            fetchB2BStatus(data.emailAddress).then((r) => setB2bStatus(r.status)).catch(() => {});
           }
         }
       })
@@ -323,12 +334,19 @@ export default function MyPage() {
                 badge={favCount > 0 ? favCount : undefined}
                 onClick={() => navigate('/mypage/favorites')}
               />
-              <MenuLink
-                icon={Building2}
-                label={isB2B ? 'B2B Account' : 'B2B Application'}
-                badge={isB2B ? 'Verified' : undefined}
-                onClick={() => navigate('/mypage/b2b-apply')}
-              />
+              {(() => {
+                // Until the status loads, fall back to the pricing flag so verified accounts don't flicker.
+                const menu = b2bStatus ? B2B_MENU[b2bStatus] : isB2B ? B2B_MENU.approved : null;
+                return (
+                  <MenuLink
+                    icon={Building2}
+                    label={menu?.label ?? 'B2B Application'}
+                    badge={menu?.badge}
+                    badgeClassName={menu?.cls}
+                    onClick={() => navigate('/mypage/b2b-apply')}
+                  />
+                );
+              })()}
               <MenuLink icon={HelpCircle} label="Contact Us" onClick={() => navigate('/contact')} />
             </div>
 
