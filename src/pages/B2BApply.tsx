@@ -145,7 +145,7 @@ type B2BStatus = 'pending' | 'approved' | 'rejected';
 const STATUS_CONFIG: Record<B2BStatus, { icon: React.ElementType; circle: string; iconColor: string; title: string; desc: string }> = {
   approved: { icon: BadgeCheck, circle: 'bg-accent', iconColor: 'text-primary', title: 'Your B2B account is verified!', desc: 'You can now shop at wholesale prices.' },
   pending: { icon: Hourglass, circle: 'bg-muted', iconColor: 'text-foreground', title: 'Your application is under review', desc: 'Review usually takes 2–3 business days.' },
-  rejected: { icon: XCircle, circle: 'bg-destructive/10', iconColor: 'text-destructive', title: 'Your application was not approved', desc: 'Unfortunately, your B2B application has been rejected.' },
+  rejected: { icon: XCircle, circle: 'bg-destructive/10', iconColor: 'text-destructive', title: "We couldn't approve your application", desc: 'Please check the reason below. If you have any questions, feel free to contact us.' },
 };
 
 function StatusCard({ status, rejectionReason }: { status: B2BStatus; rejectionReason?: string | null }) {
