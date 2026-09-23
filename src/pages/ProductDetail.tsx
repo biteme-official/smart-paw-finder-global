@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Share2, Minus, Plus, ShoppingCart, Check, Truck, Shield, Heart, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Share2, Minus, Plus, ShoppingCart, Check, Truck, Shield, Heart, X, Copy } from "lucide-react";
 import DOMPurify from "dompurify";
 
 const sanitizeHtml = (html: string): string =>
@@ -16,6 +16,9 @@ import { trackViewContentCapi } from "@/lib/meta-capi";
 import { useCartStore } from "@/stores/cartStore";
 import { useFavoriteAction } from "@/hooks/useFavoriteAction";
 import { toast } from "sonner";
+import { isLoggedIn as isCustomerLoggedIn, initiateLogin } from "@/lib/customer-auth";
+import { isDevPreviewActive } from "@/lib/dev-preview";
+import { getMockAffiliateDashboard } from "@/components/affiliate/affiliateDashboardData";
 import { useTranslation } from "@/hooks/useTranslation";
 import { decorateWithGaLinker, appendUtmToUrl } from "@/lib/browser-utils";
 import { CartDrawer } from "@/components/cart/CartDrawer";
@@ -359,6 +362,27 @@ export default function ProductDetail() {
       description: `${product.title} x ${quantity}`,
       position: 'top-center',
     });
+  };
+
+  // The full affiliate share sheet (real link issuance, tracking) isn't built
+  // yet — see PR #157. Guests are sent to login as agreed; a logged-in tap
+  // copies a per-product link built from the same sample code shown on the
+  // My Page > Affiliate dashboard.
+  const handleAffiliateBannerClick = async () => {
+    if (!isCustomerLoggedIn() && !isDevPreviewActive()) {
+      try {
+        await initiateLogin(window.location.pathname);
+      } catch {
+        toast.error('Failed to start login. Please try again.', { position: 'top-center' });
+      }
+      return;
+    }
+    if (!product) return;
+    const { code } = getMockAffiliateDashboard();
+    const link = `https://www.biteme.one/product/${product.handle}?ref=${code}`;
+    navigator.clipboard.writeText(link)
+      .then(() => toast.success('Copied!', { position: 'top-center' }))
+      .catch(() => toast.error('Failed to copy.', { position: 'top-center' }));
   };
 
   const [isBuyingNow, setIsBuyingNow] = useState(false);
@@ -747,6 +771,22 @@ export default function ProductDetail() {
             </div>
           </div>
         </div>
+
+        {/* Affiliate banner — distinct entry point from the header share icon,
+            which triggers the generic share modal further down this file. */}
+        <button
+          onClick={handleAffiliateBannerClick}
+          className="w-full flex items-center gap-3 rounded-xl border border-accent-foreground/15 bg-accent px-4 py-3 mb-6 text-left hover:bg-accent/70 transition-colors"
+        >
+          <span className="flex-shrink-0 w-9 h-9 rounded-full bg-primary flex items-center justify-center">
+            <Copy className="h-4 w-4 text-primary-foreground" />
+          </span>
+          <span className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-foreground">Share this product & earn 10%</p>
+            <p className="text-xs text-muted-foreground">Tap to copy your affiliate link</p>
+          </span>
+          <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        </button>
 
         {/* Description / Review Tabs */}
         <div className="mb-6">

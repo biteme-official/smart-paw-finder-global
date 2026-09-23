@@ -17,6 +17,9 @@ import NotFound from "./pages/NotFound";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
 import MyPage from "./pages/MyPage";
+import AffiliateDashboard from "./pages/AffiliateDashboard";
+import AffiliateAllLinks from "./pages/AffiliateAllLinks";
+import AffiliateSharedProducts from "./pages/AffiliateSharedProducts";
 import OrderHistory from "./pages/OrderHistory";
 import StoreCreditHistory from "./pages/StoreCreditHistory";
 import FavoritesPage from "./pages/FavoritesPage";
@@ -120,6 +123,9 @@ const App = () => (
           <Route path="/terms" element={<TermsOfUse />} />
           <Route path="/refund-policy" element={<RefundPolicy />} />
           <Route path="/mypage" element={<MyPage />} />
+          <Route path="/mypage/affiliate" element={<AffiliateDashboard />} />
+          <Route path="/mypage/affiliate/links" element={<AffiliateAllLinks />} />
+          <Route path="/mypage/affiliate/shared" element={<AffiliateSharedProducts />} />
           <Route path="/mypage/order-history" element={<OrderHistory />} />
           <Route path="/mypage/store-credit" element={<StoreCreditHistory />} />
           <Route path="/mypage/favorites" element={<FavoritesPage />} />
