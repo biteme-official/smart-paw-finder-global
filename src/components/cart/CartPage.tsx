@@ -27,8 +27,8 @@ export function CartPage({ onBack }: CartPageProps) {
             <Tag className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <p className="font-semibold text-sm text-foreground">$10 Shipping on Orders $150+</p>
-            <p className="text-xs text-muted-foreground">Spend $150 or more for $10 flat rate shipping!</p>
+            <p className="font-semibold text-sm text-foreground">FREE SHIPPING ON $75+</p>
+            <p className="text-xs text-muted-foreground">Worldwide shipping available</p>
           </div>
         </div>
         <Button
