@@ -570,7 +570,7 @@ export default function B2BAdmin() {
                         <span className="text-xl font-bold">{stats.count}</span>
                         <span className="text-[10px] text-muted-foreground">({pct}%)</span>
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{stats.orders} orders</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{stats.orders} {stats.orders === 1 ? 'order' : 'orders'}</p>
                     </div>
                   );
                 })}
