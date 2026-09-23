@@ -37,7 +37,7 @@ interface ShopifyB2BCustomer {
   email: string;
   phone: string | null;
   tags: string[];
-  numberOfOrders: number;
+  numberOfOrders: number | string; // Admin API UnsignedInt64 arrives as a string
   amountSpent: { amount: string; currencyCode: string } | null;
   defaultAddress: { address1: string; city: string; country: string; company: string } | null;
   businessCountry: string | null;
@@ -327,7 +327,7 @@ function mergeData(applications: ApplicationSummary[], shopifyCustomers: Shopify
       company: s.defaultAddress?.company || '-',
       country: s.businessCountry || s.defaultAddress?.country || '-',
       countrySource: hasAdminCountry ? 'admin' : 'address',
-      orders: s.numberOfOrders || 0,
+      orders: Number(s.numberOfOrders) || 0,
       spent: s.amountSpent ? `${parseFloat(s.amountSpent.amount).toLocaleString()} ${s.amountSpent.currencyCode}` : '-',
       joined: s.createdAt,
       source: 'direct',
@@ -570,7 +570,7 @@ export default function B2BAdmin() {
                         <span className="text-xl font-bold">{stats.count}</span>
                         <span className="text-[10px] text-muted-foreground">({pct}%)</span>
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{stats.orders} orders</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{stats.orders} {stats.orders === 1 ? 'order' : 'orders'}</p>
                     </div>
                   );
                 })}
