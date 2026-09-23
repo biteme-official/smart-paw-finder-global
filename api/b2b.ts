@@ -29,55 +29,63 @@ async function getAdminToken(): Promise<string> {
   return cachedToken!;
 }
 
-async function findCustomerAndTag(email: string, tagsToAdd: string[], tagsToRemove: string[]): Promise<{ success: boolean; customerId?: string; error?: string }> {
+type TagResult = { success: boolean; customerId?: string; notFound?: boolean; error?: string };
+
+// Shopify reports scope/throttle/auth problems as HTTP errors or top-level `errors`, not `userErrors`,
+// so every call is checked on all three — otherwise a failed mutation looks like success.
+async function adminGraphql(apiUrl: string, headers: Record<string, string>, query: string, variables: Record<string, unknown>) {
+  const res = await fetch(apiUrl, { method: 'POST', headers, body: JSON.stringify({ query, variables }) });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data) throw new Error(`Shopify HTTP ${res.status}`);
+  if (data.errors?.length) throw new Error(`Shopify error: ${data.errors.map((e: { message: string }) => e.message).join('; ')}`);
+  return data;
+}
+
+async function findCustomerAndTag(email: string, tagsToAdd: string[], tagsToRemove: string[]): Promise<TagResult> {
   try {
     const token = await getAdminToken();
     const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN;
     const apiUrl = `https://${shop}/admin/api/2025-07/graphql.json`;
     const headers = { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token };
 
-    const custRes = await fetch(apiUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        query: `query($q:String!){customers(first:1,query:$q){edges{node{id tags}}}}`,
-        variables: { q: `email:${email}` },
-      }),
-    });
-    const custData = await custRes.json();
-    console.log('[B2B] Customer lookup for', email, JSON.stringify(custData));
+    const custData = await adminGraphql(apiUrl, headers,
+      `query($q:String!){customers(first:1,query:$q){edges{node{id email tags}}}}`,
+      { q: `email:"${email}"` });
+    console.log('[B2B] Customer lookup for', email, JSON.stringify(custData.data));
 
-    const customerId = custData.data?.customers?.edges?.[0]?.node?.id;
-    if (!customerId) return { success: false, error: `Customer not found for email: ${email}` };
+    const node = custData.data?.customers?.edges?.[0]?.node;
+    if (!node?.id || node.email?.toLowerCase() !== email.toLowerCase()) {
+      return { success: false, notFound: true, error: `Customer not found for email: ${email}` };
+    }
+    const customerId: string = node.id;
+    let tags: string[] = node.tags || [];
 
     if (tagsToRemove.length > 0) {
-      const removeRes = await fetch(apiUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          query: `mutation($id:ID!,$tags:[String!]!){tagsRemove(id:$id,tags:$tags){node{id}userErrors{field message}}}`,
-          variables: { id: customerId, tags: tagsToRemove },
-        }),
-      });
-      const removeData = await removeRes.json();
-      console.log('[B2B] Tags remove result:', JSON.stringify(removeData));
+      const removeData = await adminGraphql(apiUrl, headers,
+        `mutation($id:ID!,$tags:[String!]!){tagsRemove(id:$id,tags:$tags){node{... on Customer{tags}}userErrors{field message}}}`,
+        { id: customerId, tags: tagsToRemove });
+      console.log('[B2B] Tags remove result:', JSON.stringify(removeData.data));
       const removeErrors = removeData.data?.tagsRemove?.userErrors;
       if (removeErrors?.length > 0) return { success: false, customerId, error: `Tag remove failed: ${removeErrors[0].message}` };
+      tags = removeData.data?.tagsRemove?.node?.tags ?? tags;
     }
 
     if (tagsToAdd.length > 0) {
-      const addRes = await fetch(apiUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          query: `mutation($id:ID!,$tags:[String!]!){tagsAdd(id:$id,tags:$tags){node{id}userErrors{field message}}}`,
-          variables: { id: customerId, tags: tagsToAdd },
-        }),
-      });
-      const addData = await addRes.json();
-      console.log('[B2B] Tags add result:', JSON.stringify(addData));
+      const addData = await adminGraphql(apiUrl, headers,
+        `mutation($id:ID!,$tags:[String!]!){tagsAdd(id:$id,tags:$tags){node{... on Customer{tags}}userErrors{field message}}}`,
+        { id: customerId, tags: tagsToAdd });
+      console.log('[B2B] Tags add result:', JSON.stringify(addData.data));
       const addErrors = addData.data?.tagsAdd?.userErrors;
       if (addErrors?.length > 0) return { success: false, customerId, error: `Tag add failed: ${addErrors[0].message}` };
+      tags = addData.data?.tagsAdd?.node?.tags ?? tags;
+    }
+
+    // Confirm the customer actually ended up with the intended tags.
+    const has = (t: string) => tags.some((x) => x.toLowerCase() === t.toLowerCase());
+    const stillThere = tagsToRemove.filter(has);
+    const missing = tagsToAdd.filter((t) => !has(t));
+    if (stillThere.length || missing.length) {
+      return { success: false, customerId, error: `Tags not applied (still: ${stillThere.join(',') || '-'}, missing: ${missing.join(',') || '-'})` };
     }
 
     return { success: true, customerId };
@@ -144,18 +152,23 @@ async function handleApprove(req: VercelRequest, res: VercelResponse) {
   if (!appMeta) return res.status(404).json({ error: 'Application not found' });
 
   const newStatus = action === 'approve' ? 'approved' : 'rejected';
+
+  // Update Shopify tags first and only persist the new status once they stuck; previously a failed
+  // tag call was ignored, leaving approved customers without `B2B` and rejected ones with `B2B-pending`.
+  const tagResult = action === 'approve'
+    ? await findCustomerAndTag(appMeta.email, ['B2B'], ['B2B-pending'])
+    : await findCustomerAndTag(appMeta.email, [], ['B2B-pending']);
+  // A rejected applicant without a Shopify account has no tag to clean up, so that is not a failure.
+  const tagOk = tagResult.success || (action === 'reject' && tagResult.notFound);
+  if (!tagOk) {
+    return res.status(502).json({ error: `Shopify tag update failed — status not changed. ${tagResult.error || ''}`.trim(), tagResult });
+  }
+
   await kv.set(`b2b:app:${id}`, {
     ...appMeta, status: newStatus,
     rejectionReason: action === 'reject' ? reason.trim() : undefined,
     updatedAt: new Date().toISOString(),
   });
-
-  let tagResult;
-  if (action === 'approve') {
-    tagResult = await findCustomerAndTag(appMeta.email, ['B2B'], ['B2B-pending']);
-  } else {
-    tagResult = await findCustomerAndTag(appMeta.email, [], ['B2B-pending']);
-  }
   return res.status(200).json({ success: true, status: newStatus, tagResult });
 }
 
