@@ -131,9 +131,9 @@
     "global_numeric_id": "8119169777718",
     "global_title": "SSFW Cozy Bib Set up (3colors)",
     "global_handle": "ssfw-cozy-bib-set-up-3colors",
-    "kr_product_cd": null,
-    "kr_name": null,
-    "confidence": "no_match"
+    "kr_product_cd": "1000051354",
+    "kr_name": "SSFW 코지 빕 셋업 (3 colors)",
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119169810486",
@@ -267,9 +267,9 @@
     "global_numeric_id": "8119171645494",
     "global_title": "SSFW Summer Knit Top (3colors)",
     "global_handle": "ssfw-summer-knit-top-3colors",
-    "kr_product_cd": null,
-    "kr_name": null,
-    "confidence": "no_match"
+    "kr_product_cd": "1000048915",
+    "kr_name": "SSFW 썸머 니트 탑 (3 colors)",
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119171743798",
@@ -389,7 +389,7 @@
     "global_handle": "biteme-buddy-fork-3colors",
     "kr_product_cd": "1000045823",
     "kr_name": "바잇미 버디 포크 (3 colors)",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119173316662",
@@ -461,7 +461,7 @@
     "global_handle": "biteme-cloudy-bag-3-colors",
     "kr_product_cd": "1000042745",
     "kr_name": "바잇미 클라우디 백 (3 colors)",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119174135862",
@@ -563,9 +563,9 @@
     "global_numeric_id": "8119175479350",
     "global_title": "SSFW My Little Summer Poncho (3 types)",
     "global_handle": "ssfw-my-little-summer-poncho",
-    "kr_product_cd": null,
-    "kr_name": null,
-    "confidence": "no_match"
+    "kr_product_cd": "1000039557",
+    "kr_name": "SSFW 마이 리틀 썸머 판쵸 (3 colors)",
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119175512118",
@@ -683,9 +683,9 @@
     "global_numeric_id": "8119176626230",
     "global_title": "Comfy Ravioli Downtown bag (3 colors)",
     "global_handle": "comfy-ravioli-downtown-bag-3-colors",
-    "kr_product_cd": "1000033489",
-    "kr_name": "컴피라비올리 미니 타운백 (3 colors)",
-    "confidence": "haiku_match"
+    "kr_product_cd": "1000038112",
+    "kr_name": "컴피라비올리 다운타운백 (3 colors)",
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119176921142",
@@ -699,9 +699,9 @@
     "global_numeric_id": "8119177084982",
     "global_title": "Biteme Double Rolly Chew (Expiration Date: 2026-07-20)",
     "global_handle": "double-rolly-chew",
-    "kr_product_cd": null,
+    "kr_product_cd": "1000037305",
     "kr_name": null,
-    "confidence": "no_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119177117750",
@@ -733,7 +733,7 @@
     "global_handle": "biteme-jellybear-round-face-comb",
     "kr_product_cd": "1000035324",
     "kr_name": "바잇미 젤리곰 라운드 페이스콤",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119178625078",
@@ -797,7 +797,7 @@
     "global_handle": "comfy-ravioli-city-bag-3-colors",
     "kr_product_cd": "1000033488",
     "kr_name": "컴피라비올리 시티백 (3 colors)",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119179837494",
@@ -805,7 +805,7 @@
     "global_handle": "comfy-ravioli-mini-town-bag-3-colors",
     "kr_product_cd": "1000033489",
     "kr_name": "컴피라비올리 미니 타운백 (3 colors)",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119180427318",
@@ -1445,7 +1445,7 @@
     "global_handle": "microfiber-towel-dry-me",
     "kr_product_cd": "1000000757",
     "kr_name": "바잇미 마이크로화이버 펫타올 드라이미",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8119202578486",
@@ -1595,9 +1595,9 @@
     "global_numeric_id": "8154504036406",
     "global_title": "Comfy Ravioli Urban Pillow Bag (2 colors)",
     "global_handle": "comfy-ravioli-urban-pillow-bag-charcoal-1",
-    "kr_product_cd": "1000033488",
-    "kr_name": "컴피라비올리 시티백 (3 colors)",
-    "confidence": "haiku_match"
+    "kr_product_cd": "1000044625",
+    "kr_name": "컴피라비올리 어반 필로우백 (2 colors)",
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8154504200246",
@@ -1693,7 +1693,7 @@
     "global_handle": "probiotics-lactobacillus-dr-inner-peace",
     "kr_product_cd": "1000001377",
     "kr_name": "바잇미 닥터이너피스 장튼튼 유산균",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8154527957046",
@@ -1851,9 +1851,9 @@
     "global_numeric_id": "8156238544950",
     "global_title": "Biteme 2026 New Year's Lucky Pouch",
     "global_handle": "bite-me-2026-new-years-lucky-pouch",
-    "kr_product_cd": "1000025386",
-    "kr_name": "[웰컴딜] 바잇미 젤리곰 장난감 (삑삑)",
-    "confidence": "haiku_match"
+    "kr_product_cd": null,
+    "kr_name": null,
+    "confidence": "no_match"
   },
   {
     "global_numeric_id": "8156242673718",
@@ -1923,25 +1923,25 @@
     "global_numeric_id": "8265994534966",
     "global_title": "Latta Filmcover Windbreaker Jacket for people (3types)",
     "global_handle": "latta-filmcover-windbreaker-jacket-for-people-3types",
-    "kr_product_cd": null,
-    "kr_name": null,
-    "confidence": "no_match"
+    "kr_product_cd": "1000055490",
+    "kr_name": "Latta Filmcover Jacket windbreaker -반려인용 (3 colors)",
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8265996992566",
     "global_title": "Latta Filmcover All-in-one windbreaker (3types)",
     "global_handle": "latta-filmcover-all-in-one-windbreaker-3types",
-    "kr_product_cd": null,
-    "kr_name": null,
-    "confidence": "no_match"
+    "kr_product_cd": "1000055488",
+    "kr_name": "Latta Filmcover All-in-one windbreaker (3 colors)",
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8266004627510",
     "global_title": "Latta Filmcover Windbreaker Jacket (3types)",
     "global_handle": "latta-filmcover-windbreaker-jacket-3types",
-    "kr_product_cd": null,
-    "kr_name": null,
-    "confidence": "no_match"
+    "kr_product_cd": "1000055489",
+    "kr_name": "Latta Filmcover Jacket windbreaker (3 colors)",
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8340665008182",
@@ -1949,7 +1949,7 @@
     "global_handle": "biteme-napa-cabbage-toy",
     "kr_product_cd": "1000026262",
     "kr_name": "[웰컴딜] 바잇미 양배추 킁킁볼 장난감 (삑삑/바스락/노즈워크)",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8487275855926",
@@ -1965,23 +1965,23 @@
     "global_handle": "biteme-baby-pup-latex-toy-3types",
     "kr_product_cd": "1000034884",
     "kr_name": "[웰컴딜] 바잇미 내동생 라텍스 장난감",
-    "confidence": "haiku_match"
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8615128825910",
     "global_title": "Biteme Rainbow Cherry Tomato Latex Toy (4pcs)",
     "global_handle": "biteme-rainbow-cherry-tomato-latex-toy-4pcs",
-    "kr_product_cd": null,
-    "kr_name": null,
-    "confidence": "no_match"
+    "kr_product_cd": "1000056758",
+    "kr_name": "바잇미 무지개 방울토마토 라텍스 토이 (4개입)",
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8616092270646",
     "global_title": "Biteme Little Farm Veggie Mix 30g",
     "global_handle": "biteme-little-farm-veggie-mix-30g-1",
-    "kr_product_cd": null,
-    "kr_name": null,
-    "confidence": "no_match"
+    "kr_product_cd": "1000006115",
+    "kr_name": "바잇미 리틀 팜 베지 믹스 30g",
+    "confidence": "confirmed"
   },
   {
     "global_numeric_id": "8627310362678",
@@ -1990,5 +1990,229 @@
     "kr_product_cd": null,
     "kr_name": null,
     "confidence": "no_match"
+  },
+  {
+    "global_numeric_id": "8119173218358",
+    "global_title": "Biteme Mochi Sleeveless (6 types)",
+    "global_handle": "biteme-mochi-sleeveless-6-colors",
+    "kr_product_cd": "1000042184",
+    "kr_name": null,
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8149197324342",
+    "global_title": "Biteme Slipper Tug Toys",
+    "global_handle": "biteme-slipper-tug-toys-1",
+    "kr_product_cd": "1000031807",
+    "kr_name": null,
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8684462571574",
+    "global_title": "Biteme Boong Boong Squirrel Float",
+    "global_handle": "biteme-boong-boong-squirrel-float",
+    "kr_product_cd": "1000056601",
+    "kr_name": "바잇미 붕붕 다람쥐 강아지 물놀이 튜브",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8688347512886",
+    "global_title": "Biteme All Day Cooling Mat (3 types)",
+    "global_handle": "biteme-all-day-cooling-mat-3-types",
+    "kr_product_cd": "1000056937",
+    "kr_name": "바잇미 올데이 쿨링 매트 기능성 냉감 쿨매트 (3 sizes)",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8688374317110",
+    "global_title": "Biteme All Day Cooling Pillow",
+    "global_handle": "biteme-all-day-cooling-pillow",
+    "kr_product_cd": "1000056940",
+    "kr_name": "바잇미 올데이 쿨링 필로우 기능성 냉감 베개",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8843439636534",
+    "global_title": "Biteme Pocket Fruits Nosework Toy (2types)",
+    "global_handle": "biteme-pocket-fruits-nosework-toy-2types",
+    "kr_product_cd": "1000057622",
+    "kr_name": "바잇미 포켓후르츠 노즈워크 장난감 2종",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9115012595766",
+    "global_title": "[Bundle] Biteme Hate Me Band (3 types) - 5pcs",
+    "global_handle": "bundle-biteme-hate-me-band-3-types-5pcs",
+    "kr_product_cd": "1000048009",
+    "kr_name": "바잇미 헤잇미 밴드 - 3 colors",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9115013349430",
+    "global_title": "[Bundle] Biteme Hate Me Band (3 types) - 10pcs",
+    "global_handle": "bundle-biteme-hate-me-band-3-types-10pcs",
+    "kr_product_cd": "1000048009",
+    "kr_name": "바잇미 헤잇미 밴드 - 3 colors",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9334830727222",
+    "global_title": "Biteme Hug Me Koala Rope Ball Toy",
+    "global_handle": "biteme-hug-me-koala-rope-ball-toy",
+    "kr_product_cd": "1000058686",
+    "kr_name": "바잇미 허그미 코알라 로프볼 장난감 (터그/삑삑)",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9340974366774",
+    "global_title": "SSFW Tiny Garden Knit Bib (3colors)",
+    "global_handle": "ssfw-tiny-garden-knit-bib-3colors",
+    "kr_product_cd": "1000058738",
+    "kr_name": "SSFW 타이니 가든 니트 빕 (3 colors)",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8119173251126",
+    "global_title": "Biteme Mochi T-shirts (6colors)",
+    "global_handle": "biteme-mochi-t-shirts-6colors",
+    "kr_product_cd": "1000042183",
+    "kr_name": "바잇미 찹쌀떡 티셔츠 (5 colors)",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8119173283894",
+    "global_title": "Biteme Mochi All-in-one (6colors)",
+    "global_handle": "biteme-mochi-all-in-one-6colors",
+    "kr_product_cd": "1000045038",
+    "kr_name": "바잇미 찹쌀떡 올인원 (5 colors)",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8119185113142",
+    "global_title": "Biteme Bosom Diapers - Male (S ~ XL)",
+    "global_handle": "biteme-bosom-diapers-male-s-xl",
+    "kr_product_cd": "1000030663",
+    "kr_name": "바잇미 보솜 저자극 반려동물 기저귀 10매입 - 남아용 (4 size)",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8119185047606",
+    "global_title": "Biteme Bosom Diapers - Female (XS ~ L)",
+    "global_handle": "biteme-bosom-diapers-female-xs-l",
+    "kr_product_cd": "1000030662",
+    "kr_name": "바잇미 보솜 저자극 반려동물 기저귀 10매입 - 여아용 (4 size)",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8119187570742",
+    "global_title": "[Bite Me X Samjin Amook] Fish Cake Croquette Toy",
+    "global_handle": "bite-me-x-samjin-amook-fish-cake-croquette-toy",
+    "kr_product_cd": "1000009617",
+    "kr_name": "바잇미X삼진어묵 어묵고로케 장난감 (노즈워크/삑삑/바스락)",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8752641572918",
+    "global_title": "SSFW New Coolette Bag (3types)",
+    "global_handle": "ssfw-new-coolette-bag-3types",
+    "kr_product_cd": "1000057214",
+    "kr_name": "SSFW new 쿨레뜨백 (3 colors)",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8752676700214",
+    "global_title": "Biteme Ocean Tails Latex Toy (3types)",
+    "global_handle": "biteme-tails-latex-toy-사본",
+    "kr_product_cd": "1000057216",
+    "kr_name": "바잇미 파닥파닥 테일즈 라텍스 장난감",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8955887976502",
+    "global_title": "Biteme Roll-up Nosework Toy (2types)",
+    "global_handle": "biteme-roll-up-nosework-toy-2types",
+    "kr_product_cd": "1000057342",
+    "kr_name": "바잇미 돌돌말이 노즈워크 장난감 2종",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9002699587638",
+    "global_title": "Biteme Honey Treat Mini (2types)",
+    "global_handle": "biteme-honey-treat-mini-2types",
+    "kr_product_cd": "1000057745",
+    "kr_name": "바잇미 꿀맛트릿 미니 노즈워크 트릿 80g",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9020467970102",
+    "global_title": "Biteme Sweet Halloween Ball Toy set",
+    "global_handle": "biteme-sweet-halloween-ball-toy-set",
+    "kr_product_cd": "1000058018",
+    "kr_name": "바잇미 달콤 할로윈 공 장난감 세트",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9020468985910",
+    "global_title": "Biteme Halloween Pumpkin Puppy Stretchy Toy",
+    "global_handle": "biteme-halloween-pumpkin-puppy-stretchy-toy",
+    "kr_product_cd": "1000058017",
+    "kr_name": "바잇미 할로윈 펌킨퍼피 쭉쭉이 장난감",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9026023260214",
+    "global_title": "Biteme Yogurt Trio Latex Toy",
+    "global_handle": "biteme-yogurt-trio-latex-toy",
+    "kr_product_cd": "1000058220",
+    "kr_name": "바잇미 요구르트 삼총사 라텍스 장난감 세트",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9194873782326",
+    "global_title": "Biteme Square Pocket Nosework Toy (2 types)",
+    "global_handle": "biteme-square-pocket-nowework-toy-2types",
+    "kr_product_cd": "1000058297",
+    "kr_name": "바잇미 네모포켓 노즈워크 장난감 2종",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9194886430774",
+    "global_title": "Biteme Panda Jelly Bear Toy",
+    "global_handle": "biteme-panda-jelly-bear-toy",
+    "kr_product_cd": "1000058328",
+    "kr_name": "바잇미 판다 젤리곰 장난감",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9294012121142",
+    "global_title": "Biteme Fruit Friends Ball Toy (3pcs)",
+    "global_handle": "biteme-fruit-friends-ball-toy-3pcs",
+    "kr_product_cd": "1000058685",
+    "kr_name": "바잇미 과일 친구들 공 장난감 (3개세트)",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9340997959734",
+    "global_title": "SSFW Mellow Stripe T-Shirt (3colors)",
+    "global_handle": "ssfw-mellow-stripe-t-shirt-3colors",
+    "kr_product_cd": "1000058739",
+    "kr_name": "SSFW 멜로우 스트라이프 티셔츠 (3 colors)",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "9341005561910",
+    "global_title": "SSFW Bebe Powder Poncho (2colors)",
+    "global_handle": "ssfw-bebe-powder-poncho-2colors",
+    "kr_product_cd": "1000058740",
+    "kr_name": "SSFW 베베 파우더 판초 (2 colors)",
+    "confidence": "confirmed"
+  },
+  {
+    "global_numeric_id": "8695912562742",
+    "global_title": "Biteme All Day Cooling Mat + Pillow set (3 types)",
+    "global_handle": "biteme-all-day-cooling-mat-pillow-set-3-types",
+    "kr_product_cd": "combo-56937-56940",
+    "kr_name": "바잇미 올데이 쿨링 매트+필로우 (Mat 1000056937 + Pillow 1000056940 합산)",
+    "confidence": "confirmed"
   }
 ]

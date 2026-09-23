@@ -1,0 +1,29 @@
+{
+  "product_cd": "1000058017",
+  "scraped_at": "2026-09-22T06:17:44.318Z",
+  "total": 2,
+  "reviews": [
+    {
+      "id": "629896",
+      "rating": 5,
+      "name": "다****",
+      "content": "배송 빠르고 강아지가 잘 가지고 놀아요~ 퀄리티 좋아요",
+      "date": "2026-09-17T08:18:54+09:00",
+      "images": [
+        "https://assets6.cre.ma/p/biteme-co-kr/reviews/00/00/62/98/96/image1/ca957636f0c19b61.webp"
+      ],
+      "videos": [],
+      "content_en": "Shipping was fast and my dog loves playing with it~ The quality is great"
+    },
+    {
+      "id": "629429",
+      "rating": 5,
+      "name": "박****",
+      "content": "우리 강쥐가 놀아달라고 물고 오네요 마음에 드나봐요 예쁘기도 하고 잘 만들었네요",
+      "date": "2026-09-13T08:26:14+09:00",
+      "images": [],
+      "videos": [],
+      "content_en": "My pup keeps bringing it to me asking to play - looks like he really loves it! It's cute and well-made"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "product_cd": "1000058018",
+  "scraped_at": "2026-09-22T06:17:43.744Z",
+  "total": 1,
+  "reviews": [
+    {
+      "id": "624522",
+      "rating": 5,
+      "name": "주****",
+      "content": "저희 애가 너무나 사랑하는 할로윈 시리즈 장난감이에요! 작년 할로윈 공도 너무나 사랑해서 여태 가지고 놀고있는데 새로나온 장난감이라뇨! 다 가지고 놀고싶고 안뺏기려고 열심히 장난감 사수하는 모습이 너뮤 귀여워요ㅋㅋ공 사랑하는 강쥐들에게 장난감 강추합니닷!!",
+      "date": "2026-08-05T20:46:57+09:00",
+      "images": [
+        "https://assets6.cre.ma/p/biteme-co-kr/reviews/00/00/62/45/22/image1/db9918a9695ab746.webp",
+        "https://assets6.cre.ma/p/biteme-co-kr/reviews/00/00/62/45/22/image2/752132c90d3fb2a2.webp",
+        "https://assets6.cre.ma/p/biteme-co-kr/reviews/00/00/62/45/22/image3/53ee98269e170821.webp"
+      ],
+      "videos": [
+        "https://d2q2zwuq6juvrx.cloudfront.net/biteme.co.kr/00/00/01/61/76/b5f3bf283a0c35b7d3d92bf183f30f8c_hd_encoded.mp4"
+      ],
+      "content_en": "Our pup absolutely loves the Halloween series toys! She loved last year's Halloween ball so much that she's still playing with it, and now there's a new toy out?! She wants to play with all of them and is so adorably protective, trying hard not to let anyone take her toys away ㅋㅋ I highly recommend these toys for dogs who love balls!!"
+    }
+  ]
+}

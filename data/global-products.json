@@ -108,12 +108,6 @@
     "handle": "biteme-catch-me-tug-fishing-rod-toy-3-types"
   },
   {
-    "id": "gid://shopify/Product/8119169908790",
-    "numericId": "8119169908790",
-    "title": "Biteme Aqua Bear Life Vest (2types)",
-    "handle": "biteme-aqua-bear-life-vest-2colors"
-  },
-  {
     "id": "gid://shopify/Product/8119170269238",
     "numericId": "8119170269238",
     "title": "Biteme X FINCA Dry Me Microfibre Pet Towel Mini (2colors)",
@@ -186,12 +180,6 @@
     "handle": "ssfw-new-maron-bag-black"
   },
   {
-    "id": "gid://shopify/Product/8119171448886",
-    "numericId": "8119171448886",
-    "title": "Biteme Ice Bear Duraron Cool Mat (3 sizes)",
-    "handle": "biteme-ice-bear-duraron-cool-mat-3-sizes"
-  },
-  {
     "id": "gid://shopify/Product/8119171579958",
     "numericId": "8119171579958",
     "title": "SSFW Coolette Bag (3types)",
@@ -202,12 +190,6 @@
     "numericId": "8119171645494",
     "title": "SSFW Summer Knit Top (3colors)",
     "handle": "ssfw-summer-knit-top-3colors"
-  },
-  {
-    "id": "gid://shopify/Product/8119171743798",
-    "numericId": "8119171743798",
-    "title": "Biteme Fluffy Friends Multi-Pack Ball Toy (3pcs)",
-    "handle": "fluffy-friends-multi-pack-ball-toy-3pcs"
   },
   {
     "id": "gid://shopify/Product/8119171809334",
@@ -238,12 +220,6 @@
     "numericId": "8119172137014",
     "title": "Biteme Hate Me Band (3 types)",
     "handle": "biteme-hate-me-band-4-colors"
-  },
-  {
-    "id": "gid://shopify/Product/8119172202550",
-    "numericId": "8119172202550",
-    "title": "Biteme Hug Me Tug Toy - Sea Otter",
-    "handle": "biteme-hug-me-tug-toy-sea-otter"
   },
   {
     "id": "gid://shopify/Product/8119172268086",
@@ -294,10 +270,28 @@
     "handle": "biteme-buddy-fork-3colors"
   },
   {
+    "id": "gid://shopify/Product/8119173218358",
+    "numericId": "8119173218358",
+    "title": "Biteme Mochi Sleeveless (6 types)",
+    "handle": "biteme-mochi-sleeveless-6-colors"
+  },
+  {
+    "id": "gid://shopify/Product/8119173251126",
+    "numericId": "8119173251126",
+    "title": "Biteme Mochi T-shirts (6colors)",
+    "handle": "biteme-mochi-t-shirts-6colors"
+  },
+  {
+    "id": "gid://shopify/Product/8119173283894",
+    "numericId": "8119173283894",
+    "title": "Biteme Mochi All-in-one (6colors)",
+    "handle": "biteme-mochi-all-in-one-6colors"
+  },
+  {
     "id": "gid://shopify/Product/8119173316662",
     "numericId": "8119173316662",
     "title": "Biteme Smallbite Energy Treat (2types)",
-    "handle": "biteme-smallbite-energy-treat-beef-expiration-date-2026-05-04"
+    "handle": "biteme-smallbite-energy-treat-2types"
   },
   {
     "id": "gid://shopify/Product/8119173677110",
@@ -372,12 +366,6 @@
     "handle": "biteme-pocket-pop-foldable-mesh-bag"
   },
   {
-    "id": "gid://shopify/Product/8119174529078",
-    "numericId": "8119174529078",
-    "title": "Biteme Crinkle Blanket toy (2types)",
-    "handle": "biteme-crinkle-blanket-toy-rabbit"
-  },
-  {
     "id": "gid://shopify/Product/8119174561846",
     "numericId": "8119174561846",
     "title": "Biteme Bell Boy Bear Nosework mat",
@@ -430,12 +418,6 @@
     "numericId": "8119175512118",
     "title": "SSFW My Bestie Bunny Toy",
     "handle": "ssfw-my-bestie-bunny-toy"
-  },
-  {
-    "id": "gid://shopify/Product/8119175675958",
-    "numericId": "8119175675958",
-    "title": "BonBon Green Furry Friends Mini Squeaky toy (3type)",
-    "handle": "bonbon-green-furry-friends-mini-squeaky-toy"
   },
   {
     "id": "gid://shopify/Product/8119175708726",
@@ -524,7 +506,7 @@
   {
     "id": "gid://shopify/Product/8119177084982",
     "numericId": "8119177084982",
-    "title": "Biteme Double Rolly Chew (Expiration Date: 2026-07-20)",
+    "title": "Biteme Double Rolly Chew",
     "handle": "double-rolly-chew"
   },
   {
@@ -574,12 +556,6 @@
     "numericId": "8119179444278",
     "title": "Biteme Sandy Beach Bentonite Sand 6kg",
     "handle": "biteme-sandy-beach-bentonite-sand-6kg"
-  },
-  {
-    "id": "gid://shopify/Product/8119179640886",
-    "numericId": "8119179640886",
-    "title": "Biteme Big Tug Toy - Lobster",
-    "handle": "biteme-big-tug-toy-lobster"
   },
   {
     "id": "gid://shopify/Product/8119179673654",
@@ -650,7 +626,7 @@
   {
     "id": "gid://shopify/Product/8119184818230",
     "numericId": "8119184818230",
-    "title": "Biteme Dynabite Beef 8pcs",
+    "title": "Biteme Dynabite Beef 8pcs (expiration date: 2026-11-25)",
     "handle": "dynabite-beefjoint-8ea"
   },
   {
@@ -660,16 +636,22 @@
     "handle": "dynabite-chickenrelax-8ea"
   },
   {
+    "id": "gid://shopify/Product/8119185047606",
+    "numericId": "8119185047606",
+    "title": "Biteme Bosom Diapers - Female (XS ~ L)",
+    "handle": "biteme-bosom-diapers-female-xs-l"
+  },
+  {
+    "id": "gid://shopify/Product/8119185113142",
+    "numericId": "8119185113142",
+    "title": "Biteme Bosom Diapers - Male (S ~ XL)",
+    "handle": "biteme-bosom-diapers-male-s-xl"
+  },
+  {
     "id": "gid://shopify/Product/8119186128950",
     "numericId": "8119186128950",
     "title": "Biteme Agricultural Nosework Toy  (4 types)",
     "handle": "agricultural-toy-nosework-garlic"
-  },
-  {
-    "id": "gid://shopify/Product/8119186456630",
-    "numericId": "8119186456630",
-    "title": "Biteme Hug Me Tug toy - Duck/Frog (2 types)",
-    "handle": "biteme-hug-me-tug-toy-duckfrog"
   },
   {
     "id": "gid://shopify/Product/8119186587702",
@@ -678,10 +660,10 @@
     "handle": "biteme-mini-comfy-bag-6colors"
   },
   {
-    "id": "gid://shopify/Product/8119186686006",
-    "numericId": "8119186686006",
-    "title": "Biteme Secondmorning Lemonade Toy",
-    "handle": "secondmorning-lemonade-toy"
+    "id": "gid://shopify/Product/8119187570742",
+    "numericId": "8119187570742",
+    "title": "[Bite Me X Samjin Amook] Fish Cake Croquette Toy",
+    "handle": "bite-me-x-samjin-amook-fish-cake-croquette-toy"
   },
   {
     "id": "gid://shopify/Product/8119187800118",
@@ -750,12 +732,6 @@
     "handle": "bite-me-x-samjin-amook-fish-cake-soup-toy"
   },
   {
-    "id": "gid://shopify/Product/8119191601206",
-    "numericId": "8119191601206",
-    "title": "Biteme Party Series - Happy Bday Card Dog Toy",
-    "handle": "biteme-party-series-happy-bday-card-dog-toy"
-  },
-  {
     "id": "gid://shopify/Product/8119192059958",
     "numericId": "8119192059958",
     "title": "Biteme Scratch Box Refill (3P)",
@@ -772,12 +748,6 @@
     "numericId": "8119192420406",
     "title": "Biteme Miracle Clumping Casaba Sand 3.2kg",
     "handle": "biteme-miracle-clumping-casaba-cat-sand-32-kg"
-  },
-  {
-    "id": "gid://shopify/Product/8119192485942",
-    "numericId": "8119192485942",
-    "title": "Biteme Daily Care Hair ball for cat (7pcs) Expiration date: 2026-04-11",
-    "handle": "daily-care-hair-ball-for-cat-7pcs-expiration-date-2026-04-11"
   },
   {
     "id": "gid://shopify/Product/8119192584246",
@@ -810,22 +780,10 @@
     "handle": "biteme-cat-fishing-toy-refill-set-feather"
   },
   {
-    "id": "gid://shopify/Product/8119192879158",
-    "numericId": "8119192879158",
-    "title": "Biteme Slim Detox Stick (8pcs)",
-    "handle": "bite-me-slim-detox-stick-8-pieces"
-  },
-  {
     "id": "gid://shopify/Product/8119193206838",
     "numericId": "8119193206838",
     "title": "Biteme New Foldable Travel Bowl - pastel (4types)",
     "handle": "new-foldable-travel-bowl-pastel-4-colors"
-  },
-  {
-    "id": "gid://shopify/Product/8119193370678",
-    "numericId": "8119193370678",
-    "title": "Comfort Harness NEW (5 colors)",
-    "handle": "comfort-harness-new-5-colors"
   },
   {
     "id": "gid://shopify/Product/8119193534518",
@@ -906,12 +864,6 @@
     "handle": "golf-nosework-toy"
   },
   {
-    "id": "gid://shopify/Product/8119197106230",
-    "numericId": "8119197106230",
-    "title": "Biteme Microfibre Pet Towel - Dry Me Mini (2 pieces)",
-    "handle": "biteme-microfibre-pet-towel-dry-me-mini-2-pieces"
-  },
-  {
     "id": "gid://shopify/Product/8119199006774",
     "numericId": "8119199006774",
     "title": "NEW XO Waterproof Hands-Free Leash (4 types)",
@@ -928,12 +880,6 @@
     "numericId": "8119199367222",
     "title": "Biteme Tennis Ball Toy (3pcs)",
     "handle": "mini-tennis-ball-toy-3-pieces"
-  },
-  {
-    "id": "gid://shopify/Product/8119199891510",
-    "numericId": "8119199891510",
-    "title": "Biteme Woof Woof Scout Nosework playbook",
-    "handle": "woof-woof-scout-nose-work-playbook"
   },
   {
     "id": "gid://shopify/Product/8119199989814",
@@ -964,12 +910,6 @@
     "numericId": "8119201038390",
     "title": "[Bite Me X Choigosim] Lucky Squirrel Key Ring Toy",
     "handle": "bite-me-x-choigosim-lucky-squirrel-key-ring-toy-nosework"
-  },
-  {
-    "id": "gid://shopify/Product/8119201103926",
-    "numericId": "8119201103926",
-    "title": "Biteme Soft Eye Cleaner 100ml",
-    "handle": "soft-eye-cleaner-100ml"
   },
   {
     "id": "gid://shopify/Product/8119201136694",
@@ -1074,12 +1014,6 @@
     "handle": "mayonnaise-ketchup-toy"
   },
   {
-    "id": "gid://shopify/Product/8119202512950",
-    "numericId": "8119202512950",
-    "title": "Biteme Rubber Glove Toy (2 types)",
-    "handle": "biteme-rubber-glove-toy"
-  },
-  {
     "id": "gid://shopify/Product/8119202545718",
     "numericId": "8119202545718",
     "title": "Biteme Microfibre Pet Towel - Dry Me",
@@ -1140,10 +1074,10 @@
     "handle": "biteme-wand-toy-for-cat-fluffy-tail-2p-1"
   },
   {
-    "id": "gid://shopify/Product/8149197684790",
-    "numericId": "8149197684790",
-    "title": "Biteme My Sleepy Friends Toy (2types)",
-    "handle": "bite-me-my-sleepy-friends-toy-2types-1"
+    "id": "gid://shopify/Product/8149197324342",
+    "numericId": "8149197324342",
+    "title": "Biteme Slipper Tug Toys",
+    "handle": "biteme-slipper-tug-toys-1"
   },
   {
     "id": "gid://shopify/Product/8149198503990",
@@ -1180,12 +1114,6 @@
     "numericId": "8154503512118",
     "title": "Biteme Socks Elephant toy",
     "handle": "biteme-socks-elephant-toy-1"
-  },
-  {
-    "id": "gid://shopify/Product/8154503643190",
-    "numericId": "8154503643190",
-    "title": "Biteme Socks Rope Toy - Rabbit / Bear (2types)",
-    "handle": "biteme-socks-rope-toy-rabbit-bear-1"
   },
   {
     "id": "gid://shopify/Product/8154503708726",
@@ -1340,7 +1268,7 @@
   {
     "id": "gid://shopify/Product/8154548764726",
     "numericId": "8154548764726",
-    "title": "Biteme Catchthemouse Automatic Toy For Cat",
+    "title": "Biteme Catch the mouse Automatic Toy For Cat",
     "handle": "biteme-catchthemouse-automatic-toy-for-cat-1"
   },
   {
@@ -1392,12 +1320,6 @@
     "handle": "bite-me-2026-new-years-lucky-pouch"
   },
   {
-    "id": "gid://shopify/Product/8156242673718",
-    "numericId": "8156242673718",
-    "title": "Biteme Sakura Jelly Bear Toy",
-    "handle": "biteme-sakura-jelly-bear-toy"
-  },
-  {
     "id": "gid://shopify/Product/8177835376694",
     "numericId": "8177835376694",
     "title": "Biteme Comfort Harness v2 (3 types)",
@@ -1408,12 +1330,6 @@
     "numericId": "8177864638518",
     "title": "Biteme Comfort Leash v2 (3 types)",
     "handle": "biteme-comfort-leash-v2-3-types"
-  },
-  {
-    "id": "gid://shopify/Product/8177877319734",
-    "numericId": "8177877319734",
-    "title": "Biteme Dr.innerpeace Dentaring Rope Brush (2 types)",
-    "handle": "biteme-dr-innerpeace-dentaring-rope-brush-2-types"
   },
   {
     "id": "gid://shopify/Product/8181942190134",
@@ -1466,8 +1382,8 @@
   {
     "id": "gid://shopify/Product/8487275855926",
     "numericId": "8487275855926",
-    "title": "Biteme Buddy Bone Nylon Toy",
-    "handle": "biteme-buddy-bone-nylon-toy"
+    "title": "Biteme Buddy Bone Toy",
+    "handle": "biteme-buddy-bone-toy"
   },
   {
     "id": "gid://shopify/Product/8598063054902",
@@ -1492,5 +1408,161 @@
     "numericId": "8627310362678",
     "title": "Biteme Takoyaki Dream Ball Toy (2pcs)",
     "handle": "biteme-takoyaki-dream-ball-toy-2pcs"
+  },
+  {
+    "id": "gid://shopify/Product/8684462571574",
+    "numericId": "8684462571574",
+    "title": "Biteme Boong Boong Squirrel Float",
+    "handle": "biteme-boong-boong-squirrel-float"
+  },
+  {
+    "id": "gid://shopify/Product/8688347512886",
+    "numericId": "8688347512886",
+    "title": "Biteme All Day Cooling Mat (3 types)",
+    "handle": "biteme-all-day-cooling-mat-3-types"
+  },
+  {
+    "id": "gid://shopify/Product/8688374317110",
+    "numericId": "8688374317110",
+    "title": "Biteme All Day Cooling Pillow",
+    "handle": "biteme-all-day-cooling-pillow"
+  },
+  {
+    "id": "gid://shopify/Product/8695912562742",
+    "numericId": "8695912562742",
+    "title": "Biteme All Day Cooling Mat + Pillow set (3 types)",
+    "handle": "biteme-all-day-cooling-mat-pillow-set-3-types"
+  },
+  {
+    "id": "gid://shopify/Product/8752641572918",
+    "numericId": "8752641572918",
+    "title": "SSFW New Coolette Bag (3types)",
+    "handle": "ssfw-new-coolette-bag-3types"
+  },
+  {
+    "id": "gid://shopify/Product/8752676700214",
+    "numericId": "8752676700214",
+    "title": "Biteme Ocean Tails Latex Toy (3types)",
+    "handle": "biteme-tails-latex-toy-사본"
+  },
+  {
+    "id": "gid://shopify/Product/8843439636534",
+    "numericId": "8843439636534",
+    "title": "Biteme Pocket Fruits Nosework Toy (2types)",
+    "handle": "biteme-pocket-fruits-nosework-toy-2types"
+  },
+  {
+    "id": "gid://shopify/Product/8955887976502",
+    "numericId": "8955887976502",
+    "title": "Biteme Roll-up Nosework Toy (2types)",
+    "handle": "biteme-roll-up-nosework-toy-2types"
+  },
+  {
+    "id": "gid://shopify/Product/9002699587638",
+    "numericId": "9002699587638",
+    "title": "Biteme Honey Treat Mini (2types)",
+    "handle": "biteme-honey-treat-mini-2types"
+  },
+  {
+    "id": "gid://shopify/Product/9020467970102",
+    "numericId": "9020467970102",
+    "title": "Biteme Sweet Halloween Ball Toy set",
+    "handle": "biteme-sweet-halloween-ball-toy-set"
+  },
+  {
+    "id": "gid://shopify/Product/9020468985910",
+    "numericId": "9020468985910",
+    "title": "Biteme Halloween Pumpkin Puppy Stretchy Toy",
+    "handle": "biteme-halloween-pumpkin-puppy-stretchy-toy"
+  },
+  {
+    "id": "gid://shopify/Product/9026023260214",
+    "numericId": "9026023260214",
+    "title": "Biteme Yogurt Trio Latex Toy",
+    "handle": "biteme-yogurt-trio-latex-toy"
+  },
+  {
+    "id": "gid://shopify/Product/9115012595766",
+    "numericId": "9115012595766",
+    "title": "[Bundle] Biteme Hate Me Band (3 types) - 5pcs",
+    "handle": "bundle-biteme-hate-me-band-3-types-5pcs"
+  },
+  {
+    "id": "gid://shopify/Product/9115013349430",
+    "numericId": "9115013349430",
+    "title": "[Bundle] Biteme Hate Me Band (3 types) - 10pcs",
+    "handle": "bundle-biteme-hate-me-band-3-types-10pcs"
+  },
+  {
+    "id": "gid://shopify/Product/9194873782326",
+    "numericId": "9194873782326",
+    "title": "Biteme Square Pocket Nosework Toy (2 types)",
+    "handle": "biteme-square-pocket-nowework-toy-2types"
+  },
+  {
+    "id": "gid://shopify/Product/9194886430774",
+    "numericId": "9194886430774",
+    "title": "Biteme Panda Jelly Bear Toy",
+    "handle": "biteme-panda-jelly-bear-toy"
+  },
+  {
+    "id": "gid://shopify/Product/9237911273526",
+    "numericId": "9237911273526",
+    "title": "LIV ALIVE Livepet Probiotics 3.0",
+    "handle": "livepet-probiotics-3-0"
+  },
+  {
+    "id": "gid://shopify/Product/9238156542006",
+    "numericId": "9238156542006",
+    "title": "LIV ALIVE Livepet Joint 2.0",
+    "handle": "livepet-joint-2-0"
+  },
+  {
+    "id": "gid://shopify/Product/9264784375862",
+    "numericId": "9264784375862",
+    "title": "LIV ALIVE Livepet Eyes 2.0",
+    "handle": "livepet-eyes-2-0"
+  },
+  {
+    "id": "gid://shopify/Product/9264797876278",
+    "numericId": "9264797876278",
+    "title": "LIV ALIVE Livepet Skin & Coat 2.0",
+    "handle": "livepet-skin-coat-2-0"
+  },
+  {
+    "id": "gid://shopify/Product/9264801218614",
+    "numericId": "9264801218614",
+    "title": "LIV ALIVE Livepet Breath 60g",
+    "handle": "livepet-breath-60g"
+  },
+  {
+    "id": "gid://shopify/Product/9294012121142",
+    "numericId": "9294012121142",
+    "title": "Biteme Fruit Friends Ball Toy (3pcs)",
+    "handle": "biteme-fruit-friends-ball-toy-3pcs"
+  },
+  {
+    "id": "gid://shopify/Product/9334830727222",
+    "numericId": "9334830727222",
+    "title": "Biteme Hug Me Koala Rope Ball Toy",
+    "handle": "biteme-hug-me-koala-rope-ball-toy"
+  },
+  {
+    "id": "gid://shopify/Product/9340974366774",
+    "numericId": "9340974366774",
+    "title": "SSFW Tiny Garden Knit Bib (3colors)",
+    "handle": "ssfw-tiny-garden-knit-bib-3colors"
+  },
+  {
+    "id": "gid://shopify/Product/9340997959734",
+    "numericId": "9340997959734",
+    "title": "SSFW Mellow Stripe T-Shirt (3colors)",
+    "handle": "ssfw-mellow-stripe-t-shirt-3colors"
+  },
+  {
+    "id": "gid://shopify/Product/9341005561910",
+    "numericId": "9341005561910",
+    "title": "SSFW Bebe Powder Poncho (2colors)",
+    "handle": "ssfw-bebe-powder-poncho-2colors"
   }
 ]
