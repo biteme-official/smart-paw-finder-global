@@ -143,28 +143,40 @@ function AuthScreen() {
   };
 
   return (
-    <main className="max-w-md mx-auto px-4 py-16 flex flex-col items-center text-center">
-      <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mb-6">
-        <User className="h-10 w-10 text-muted-foreground" />
-      </div>
-      <h1 className="text-xl font-bold mb-2">My Page</h1>
-      <p className="text-sm text-muted-foreground mb-8">
-        Sign in to view your orders<br />and manage your account.
-      </p>
-      <div className="w-full space-y-3">
-        <Button onClick={handleLogin} disabled={loading} className="w-full h-12 text-base font-semibold">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-          Continue with Shopify
-        </Button>
-      </div>
-      <div className="w-full mt-4 pt-4 border-t border-border space-y-3">
-        <Button onClick={() => navigate('/')} variant="ghost" className="w-full h-12 text-base text-muted-foreground">
-          Continue as Guest
-        </Button>
-        <Button onClick={() => navigate('/guest-order')} variant="outline" className="w-full h-12 text-base">
-          <Search className="h-4 w-4 mr-2" />
-          Guest Order Lookup
-        </Button>
+    <main className="max-w-md mx-auto px-4 py-6 md:py-16 pb-24">
+      <div className="bg-card rounded-xl border border-border px-5 py-8 md:px-8 flex flex-col items-center text-center">
+        <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-4">
+          <User className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h1 className="text-xl font-bold mb-1">My Page</h1>
+        <p className="text-sm text-muted-foreground mb-6">
+          Sign in to view your orders<br />and manage your account.
+        </p>
+        <div className="w-full space-y-3">
+          <Button onClick={handleLogin} disabled={loading} className="w-full h-12 text-base font-semibold">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            Sign in or create account
+          </Button>
+          {/* Same landing as GNB > WHOLESALE for signed-out visitors. */}
+          <Button onClick={() => navigate('/mypage/b2b-apply')} variant="outline" className="w-full h-12 text-base">
+            <Building2 className="h-4 w-4 mr-2" />
+            B2B Application
+          </Button>
+        </div>
+        <div className="w-full flex items-center gap-3 my-5" role="separator">
+          <span className="flex-1 h-px bg-border" />
+          <span className="text-xs text-muted-foreground">or</span>
+          <span className="flex-1 h-px bg-border" />
+        </div>
+        <div className="w-full space-y-3">
+          <Button onClick={() => navigate('/')} variant="outline" className="w-full h-12 text-base">
+            Continue as Guest
+          </Button>
+          <Button onClick={() => navigate('/guest-order')} variant="outline" className="w-full h-12 text-base">
+            <Search className="h-4 w-4 mr-2" />
+            Guest Order Lookup
+          </Button>
+        </div>
       </div>
     </main>
   );
@@ -242,12 +254,6 @@ export default function MyPage() {
       <div className="min-h-screen bg-background">
         <Header />
         <AuthScreen />
-        <div className="max-w-md mx-auto px-4 mt-4 pb-24">
-          <div className="bg-card rounded-xl border border-border px-4">
-            <MenuLink icon={Building2} label="B2B Application"
-              onClick={() => toast.info('Please sign in to use this feature.', { position: 'top-center' })} />
-          </div>
-        </div>
       </div>
     );
   }
