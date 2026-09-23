@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Header } from '@/components/layout/Header';
+import { MyPageSubLayout } from '@/components/layout/MyPageSubLayout';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  ChevronLeft, Package, Truck, ExternalLink, CreditCard, XCircle, Loader2, ShoppingBag,
+  Package, Truck, ExternalLink, CreditCard, XCircle, Loader2, ShoppingBag,
 } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -166,18 +166,7 @@ export default function OrderHistory() {
   }, [navigate, refreshKey]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <header className="sticky top-[57px] z-40 bg-background border-b border-border">
-        <div className="max-w-md mx-auto flex items-center px-4 h-12">
-          <button onClick={() => navigate('/mypage')} className="p-2 -ml-2">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <h1 className="flex-1 text-center font-semibold text-sm">Order History</h1>
-          <div className="w-9" />
-        </div>
-      </header>
-      <main className="max-w-md mx-auto px-4 py-6 space-y-3 pb-24">
+    <MyPageSubLayout title="Order History" onBack={() => navigate('/mypage')} className="space-y-3">
         {loading ? (
           <div className="space-y-3">
             <Skeleton className="h-24 w-full rounded-xl" />
@@ -194,7 +183,6 @@ export default function OrderHistory() {
             <OrderCard key={order.id} order={order} onCancelled={() => setRefreshKey((k) => k + 1)} />
           ))
         )}
-      </main>
-    </div>
+    </MyPageSubLayout>
   );
 }

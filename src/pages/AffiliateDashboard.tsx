@@ -1,31 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
-import type { DateRange } from 'react-day-picker';
-import {
-  ChevronLeft, ChevronDown, Calendar as CalendarIcon, Copy, Archive, PlusCircle,
-} from 'lucide-react';
-import { Header } from '@/components/layout/Header';
+import { Copy, Archive, PlusCircle, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'sonner';
-import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
-import { fetchCustomerAccount } from '@/lib/customer-account';
 import { fetchBestSellingProducts, type ShopifyProduct } from '@/lib/shopify';
-import { isDevPreviewActive, DEV_PREVIEW_CUSTOMER } from '@/lib/dev-preview';
-import { getMockAffiliateDashboard, type AffiliateDashboardData } from '@/components/affiliate/affiliateDashboardData';
-
-function Thumbnail({ image, alt, loading, className }: { image?: string; alt: string; loading: boolean; className?: string }) {
-  if (loading) return <Skeleton className={className} />;
-  if (image) return <img src={image} alt={alt} className={`${className} object-cover`} />;
-  return (
-    <div className={`${className} flex items-center justify-center bg-secondary text-muted-foreground text-[10px]`}>
-      No Image
-    </div>
-  );
-}
+import {
+  getMockAffiliateDashboard, withCatalogProducts, type AffiliateDashboardData,
+} from '@/components/affiliate/affiliateDashboardData';
+import {
+  Thumbnail, useAffiliateCustomer, useAffiliateRange, useAffiliateHref, DateRangeFilter,
+} from '@/components/affiliate/AffiliateDashboardShared';
+import { MyPageSubLayout } from '@/components/layout/MyPageSubLayout';
 
 function LinkChip({ label, value, onCopy }: { label: string; value: string; onCopy: () => void }) {
   return (
@@ -54,13 +40,9 @@ function ComingSoon(label: string) {
 
 export default function AffiliateDashboard() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [displayName, setDisplayName] = useState<string | undefined>();
-  const [range, setRange] = useState<DateRange | undefined>({
-    from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    to: new Date(),
-  });
-  const [calOpen, setCalOpen] = useState(false);
+  const { loading, displayName } = useAffiliateCustomer('/mypage/affiliate');
+  const { range, setRange } = useAffiliateRange();
+  const href = useAffiliateHref();
   const [products, setProducts] = useState<ShopifyProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
 
@@ -71,41 +53,12 @@ export default function AffiliateDashboard() {
       .finally(() => setProductsLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (isDevPreviewActive()) {
-      setDisplayName(DEV_PREVIEW_CUSTOMER.displayName);
-      setLoading(false);
-      return;
-    }
-    if (!isCustomerLoggedIn()) {
-      navigate('/mypage', { state: { returnTo: '/mypage/affiliate' } });
-      return;
-    }
-    fetchCustomerAccount()
-      .then((data) => {
-        if (!data) {
-          navigate('/mypage', { state: { returnTo: '/mypage/affiliate' } });
-          return;
-        }
-        setDisplayName(data.displayName);
-      })
-      .catch(() => toast.error('Failed to load your affiliate info.', { position: 'top-center' }))
-      .finally(() => setLoading(false));
-  }, [navigate]);
-
   const data: AffiliateDashboardData = useMemo(() => getMockAffiliateDashboard(displayName), [displayName]);
 
   // Sample stats (clicks/orders/earnings) have no tracking backend yet, but the
   // thumbnails should still show real catalog products instead of empty boxes.
-  const topLinks = useMemo(() => data.topLinks.map((link, i) => {
-    const p = products[i]?.node;
-    return { ...link, title: p?.title ?? link.title, handle: p?.handle ?? link.handle, image: p?.images.edges[0]?.node.url };
-  }), [data.topLinks, products]);
-
-  const sharedProducts = useMemo(() => data.sharedProducts.map((product, i) => {
-    const p = products[i]?.node;
-    return { ...product, title: p?.title ?? product.title, handle: p?.handle ?? product.handle, image: p?.images.edges[0]?.node.url };
-  }), [data.sharedProducts, products]);
+  const topLinks = useMemo(() => withCatalogProducts(data.topLinks, products), [data.topLinks, products]);
+  const sharedProducts = useMemo(() => withCatalogProducts(data.sharedProducts, products), [data.sharedProducts, products]);
 
   const copy = (value: string) => {
     navigator.clipboard.writeText(value)
@@ -113,25 +66,8 @@ export default function AffiliateDashboard() {
       .catch(() => toast.error('Failed to copy.', { position: 'top-center' }));
   };
 
-  const rangeLabel = range?.from
-    ? range.to
-      ? `${format(range.from, 'MMM d')} – ${format(range.to, 'MMM d')}`
-      : format(range.from, 'MMM d')
-    : 'Select dates';
-
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <header className="sticky top-[57px] z-40 bg-background border-b border-border">
-        <div className="max-w-md mx-auto flex items-center gap-1 px-4 h-12">
-          <button onClick={() => navigate('/mypage')} className="p-2 -ml-2">
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <h1 className="font-bold text-base">Affiliate</h1>
-        </div>
-      </header>
-
-      <main className="max-w-md mx-auto px-4 py-6 space-y-4 pb-24">
+    <MyPageSubLayout title="Affiliate" onBack={() => navigate('/mypage')} className="space-y-4">
         {loading ? (
           <div className="space-y-4">
             <Skeleton className="h-28 w-full rounded-xl" />
@@ -146,30 +82,14 @@ export default function AffiliateDashboard() {
                 <LinkChip label={data.code} value={data.code} onCopy={() => copy(data.code)} />
               </div>
               <p className="text-xs text-muted-foreground text-center mt-3 leading-relaxed">
-                Payments made through this link or code get{' '}
-                <span className="font-semibold text-foreground">{data.discountPercent}% off</span>, and you earn a{' '}
-                <span className="font-semibold text-foreground">{data.commissionPercent}% commission</span>.
+                Customers who use your code get{' '}
+                <span className="font-semibold text-foreground">{data.discountPercent}% off</span>. You earn a{' '}
+                <span className="font-semibold text-foreground">{data.commissionPercent}% commission</span> on every
+                purchase made through your link or code.
               </p>
             </div>
 
-            <Popover open={calOpen} onOpenChange={setCalOpen}>
-              <PopoverTrigger asChild>
-                <button className="w-full flex items-center justify-center gap-2 h-10 rounded-full border border-border bg-card shadow-sm text-sm font-medium hover:bg-secondary/50 transition-colors">
-                  <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                  {rangeLabel}
-                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="center">
-                <Calendar
-                  mode="range"
-                  selected={range}
-                  onSelect={(val) => { setRange(val); if (val?.from && val?.to) setCalOpen(false); }}
-                  disabled={{ after: new Date() }}
-                  defaultMonth={range?.from ?? new Date()}
-                />
-              </PopoverContent>
-            </Popover>
+            <DateRangeFilter range={range} onChange={setRange} />
 
             <div className="bg-card rounded-xl border border-border p-4">
               <p className="text-xs text-muted-foreground mb-3">Performance</p>
@@ -216,6 +136,9 @@ export default function AffiliateDashboard() {
                 <p className="text-sm font-semibold">Your top links</p>
               </div>
               <p className="text-xs text-muted-foreground mb-2">Ranked by clicks</p>
+              {topLinks.length === 0 && (
+                <p className="text-xs text-muted-foreground py-6 text-center">No links yet. Share a product to get started.</p>
+              )}
               <div className="divide-y divide-border">
                 {topLinks.map((link) => (
                   <div key={link.handle} className="flex items-center gap-3 py-3">
@@ -233,7 +156,7 @@ export default function AffiliateDashboard() {
                 ))}
               </div>
               <button
-                onClick={() => ComingSoon('Link history')}
+                onClick={() => navigate(href('/mypage/affiliate/links'))}
                 className="w-full text-center text-sm text-primary font-medium mt-2 pt-2"
               >
                 See all links
@@ -243,10 +166,13 @@ export default function AffiliateDashboard() {
             <div className="bg-card rounded-xl border border-border p-4">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-semibold">Products you've shared</p>
-                <button onClick={() => ComingSoon('Shared products')} className="text-xs text-primary font-medium">
+                <button onClick={() => navigate(href('/mypage/affiliate/shared'))} className="text-xs text-primary font-medium">
                   See all
                 </button>
               </div>
+              {sharedProducts.length === 0 && (
+                <p className="text-xs text-muted-foreground py-6 text-center">No shared products yet. Share a product to get started.</p>
+              )}
               <div className="grid grid-cols-3 gap-3">
                 {sharedProducts.map((product) => (
                   <div key={product.handle}>
@@ -264,14 +190,14 @@ export default function AffiliateDashboard() {
 
             <div className="bg-card rounded-xl border border-border divide-y divide-border px-4">
               <button
-                onClick={() => ComingSoon('Reward history')}
+                onClick={() => ComingSoon('Commission history')}
                 className="w-full flex items-center justify-between py-3.5 hover:bg-secondary/50 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <Archive className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm">Reward history</span>
+                  <span className="text-sm">Commission history</span>
                 </div>
-                <ChevronLeft className="h-4 w-4 text-muted-foreground rotate-180" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </button>
               <button
                 onClick={() => ComingSoon('More affiliate programs')}
@@ -281,12 +207,11 @@ export default function AffiliateDashboard() {
                   <PlusCircle className="h-5 w-5 text-muted-foreground" />
                   <span className="text-sm">Become an affiliate for other products</span>
                 </div>
-                <ChevronLeft className="h-4 w-4 text-muted-foreground rotate-180" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
           </>
         )}
-      </main>
-    </div>
+    </MyPageSubLayout>
   );
 }
