@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Upload, FileText, X, Loader2, ArrowLeft, ArrowRight, ChevronRight, CheckCircle, Clock, XCircle, UserPlus, FileUp, ShieldCheck, Tag, ShoppingBag } from 'lucide-react';
+import { Upload, FileText, X, Loader2, ArrowLeft, ArrowRight, ChevronRight, BadgeCheck, Hourglass, XCircle, UserPlus, FileUp, ShieldCheck, Tag, ShoppingBag } from 'lucide-react';
 import { Footer } from '@/components/layout/Footer';
 import { initiateLogin } from '@/lib/customer-auth';
 import { fetchCustomerAccount, type CustomerAccountProfile } from '@/lib/customer-account';
@@ -140,37 +140,58 @@ function LoginRequired() {
   );
 }
 
-function StatusCard({ status, rejectionReason }: { status: 'pending' | 'approved' | 'rejected'; rejectionReason?: string | null }) {
+type B2BStatus = 'pending' | 'approved' | 'rejected';
+
+const STATUS_CONFIG: Record<B2BStatus, { icon: React.ElementType; circle: string; iconColor: string; title: string; desc: string }> = {
+  approved: { icon: BadgeCheck, circle: 'bg-accent', iconColor: 'text-primary', title: 'Your B2B account is verified!', desc: 'You can now shop at wholesale prices.' },
+  pending: { icon: Hourglass, circle: 'bg-muted', iconColor: 'text-foreground', title: 'Your application is under review', desc: 'Review usually takes 2–3 business days.' },
+  rejected: { icon: XCircle, circle: 'bg-destructive/10', iconColor: 'text-destructive', title: 'Your application was not approved', desc: 'Unfortunately, your B2B application has been rejected.' },
+};
+
+function StatusCard({ status, rejectionReason }: { status: B2BStatus; rejectionReason?: string | null }) {
   const navigate = useNavigate();
-  const config = {
-    pending: { icon: Clock, color: 'bg-yellow-50', iconColor: 'text-yellow-500', title: 'Application Under Review', desc: 'Your B2B application has been submitted and is currently being reviewed. We will notify you once approved.' },
-    approved: { icon: CheckCircle, color: 'bg-green-50', iconColor: 'text-green-500', title: 'B2B Approved', desc: 'Your B2B account has been approved. You can now access wholesale pricing.' },
-    rejected: { icon: XCircle, color: 'bg-red-50', iconColor: 'text-red-500', title: 'Application Rejected', desc: 'Unfortunately, your B2B application has been rejected.' },
-  }[status];
+  const config = STATUS_CONFIG[status];
   const Icon = config.icon;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main className="max-w-md mx-auto px-4 py-16 flex flex-col items-center text-center flex-1">
-        <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${config.color}`}>
-          <Icon className={`h-10 w-10 ${config.iconColor}`} />
-        </div>
-        <h1 className="text-xl font-bold mb-2">{config.title}</h1>
-        <p className="text-sm text-muted-foreground mb-4">{config.desc}</p>
-
-        {status === 'rejected' && rejectionReason && (
-          <div className="w-full bg-red-50 border border-red-200 rounded-lg p-4 mb-8 text-left">
-            <p className="text-xs font-semibold text-red-600 mb-1">Reason</p>
-            <p className="text-sm text-red-800">{rejectionReason}</p>
-          </div>
-        )}
-
-        {status !== 'rejected' && <div className="mb-4" />}
-
-        <Button variant="outline" onClick={() => navigate('/mypage')} className="w-full h-12">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Back to My Page
+      <main className="w-full max-w-md mx-auto px-4 py-6 pb-24 flex-1">
+        <Button variant="ghost" onClick={() => navigate('/mypage')} className="mb-4 -ml-2 text-muted-foreground">
+          <ArrowLeft className="h-4 w-4 mr-1" /> My Page
         </Button>
+
+        <div className="bg-card rounded-xl border border-border px-5 py-8 md:px-8 md:py-10 flex flex-col items-center text-center">
+          <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-5 ${config.circle}`}>
+            <Icon className={`h-8 w-8 ${config.iconColor}`} />
+          </div>
+          <h1 className="text-lg md:text-xl font-bold mb-2">{config.title}</h1>
+          <p className="text-sm text-muted-foreground mb-6">{config.desc}</p>
+
+          {status === 'rejected' && rejectionReason && (
+            <div className="w-full bg-destructive/5 border border-destructive/20 rounded-lg p-4 mb-6 text-left">
+              <p className="text-xs font-semibold text-destructive mb-1">Reason</p>
+              <p className="text-sm text-foreground">{rejectionReason}</p>
+            </div>
+          )}
+
+          {status === 'approved' ? (
+            <Button onClick={() => navigate('/?collection=all')} className="w-full h-12 text-base font-semibold">
+              Shop wholesale
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={() => navigate('/mypage')} className="w-full h-12">
+              Back to My Page
+            </Button>
+          )}
+
+          <p className="mt-4 text-xs text-muted-foreground">
+            Need help?{' '}
+            <Link to="/contact" className="text-primary underline underline-offset-2 hover:text-primary/80">
+              Contact us
+            </Link>
+          </p>
+        </div>
       </main>
       <Footer />
     </div>
@@ -186,7 +207,7 @@ export default function B2BApply() {
   // false even though the user is still signed in, so the real check below always runs the
   // account fetch (which transparently refreshes the token) instead of gating on this synchronously.
   const [loggedIn, setLoggedIn] = useState(true);
-  const [b2bStatus, setB2bStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
+  const [b2bStatus, setB2bStatus] = useState<'none' | B2BStatus>('none');
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [customerData, setCustomerData] = useState<CustomerAccountProfile | null>(null);
   const [file, setFile] = useState<{ name: string; type: string; data: string } | null>(null);
@@ -215,12 +236,17 @@ export default function B2BApply() {
         const tags: string[] = tagsData.tags || [];
         const statusData = await statusRes.json();
 
-        if (tags.includes('B2B') || statusData.status === 'approved') {
+        const hasTag = (tag: string) => tags.some((t) => t.toUpperCase() === tag);
+
+        // Verified follows the same `B2B` tag that unlocks wholesale pricing (see B2BDiscountSync),
+        // so this page never says "verified" while prices are still retail.
+        if (hasTag('B2B')) {
           setB2bStatus('approved');
         } else if (statusData.status === 'rejected') {
           setB2bStatus('rejected');
           setRejectionReason(statusData.rejectionReason || null);
-        } else if (tags.includes('B2B-pending') || statusData.status === 'pending') {
+        } else if (hasTag('B2B-PENDING') || statusData.status === 'pending' || statusData.status === 'approved') {
+          // KV `approved` without the `B2B` tag means tagging failed on approval — pricing isn't live yet.
           setB2bStatus('pending');
         }
       } catch {

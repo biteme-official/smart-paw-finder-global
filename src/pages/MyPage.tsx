@@ -171,6 +171,7 @@ export default function MyPage() {
   const consentRef = useRef<HTMLDivElement>(null);
 
   const authUser = useAuthStore((s) => s.user);
+  const isB2B = useAuthStore((s) => s.isB2B);
   const favoritesData = useFavoritesStore((s) => s.favorites);
   const favoritesKey = authUser?.userId || customerData?.emailAddress || customerData?.id || GUEST_FAVORITES_KEY;
 
@@ -322,7 +323,12 @@ export default function MyPage() {
                 badge={favCount > 0 ? favCount : undefined}
                 onClick={() => navigate('/mypage/favorites')}
               />
-              <MenuLink icon={Building2} label="B2B Application" onClick={() => navigate('/mypage/b2b-apply')} />
+              <MenuLink
+                icon={Building2}
+                label={isB2B ? 'B2B Account' : 'B2B Application'}
+                badge={isB2B ? 'Verified' : undefined}
+                onClick={() => navigate('/mypage/b2b-apply')}
+              />
               <MenuLink icon={HelpCircle} label="Contact Us" onClick={() => navigate('/contact')} />
             </div>
 
