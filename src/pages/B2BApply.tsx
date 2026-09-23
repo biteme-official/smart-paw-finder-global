@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Upload, FileText, X, Loader2, ArrowLeft, ArrowRight, ChevronRight, BadgeCheck, Hourglass, XCircle, UserPlus, FileUp, ShieldCheck, Tag, ShoppingBag } from 'lucide-react';
 import { Footer } from '@/components/layout/Footer';
-import { initiateLogin } from '@/lib/customer-auth';
+import { initiateLogin, getAccessToken, refreshAccessToken } from '@/lib/customer-auth';
 import { fetchCustomerAccount, type CustomerAccountProfile } from '@/lib/customer-account';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -229,7 +229,7 @@ export default function B2BApply() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: data.emailAddress }),
           }),
-          fetch(`/api/b2b-status?email=${encodeURIComponent(data.emailAddress || '')}`),
+          fetch('/api/b2b-status', { headers: { Authorization: getAccessToken() || (await refreshAccessToken()) || '' } }),
         ]);
 
         const tagsData = await tagsRes.json();

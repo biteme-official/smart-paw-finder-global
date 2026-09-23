@@ -238,9 +238,28 @@ async function handleSetDiscountRate(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({ success: true, rate });
 }
 
+// Resolves the signed-in customer's email from their Customer Account API access token.
+async function getCustomerEmailFromToken(accessToken: string): Promise<string | null> {
+  const shopId = process.env.VITE_SHOPIFY_SHOP_ID;
+  const r = await fetch(`https://shopify.com/${shopId}/account/customer/api/2025-07/graphql`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: accessToken },
+    body: JSON.stringify({ query: '{ customer { emailAddress { emailAddress } } }' }),
+  });
+  if (!r.ok) return null;
+  const data = await r.json().catch(() => null);
+  return data?.data?.customer?.emailAddress?.emailAddress || null;
+}
+
 async function handleStatus(req: VercelRequest, res: VercelResponse) {
-  const email = req.query.email as string;
-  if (!email) return res.status(200).json({ status: 'none' });
+  // Only the signed-in customer may read their own application (it includes company name and rejection reason).
+  const accessToken = req.headers.authorization;
+  if (!accessToken) return res.status(401).json({ error: 'Unauthorized' });
+  const email = await getCustomerEmailFromToken(accessToken);
+  if (!email) return res.status(401).json({ error: 'Unauthorized' });
+  const requested = req.query.email as string | undefined;
+  if (requested && requested.toLowerCase() !== email.toLowerCase()) return res.status(403).json({ error: 'Forbidden' });
+
   const appId = await kv.get<string>(`b2b:email:${email.toLowerCase()}`);
   if (!appId) return res.status(200).json({ status: 'none' });
   const app = await kv.get<any>(`b2b:app:${appId}`);
@@ -253,7 +272,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', cors);
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-key');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-key, Authorization');
     return res.status(200).end();
   }
 
