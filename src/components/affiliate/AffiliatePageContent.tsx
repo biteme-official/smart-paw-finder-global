@@ -90,18 +90,17 @@ export function AffiliatePageContent({ apply }: Props) {
         <h2 className="text-xl md:text-2xl font-bold text-foreground text-center mb-2">How it works</h2>
         <p className="text-xs md:text-sm text-muted-foreground text-center mb-4 md:mb-8">Join in just a few simple steps!</p>
 
-        {/* Desktop: box/arrow grid so all 4 boxes get the same width (the last box has no arrow) */}
-        <div className="grid grid-cols-2 auto-rows-fr gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-4">
+        {/* Same 4-col grid + gap as "Earn More" so box columns line up across sections.
+            Arrows sit centered in the 40px gap (-right-8 = 8px gap + 24px arrow) instead of taking a column. */}
+        <div className="grid grid-cols-2 auto-rows-fr gap-3 md:grid-cols-4 md:gap-10">
           {STEPS.map(({ icon: Icon, title, desc }, index) => (
-            <div key={title} className="contents">
-              <div className="relative flex h-full flex-col items-center justify-center text-center gap-1.5 md:gap-3 w-full bg-orange-100 shadow-sm py-4 px-3 md:py-10 md:px-4">
-                <span className="absolute left-3 top-2.5 text-[11px] font-bold text-orange-400 md:hidden">{index + 1}</span>
-                <Icon className="h-6 w-6 md:h-9 md:w-9 text-orange-500" strokeWidth={1.75} />
-                <p className="text-sm md:text-base font-extrabold text-foreground">{title}</p>
-                <p className="text-xs md:text-sm text-gray-600 leading-snug">{desc}</p>
-              </div>
+            <div key={title} className="relative flex h-full flex-col items-center justify-center text-center gap-1.5 md:gap-3 w-full bg-orange-100 shadow-sm py-4 px-3 md:py-10 md:px-4">
+              <span className="absolute left-3 top-2.5 text-[11px] font-bold text-orange-400 md:hidden">{index + 1}</span>
+              <Icon className="h-6 w-6 md:h-9 md:w-9 text-orange-500" strokeWidth={1.75} />
+              <p className="text-sm md:text-base font-extrabold text-foreground">{title}</p>
+              <p className="text-xs md:text-sm text-gray-600 leading-snug">{desc}</p>
               {index < STEPS.length - 1 && (
-                <ArrowRight className="hidden md:block h-6 w-6 text-orange-500 self-center shrink-0" strokeWidth={2} />
+                <ArrowRight className="hidden md:block absolute top-1/2 -right-8 -translate-y-1/2 h-6 w-6 text-orange-500" strokeWidth={2} />
               )}
             </div>
           ))}
@@ -115,7 +114,7 @@ export function AffiliatePageContent({ apply }: Props) {
           The more you share, the more you can earn!
         </p>
 
-        <div className="grid grid-cols-2 auto-rows-fr gap-3 md:grid-cols-4 md:gap-4">
+        <div className="grid grid-cols-2 auto-rows-fr gap-3 md:grid-cols-4 md:gap-10">
           {BENEFITS.map(({ icon: Icon, value, bgClass, accentClass, title, desc }) => (
             <div
               key={title}
