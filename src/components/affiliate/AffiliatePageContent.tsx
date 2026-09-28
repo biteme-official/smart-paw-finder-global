@@ -90,10 +90,11 @@ export function AffiliatePageContent({ apply }: Props) {
         <h2 className="text-xl md:text-2xl font-bold text-foreground text-center mb-2">How it works</h2>
         <p className="text-xs md:text-sm text-muted-foreground text-center mb-4 md:mb-8">Join in just a few simple steps!</p>
 
-        <div className="grid grid-cols-2 auto-rows-fr gap-3 md:flex md:items-stretch md:gap-4">
+        {/* Desktop: box/arrow grid so all 4 boxes get the same width (the last box has no arrow) */}
+        <div className="grid grid-cols-2 auto-rows-fr gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-4">
           {STEPS.map(({ icon: Icon, title, desc }, index) => (
-            <div key={title} className="contents md:flex md:items-stretch md:flex-1 md:gap-4">
-              <div className="relative flex h-full flex-col items-center justify-center text-center gap-1.5 md:gap-3 w-full md:flex-1 bg-orange-100 shadow-sm py-4 px-3 md:py-10 md:px-4">
+            <div key={title} className="contents">
+              <div className="relative flex h-full flex-col items-center justify-center text-center gap-1.5 md:gap-3 w-full bg-orange-100 shadow-sm py-4 px-3 md:py-10 md:px-4">
                 <span className="absolute left-3 top-2.5 text-[11px] font-bold text-orange-400 md:hidden">{index + 1}</span>
                 <Icon className="h-6 w-6 md:h-9 md:w-9 text-orange-500" strokeWidth={1.75} />
                 <p className="text-sm md:text-base font-extrabold text-foreground">{title}</p>
@@ -114,11 +115,11 @@ export function AffiliatePageContent({ apply }: Props) {
           The more you share, the more you can earn!
         </p>
 
-        <div className="grid grid-cols-2 auto-rows-fr gap-3 md:flex md:items-stretch md:gap-4">
+        <div className="grid grid-cols-2 auto-rows-fr gap-3 md:grid-cols-4 md:gap-4">
           {BENEFITS.map(({ icon: Icon, value, bgClass, accentClass, title, desc }) => (
             <div
               key={title}
-              className={`flex h-full min-h-[190px] flex-col items-center text-center md:min-h-0 md:flex-1 py-6 px-3 md:py-10 md:px-4 ${bgClass}`}
+              className={`flex h-full min-h-[190px] flex-col items-center text-center md:min-h-0 md:justify-center py-6 px-3 md:py-10 md:px-4 ${bgClass}`}
             >
               <div className="flex h-10 items-center justify-center md:h-12">
                 {value ? (
