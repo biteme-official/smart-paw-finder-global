@@ -119,9 +119,16 @@ function flushPending() {
     const chunk = ids.slice(i, i + BATCH_MAX);
     fetchVariantDiscounts(chunk).then((map) => {
       for (const id of chunk) {
+        variantDiscountInflight.delete(id);
+
+        if (map === null) {
+          // 조회 실패 — 캐시에 쓰지 않는다. 다음 호출(재마운트 등) 때 다시 시도된다.
+          batch.get(id)?.forEach((resolve) => resolve(0));
+          continue;
+        }
+
         const amount = map[id] ?? 0;
         variantDiscountCache.set(id, amount);
-        variantDiscountInflight.delete(id);
         batch.get(id)?.forEach((resolve) => resolve(amount));
       }
     });

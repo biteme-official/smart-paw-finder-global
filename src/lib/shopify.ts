@@ -458,7 +458,7 @@ export async function fetchCartPreview(
  * 카트가 분리돼 있으니 조건 판정은 상품별로 정확하고, HTTP 요청은 한 번이다.
  * 실측(2026-09-11): 상품 2개 요청 비용 40 — 상품당 약 20.
  */
-export async function fetchVariantDiscounts(variantIds: string[]): Promise<Record<string, number>> {
+export async function fetchVariantDiscounts(variantIds: string[]): Promise<Record<string, number> | null> {
   const ids = [...new Set(variantIds.filter(Boolean))];
   if (ids.length === 0) return {};
 
@@ -499,8 +499,9 @@ export async function fetchVariantDiscounts(variantIds: string[]): Promise<Recor
 
     return result;
   } catch (err) {
-    console.warn('[CartPreview] 할인 일괄 조회 실패 — 정가로 표시합니다:', err);
-    return {};
+    // null 로 실패를 구분해 호출부가 0 을 캐시하지 않고 재시도하게 한다.
+    console.warn('[CartPreview] 할인 일괄 조회 실패 — 재시도합니다:', err);
+    return null;
   }
 }
 
