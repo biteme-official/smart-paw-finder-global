@@ -345,7 +345,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       headers['X-Shopify-Access-Token'] = await getAccessToken();
     } else {
-      headers['Shopify-Storefront-Private-Token'] = await getAccessToken();
+      const storefrontToken = process.env.SHOPIFY_STOREFRONT_PRIVATE_TOKEN || '';
+      if (!storefrontToken) throw new Error('Missing env var: SHOPIFY_STOREFRONT_PRIVATE_TOKEN');
+      headers['Shopify-Storefront-Private-Token'] = storefrontToken;
+      const buyerIp = String(req.headers['x-real-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+      if (buyerIp) headers['Shopify-Storefront-Buyer-IP'] = buyerIp;
     }
 
     const shopifyResponse = await fetch(
