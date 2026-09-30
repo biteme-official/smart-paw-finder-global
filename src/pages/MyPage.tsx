@@ -15,14 +15,15 @@ import {
 } from '@/lib/customer-account';
 import { formatPrice } from '@/lib/shopify';
 import { useAuthStore } from '@/stores/authStore';
+import { fetchB2BStatus, type B2BStatus } from '@/lib/b2b-status';
 import { toast } from 'sonner';
 import { useFavoritesStore, GUEST_FAVORITES_KEY } from '@/stores/favoritesStore';
 import {
   PetProfileForm, PET_PROFILE_UPDATED_EVENT, PetProfileUpdate, consumePetHighlight,
 } from '@/components/account/PetProfile';
 
-function MenuLink({ icon: Icon, label, badge, onClick }: {
-  icon: typeof ShoppingBag; label: string; badge?: string | number; onClick?: () => void;
+function MenuLink({ icon: Icon, label, badge, badgeClassName = 'bg-primary/10 text-primary', onClick }: {
+  icon: typeof ShoppingBag; label: string; badge?: string | number; badgeClassName?: string; onClick?: () => void;
 }) {
   return (
     <button onClick={onClick} className="w-full flex items-center justify-between py-3.5 hover:bg-secondary/50 transition-colors">
@@ -32,7 +33,7 @@ function MenuLink({ icon: Icon, label, badge, onClick }: {
       </div>
       <div className="flex items-center gap-2">
         {badge !== undefined && (
-          <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">{badge}</span>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badgeClassName}`}>{badge}</span>
         )}
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
       </div>
@@ -111,6 +112,14 @@ function MarketingConsent({ state, onChange, highlight, containerRef, children }
   );
 }
 
+// Status colors follow the Order History status badges.
+const B2B_MENU: Record<B2BStatus, { label: string; badge: string; cls: string }> = {
+  none: { label: 'B2B Application', badge: 'Apply', cls: 'bg-gray-100 text-gray-600' },
+  pending: { label: 'B2B Application', badge: 'Pending', cls: 'bg-yellow-100 text-yellow-700' },
+  approved: { label: 'B2B Account', badge: 'Verified', cls: 'bg-orange-100 text-orange-700' },
+  rejected: { label: 'B2B Application', badge: 'Not approved', cls: 'bg-red-100 text-red-600' },
+};
+
 function AuthScreen() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -134,28 +143,40 @@ function AuthScreen() {
   };
 
   return (
-    <main className="max-w-md mx-auto px-4 py-16 flex flex-col items-center text-center">
-      <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mb-6">
-        <User className="h-10 w-10 text-muted-foreground" />
-      </div>
-      <h1 className="text-xl font-bold mb-2">My Page</h1>
-      <p className="text-sm text-muted-foreground mb-8">
-        Sign in to view your orders<br />and manage your account.
-      </p>
-      <div className="w-full space-y-3">
-        <Button onClick={handleLogin} disabled={loading} className="w-full h-12 text-base font-semibold">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-          Continue with Shopify
-        </Button>
-      </div>
-      <div className="w-full mt-4 pt-4 border-t border-border space-y-3">
-        <Button onClick={() => navigate('/')} variant="ghost" className="w-full h-12 text-base text-muted-foreground">
-          Continue as Guest
-        </Button>
-        <Button onClick={() => navigate('/guest-order')} variant="outline" className="w-full h-12 text-base">
-          <Search className="h-4 w-4 mr-2" />
-          Guest Order Lookup
-        </Button>
+    <main className="max-w-md mx-auto px-4 py-6 md:py-16 pb-24">
+      <div className="bg-card rounded-xl border border-border px-5 py-8 md:px-8 flex flex-col items-center text-center">
+        <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-4">
+          <User className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h1 className="text-xl font-bold mb-1">My Page</h1>
+        <p className="text-sm text-muted-foreground mb-6">
+          Sign in to view your orders<br />and manage your account.
+        </p>
+        <div className="w-full space-y-3">
+          <Button onClick={handleLogin} disabled={loading} className="w-full h-12 text-base font-semibold">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            Sign in or create account
+          </Button>
+          {/* Same landing as GNB > WHOLESALE for signed-out visitors. */}
+          <Button onClick={() => navigate('/mypage/b2b-apply')} variant="outline" className="w-full h-12 text-base">
+            <Building2 className="h-4 w-4 mr-2" />
+            B2B Application
+          </Button>
+        </div>
+        <div className="w-full flex items-center gap-3 my-5" role="separator">
+          <span className="flex-1 h-px bg-border" />
+          <span className="text-xs text-muted-foreground">or</span>
+          <span className="flex-1 h-px bg-border" />
+        </div>
+        <div className="w-full space-y-3">
+          <Button onClick={() => navigate('/')} variant="outline" className="w-full h-12 text-base">
+            Continue as Guest
+          </Button>
+          <Button onClick={() => navigate('/guest-order')} variant="outline" className="w-full h-12 text-base">
+            <Search className="h-4 w-4 mr-2" />
+            Guest Order Lookup
+          </Button>
+        </div>
       </div>
     </main>
   );
@@ -171,6 +192,8 @@ export default function MyPage() {
   const consentRef = useRef<HTMLDivElement>(null);
 
   const authUser = useAuthStore((s) => s.user);
+  const isB2B = useAuthStore((s) => s.isB2B);
+  const [b2bStatus, setB2bStatus] = useState<B2BStatus | null>(null);
   const favoritesData = useFavoritesStore((s) => s.favorites);
   const favoritesKey = authUser?.userId || customerData?.emailAddress || customerData?.id || GUEST_FAVORITES_KEY;
 
@@ -189,6 +212,7 @@ export default function MyPage() {
           setCustomerData(data);
           if (data.emailAddress) {
             fetchStoreCredit(data.emailAddress).then(setCreditData);
+            fetchB2BStatus(data.emailAddress).then((r) => setB2bStatus(r.status)).catch(() => {});
           }
         }
       })
@@ -230,12 +254,6 @@ export default function MyPage() {
       <div className="min-h-screen bg-background">
         <Header />
         <AuthScreen />
-        <div className="max-w-md mx-auto px-4 mt-4 pb-24">
-          <div className="bg-card rounded-xl border border-border px-4">
-            <MenuLink icon={Building2} label="B2B Application"
-              onClick={() => toast.info('Please sign in to use this feature.', { position: 'top-center' })} />
-          </div>
-        </div>
       </div>
     );
   }
@@ -322,7 +340,19 @@ export default function MyPage() {
                 badge={favCount > 0 ? favCount : undefined}
                 onClick={() => navigate('/mypage/favorites')}
               />
-              <MenuLink icon={Building2} label="B2B Application" onClick={() => navigate('/mypage/b2b-apply')} />
+              {(() => {
+                // Until the status loads, fall back to the pricing flag so verified accounts don't flicker.
+                const menu = b2bStatus ? B2B_MENU[b2bStatus] : isB2B ? B2B_MENU.approved : null;
+                return (
+                  <MenuLink
+                    icon={Building2}
+                    label={menu?.label ?? 'B2B Application'}
+                    badge={menu?.badge}
+                    badgeClassName={menu?.cls}
+                    onClick={() => navigate('/mypage/b2b-apply')}
+                  />
+                );
+              })()}
               <MenuLink icon={HelpCircle} label="Contact Us" onClick={() => navigate('/contact')} />
             </div>
 
