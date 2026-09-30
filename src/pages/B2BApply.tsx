@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Upload, FileText, X, Loader2, ArrowLeft, ArrowRight, ChevronRight, BadgeCheck, Hourglass, XCircle, UserPlus, FileUp, ShieldCheck, Tag, ShoppingBag } from 'lucide-react';
+import { Upload, FileText, X, Loader2, ArrowLeft, ArrowRight, ChevronRight, BadgeCheck, Hourglass, XCircle, UserPlus, FileUp, ShieldCheck, Tag, ShoppingBag, AlertCircle, RotateCw } from 'lucide-react';
 import { Footer } from '@/components/layout/Footer';
 import { initiateLogin } from '@/lib/customer-auth';
 import { B2BSessionExpiredError, fetchB2BStatus, type B2BStatus as B2BState } from '@/lib/b2b-status';
@@ -199,6 +199,41 @@ function StatusCard({ status, rejectionReason }: { status: B2BStatus; rejectionR
   );
 }
 
+function LoadErrorCard({ onRetry }: { onRetry: () => void }) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      <Header />
+      <main className="w-full max-w-md mx-auto px-4 py-6 pb-24 flex-1">
+        <Button variant="ghost" onClick={() => navigate('/mypage')} className="mb-4 -ml-2 text-muted-foreground">
+          <ArrowLeft className="h-4 w-4 mr-1" /> My Page
+        </Button>
+
+        <div className="bg-card rounded-xl border border-border px-5 py-8 md:px-8 md:py-10 flex flex-col items-center text-center">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mb-5 bg-muted">
+            <AlertCircle className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <h1 className="text-lg md:text-xl font-bold mb-2">We couldn't load your B2B status</h1>
+          <p className="text-sm text-muted-foreground mb-6">Please try again in a moment.</p>
+
+          <Button onClick={onRetry} className="w-full h-12 text-base font-semibold">
+            <RotateCw className="h-4 w-4 mr-2" /> Try again
+          </Button>
+
+          <p className="mt-4 text-xs text-muted-foreground">
+            Need help?{' '}
+            <Link to="/contact" className="text-primary underline underline-offset-2 hover:text-primary/80">
+              Contact us
+            </Link>
+          </p>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
 export default function B2BApply() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -210,6 +245,9 @@ export default function B2BApply() {
   const [loggedIn, setLoggedIn] = useState(true);
   const [b2bStatus, setB2bStatus] = useState<B2BState>('none');
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
+  // Set when the account or B2B status couldn't be read; the form stays hidden until a retry succeeds.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [customerData, setCustomerData] = useState<CustomerAccountProfile | null>(null);
   const [file, setFile] = useState<{ name: string; type: string; data: string } | null>(null);
 
@@ -219,6 +257,8 @@ export default function B2BApply() {
 
   useEffect(() => {
     (async () => {
+      setLoading(true);
+      setLoadFailed(false);
       try {
         const data = await fetchCustomerAccount();
         if (!data) { setLoggedIn(false); setLoading(false); return; }
@@ -234,12 +274,12 @@ export default function B2BApply() {
           toast.error('Your session has expired. Please log in again.', { position: 'top-center' });
           return;
         }
-        toast.error('Failed to load account data.', { position: 'top-center' });
+        setLoadFailed(true);
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [loadAttempt]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -304,6 +344,8 @@ export default function B2BApply() {
   }
 
   if (!loggedIn) return <LoginRequired />;
+
+  if (loadFailed) return <LoadErrorCard onRetry={() => setLoadAttempt((n) => n + 1)} />;
 
   if (b2bStatus !== 'none') {
     return <StatusCard status={b2bStatus} rejectionReason={rejectionReason} />;
