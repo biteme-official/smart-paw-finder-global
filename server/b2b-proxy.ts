@@ -200,8 +200,25 @@ async function handleApprove(req: Connect.IncomingMessage, res: any) {
   return json(res, 200, { success: true, status: app.status });
 }
 
-async function handleStatus(req: Connect.IncomingMessage, res: any, email: string) {
-  if (!email) return json(res, 400, { error: 'Email is required.' });
+// Mirrors api/b2b.ts: the signed-in customer's email comes from their Customer Account API token.
+async function getCustomerEmailFromToken(accessToken: string): Promise<string | null> {
+  const shopId = process.env.VITE_SHOPIFY_SHOP_ID;
+  const r = await fetch(`https://shopify.com/${shopId}/account/customer/api/2025-07/graphql`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: accessToken },
+    body: JSON.stringify({ query: '{ customer { emailAddress { emailAddress } } }' }),
+  });
+  if (!r.ok) return null;
+  const data = await r.json().catch(() => null);
+  return data?.data?.customer?.emailAddress?.emailAddress || null;
+}
+
+async function handleStatus(req: Connect.IncomingMessage, res: any, requested: string) {
+  const accessToken = req.headers.authorization;
+  if (!accessToken) return json(res, 401, { error: 'Unauthorized' });
+  const email = await getCustomerEmailFromToken(accessToken);
+  if (!email) return json(res, 401, { error: 'Unauthorized' });
+  if (requested && requested.toLowerCase() !== email.toLowerCase()) return json(res, 403, { error: 'Forbidden' });
   const app = getApplicationByEmail(email);
   if (!app) return json(res, 200, { status: 'none' });
   return json(res, 200, {
@@ -222,7 +239,7 @@ export function b2bProxyMiddleware(): Connect.NextHandleFunction {
       res.writeHead(200, {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, x-admin-key',
+        'Access-Control-Allow-Headers': 'Content-Type, x-admin-key, Authorization',
       });
       return res.end();
     }

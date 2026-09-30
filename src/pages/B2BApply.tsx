@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Upload, FileText, X, Loader2, ArrowLeft, ArrowRight, ChevronRight, BadgeCheck, Hourglass, XCircle, UserPlus, FileUp, ShieldCheck, Tag, ShoppingBag } from 'lucide-react';
 import { Footer } from '@/components/layout/Footer';
 import { initiateLogin } from '@/lib/customer-auth';
-import { fetchB2BStatus, type B2BStatus as B2BState } from '@/lib/b2b-status';
+import { B2BSessionExpiredError, fetchB2BStatus, type B2BStatus as B2BState } from '@/lib/b2b-status';
 import { fetchCustomerAccount, type CustomerAccountProfile } from '@/lib/customer-account';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -227,7 +227,13 @@ export default function B2BApply() {
         const result = await fetchB2BStatus(data.emailAddress || '');
         setB2bStatus(result.status);
         setRejectionReason(result.rejectionReason);
-      } catch {
+      } catch (e) {
+        if (e instanceof B2BSessionExpiredError) {
+          // An unreadable status must not fall back to the application form — ask for a fresh login.
+          setLoggedIn(false);
+          toast.error('Your session has expired. Please log in again.', { position: 'top-center' });
+          return;
+        }
         toast.error('Failed to load account data.', { position: 'top-center' });
       } finally {
         setLoading(false);
