@@ -11,7 +11,6 @@ import { WhatYouMightLike } from "@/components/home/curated/WhatYouMightLike";
 import { HowItWorks } from "@/components/home/how-it-works/HowItWorks";
 import { TopSellersGrid } from "@/components/home/bestsellers/TopSellersGrid";
 import { ProductGrid } from "@/components/shop/ProductGrid";
-import { useScrollRestoration } from "@/hooks/useScrollRestoration";
 import { ScrollToTop } from "@/components/ui/ScrollToTop";
 
 const Index = () => {
@@ -19,7 +18,6 @@ const Index = () => {
   const selectedCollection = searchParams.get("collection");
   const searchQuery = searchParams.get("q") || "";
   const collectionTitle = searchParams.get("collectionTitle");
-  useScrollRestoration();
 
   // "all" is the Shop All sentinel — a real listing page (not the home page) that fetches
   // every product with no collection filter. `null` is reserved for "no selection at all",
