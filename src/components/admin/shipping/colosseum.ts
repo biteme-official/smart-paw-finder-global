@@ -2,6 +2,7 @@
 // address parsing and in-browser .xlsx generation from the empty template in public/.
 // Everything here runs client-side only; recipient data never leaves the browser.
 import type * as XLSXNS from 'xlsx';
+import { normalizePhone } from './phone';
 
 type XLSXModule = typeof XLSXNS;
 
@@ -74,8 +75,11 @@ export function hsCodeFor(productName: string, lookup?: HsCodeLookup): string {
 
 export interface Country {
   code: string;
+  /** Display names (common short form). The ISO code is what goes into the sheet. */
   en: string;
   ko: string;
+  /** Lower-cased other names that should match this country: sheet's official names, abbreviations. */
+  aliases?: string[];
 }
 
 export type SheetRow = Record<string, string | number>;
@@ -157,7 +161,7 @@ export function buildRows(
         J: name,
         R: r.name.trim(),
         S: r.name.trim(),
-        U: r.phone.trim(),
+        U: normalizePhone(r.phone, r.countryCode).value,
         W: address,
         Y: r.city.trim(),
         Z: r.state.trim(),
@@ -263,23 +267,86 @@ export function searchableAddress(address: string, countryCode?: string): { full
   return { full, road };
 }
 
-const COUNTRY_ALIASES: Record<string, string[]> = {
-  US: ['usa', 'u.s.a.', 'united states', 'america'],
-  GB: ['uk', 'u.k.', 'united kingdom', 'great britain', 'england', 'scotland', 'wales'],
-  KR: ['korea', 'south korea'],
-  AE: ['uae'],
-  HK: ['hong kong', 'hk'],
-  VN: ['viet nam'],
-  TW: ['taiwan (roc)', 'republic of china'],
+/**
+ * Names shown in the country picker, replacing the long / official (or misspelled) names of
+ * the template's 국가코드 sheet. Only the display changes: the sheet keeps the ISO code.
+ */
+export const COUNTRY_DISPLAY_NAMES: Record<string, { en?: string; ko?: string }> = {
+  US: { en: 'United States', ko: '미국' },
+  KR: { en: 'South Korea', ko: '한국' },
+  HK: { en: 'Hong Kong' },
+  NP: { ko: '네팔' },
+  FM: { en: 'Micronesia', ko: '마이크로네시아' },
+  KG: { en: 'Kyrgyzstan', ko: '키르기스스탄' },
+  TR: { en: 'Türkiye', ko: '튀르키예' },
+  EH: { en: 'Western Sahara', ko: '서사하라' },
+  AE: { en: 'United Arab Emirates' },
+  EU: { en: 'European Union' },
+  PG: { en: 'Papua New Guinea' },
+  GG: { en: 'Guernsey' },
+  JE: { en: 'Jersey' },
+  VE: { ko: '베네수엘라' },
+  CH: { en: 'Switzerland' },
+  IT: { en: 'Italy' },
+  MZ: { en: 'Mozambique' },
+  ET: { en: 'Ethiopia' },
 };
+
+/** Extra names people / Shopify / surveys use for a country (lower-case). */
+const COUNTRY_ALIASES: Record<string, string[]> = {
+  US: ['usa', 'u.s.a.', 'u.s.', 'us', 'united states', 'united states of america', 'america', '미합중국', '미국'],
+  GB: ['uk', 'u.k.', 'united kingdom', 'great britain', 'britain', 'england', 'scotland', 'wales',
+    'united kingdom of great britain and northern ireland'],
+  KR: ['korea', 'south korea', 'republic of korea', 'korea, republic of', '대한민국'],
+  AE: ['uae', 'united arab emirates : uae'],
+  HK: ['hong kong', 'hongkong', 'hk', 'hong kong sar', '홍콩특별행정구'],
+  VN: ['viet nam', '베트남사회주의공화국'],
+  TW: ['taiwan (roc)', 'republic of china', 'taiwan, province of china', '중화민국'],
+  RU: ['russian federation', '러시아연방'],
+  CN: ['prc', "people's republic of china", '중화인민공화국'],
+  MO: ['macau', 'macao sar'],
+  CZ: ['czech republic', 'czechia'],
+  TR: ['turkey', 'turkiye', 'republic of turkiye', '튀르키예공화국', '터키'],
+  CH: ['swiss'],
+  IT: ['italia'],
+  NL: ['the netherlands', 'holland'],
+  LA: ["lao people's democratic republic"],
+  IR: ['islamic republic of iran'],
+  SY: ['syrian arab republic'],
+  MD: ['republic of moldova'],
+  TZ: ['united republic of tanzania'],
+  BO: ['plurinational state of bolivia'],
+  VE: ['bolivarian republic of venezuela'],
+  BN: ['brunei darussalam'],
+  CI: ["cote d'ivoire", 'ivory coast'],
+  CV: ['cabo verde'],
+  SZ: ['swaziland'],
+  MK: ['macedonia'],
+  BA: ['bosnia and herzegovina'],
+};
+
+/** Display names + aliases for a row of the 국가코드 sheet. */
+function withDisplayNames(code: string, sheetEn: string, sheetKo: string): Country {
+  const shown = COUNTRY_DISPLAY_NAMES[code] ?? {};
+  const en = shown.en ?? sheetEn;
+  const ko = shown.ko ?? sheetKo;
+  const aliases = [...new Set([sheetEn, sheetKo, ...(COUNTRY_ALIASES[code] ?? [])]
+    .map((a) => a.trim().toLowerCase())
+    // "etc" is the sheet's placeholder English name for Ethiopia, not a real alias.
+    .filter((a) => a && a !== 'etc' && a !== en.toLowerCase() && a !== ko))];
+  return { code, en, ko, aliases };
+}
+
+const aliasesOf = (c: Country) => c.aliases ?? COUNTRY_ALIASES[c.code] ?? [];
 
 function matchesCountry(part: string, country: Country): boolean {
   const t = part.trim().toLowerCase().replace(/\.$/, '');
   if (!t) return false;
   return t === country.code.toLowerCase()
     || t === country.en.toLowerCase()
+    || t === country.ko
     || (t.length >= 4 && country.en.toLowerCase().startsWith(t))
-    || (COUNTRY_ALIASES[country.code] ?? []).includes(t);
+    || aliasesOf(country).includes(t);
 }
 
 /** Country for a value typed in a form ("Singapore", "Taiwan", "USA", "싱가포르", "SG"). */
@@ -287,7 +354,7 @@ export function findCountry(value: string, countries: Country[]): Country | unde
   const t = value.trim().toLowerCase();
   if (!t) return undefined;
   return countries.find((c) => c.en.toLowerCase() === t || c.ko === value.trim() || c.code.toLowerCase() === t)
-    ?? countries.find((c) => (COUNTRY_ALIASES[c.code] ?? []).includes(t))
+    ?? countries.find((c) => aliasesOf(c).includes(t))
     // "Taiwan" vs "Taiwan, Province of China" style official names.
     ?? countries.find((c) => t.length >= 4 && c.en.toLowerCase().startsWith(t))
     ?? countries.find((c) => c.en.length >= 4 && t.startsWith(c.en.toLowerCase()));
@@ -425,7 +492,7 @@ export function formatShippingAddress(
     return !t || t === lower(city) || t === lower(state) || (!!country && matchesCountry(t, country));
   };
   // Trailing words that repeat city / state / country, e.g. "... Avenue 6 Singapore".
-  const trailing = [city, state, country?.en, ...(country ? COUNTRY_ALIASES[country.code] ?? [] : [])]
+  const trailing = [city, state, country?.en, ...(country ? aliasesOf(country) : [])]
     .filter((s): s is string => !!s)
     .sort((a, b) => b.length - a.length);
   const stripTrailing = (seg: string) => {
@@ -458,7 +525,7 @@ export function readCountries(XLSX: XLSXModule, template: ArrayBuffer): Country[
   return rows
     .slice(1)
     .filter((r) => typeof r[1] === 'string' && /^[A-Z]{2}$/.test(r[1].trim()))
-    .map((r) => ({ code: String(r[1]).trim(), en: String(r[5] ?? '').trim(), ko: String(r[6] ?? '').trim() }))
+    .map((r) => withDisplayNames(String(r[1]).trim(), String(r[5] ?? '').trim(), String(r[6] ?? '').trim()))
     .sort((a, b) => a.en.localeCompare(b.en));
 }
 

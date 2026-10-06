@@ -20,6 +20,7 @@ import {
 } from './colosseum';
 import { geocodeAddress } from './geocode';
 import { parseSurveyPaste } from './surveyPaste';
+import { normalizePhone } from './phone';
 import { isB2BShipping, parseShopifyOrders, readShopifyRows } from './shopifyOrders';
 
 type AutoField = 'countryCode' | 'city' | 'state' | 'zip';
@@ -49,6 +50,13 @@ const REQUIRED_FIELDS: { field: keyof Recipient; label: string }[] = [
 const todayIso = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+/** Phone in "+<calling code> <digits>" form once the country is known; untouched otherwise. */
+const withPhone = <T extends Recipient>(r: T): T => {
+  if (!r.phone.trim() || !r.countryCode) return r;
+  const phone = normalizePhone(r.phone, r.countryCode).value;
+  return phone === r.phone ? r : { ...r, phone };
 };
 
 let seq = 0;
@@ -145,6 +153,20 @@ function ProductInput({ value, names, onChange }: {
   );
 }
 
+/**
+ * Country search: whole-name / prefix matches on any name, code or alias first
+ * ("usa", "US", "미국" → United States), then names merely containing the text.
+ */
+function countryFilter(value: string, search: string): number {
+  const q = search.trim().toLowerCase();
+  if (!q) return 1;
+  const names = value.toLowerCase().split('|');
+  if (names.some((n) => n === q)) return 1;
+  if (names.some((n) => n.startsWith(q))) return 0.8;
+  if (names.some((n) => n.split(/[\s,()-]+/).some((w) => w.startsWith(q)))) return 0.6;
+  return names.some((n) => n.includes(q)) ? 0.3 : 0;
+}
+
 function CountryPicker({ countries, value, tone, onChange }: {
   countries: Country[]; value: string; tone: string; onChange: (code: string) => void;
 }) {
@@ -160,13 +182,13 @@ function CountryPicker({ countries, value, tone, onChange }: {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[320px] p-0" align="start">
-        <Command>
+        <Command filter={countryFilter}>
           <CommandInput placeholder="영문/한글 국가명 또는 코드 검색" />
           <CommandList>
             <CommandEmpty>검색 결과가 없습니다.</CommandEmpty>
             <CommandGroup>
               {countries.map((c) => (
-                <CommandItem key={c.code} value={`${c.en} ${c.ko} ${c.code}`}
+                <CommandItem key={c.code} value={[c.en, c.ko, c.code, ...(c.aliases ?? [])].join('|')}
                   onSelect={() => { onChange(c.code); setOpen(false); }}>
                   <span className="w-8 text-xs text-muted-foreground">{c.code}</span>
                   {c.en} <span className="ml-1 text-muted-foreground">({c.ko})</span>
@@ -238,7 +260,8 @@ export default function ColosseumShippingForm() {
       if ((AUTO_FIELDS as string[]).includes(field)) {
         next.sources = { ...r.sources, [field]: value.trim() ? 'manual' : undefined };
       }
-      return next;
+      // A newly chosen country completes a phone typed without its calling code.
+      return field === 'countryCode' ? withPhone(next) : next;
     });
   };
 
@@ -289,7 +312,7 @@ export default function ColosseumShippingForm() {
     for (const f of ['city', 'state', 'zip'] as const) {
       if (!next[f] && parsed[f]) { next[f] = parsed[f]; next.sources[f] = 'parsed'; }
     }
-    patch(id, (r) => ({
+    patch(id, (r) => withPhone({
       ...r,
       countryCode: next.countryCode, city: next.city, state: next.state, zip: next.zip,
       sources: next.sources, resolvedAddress: address,
@@ -324,7 +347,7 @@ export default function ColosseumShippingForm() {
         const written = extractPostal(address, out.countryCode);
         if (written) { out.zip = written.zip; out.sources.zip = 'parsed'; }
       }
-      return out;
+      return withPhone(out);
     });
   }, [countries, patch]);
 
@@ -354,7 +377,7 @@ export default function ColosseumShippingForm() {
         if (!country) unmatched.push(`${o.number} (${o.country || '국가 없음'})`);
         const address = [o.address1, o.address2].filter(Boolean).join(', ');
         const given = (v: string) => (v ? 'manual' as const : undefined);
-        return {
+        return withPhone({
           ...newRecipient(),
           name: o.shippingName,
           phone: o.phone,
@@ -376,7 +399,7 @@ export default function ColosseumShippingForm() {
             qtys: o.lines.length ? o.lines.map((l) => l.qty) : [1],
             prices: o.lines.length ? o.lines.map((l) => l.price) : [''],
           },
-        };
+        });
       });
       setRecipients((prev) => [...prev.filter((r) => !isBlankRecipient(r)), ...added]);
       toast.success(`주문 ${added.length}건을 등록했습니다.`, { position: 'top-center' });
@@ -402,7 +425,7 @@ export default function ColosseumShippingForm() {
       const r = newRecipient();
       const country = findCountry(row.country, countries);
       if (row.country && !country) unmatched.push(row.country);
-      return {
+      return withPhone({
         ...r,
         name: row.name,
         phone: row.phone,
@@ -411,7 +434,7 @@ export default function ColosseumShippingForm() {
         collapsed: true,
         // The survey's country is the customer's own answer: keep it like a manual value.
         sources: country ? { countryCode: 'manual' as const } : {},
-      };
+      });
     });
     pendingResolve.current.push(...added.filter((r) => r.address).map((r) => r.id));
     // Replace the untouched starter card instead of leaving it empty at the top.
@@ -554,6 +577,8 @@ export default function ColosseumShippingForm() {
         const blank = isBlankRecipient(r);
         const productCount = r.products.filter((p) => p.trim()).length;
         const countryName = countries.find((c) => c.code === r.countryCode)?.en;
+        // Calling code that doesn't belong to the selected country (e.g. +62 number, Singapore selected).
+        const phoneMismatch = normalizePhone(r.phone, r.countryCode).mismatch;
         return (
           <Card key={r.id} id={`recipient-${r.id}`}
             className={cn('scroll-mt-4', r.collapsed && !blank && missing.length > 0 && 'border-red-200')}>
@@ -603,7 +628,10 @@ export default function ColosseumShippingForm() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>전화번호</Label>
-                  <Input value={r.phone} onChange={(e) => setField(r.id, 'phone', e.target.value)} />
+                  <Input value={r.phone} onChange={(e) => setField(r.id, 'phone', e.target.value)}
+                    onBlur={() => patch(r.id, withPhone)}
+                    className={cn(phoneMismatch && 'border-yellow-500 focus-visible:ring-yellow-500')} />
+                  {phoneMismatch && <p className="text-[11px] text-yellow-700 mt-1">국가번호 확인 필요</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label>국가 {r.countryCode && <span className="text-muted-foreground font-normal">· ISO {r.countryCode}</span>}</Label>
