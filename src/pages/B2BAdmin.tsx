@@ -9,10 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import {
-  Lock, Loader2, Building2, Users, CheckCircle, XCircle, Clock,
+  Loader2, Building2, Users, CheckCircle, XCircle, Clock,
   FileText, Mail, Phone, MapPin, User, Eye, RefreshCw, ShoppingBag, Globe, Percent,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useManageAuth } from '@/components/admin/ManageLayout';
 
 interface ApplicationSummary {
   id: string;
@@ -85,52 +86,6 @@ const COUNTRY_FLAGS: Record<string, string> = {
   'Thailand': '\u{1F1F9}\u{1F1ED}', 'Indonesia': '\u{1F1EE}\u{1F1E9}', 'Malaysia': '\u{1F1F2}\u{1F1FE}',
   'Philippines': '\u{1F1F5}\u{1F1ED}', 'Vietnam': '\u{1F1FB}\u{1F1F3}', 'United Kingdom': '\u{1F1EC}\u{1F1E7}',
 };
-
-function LoginGate({ onLogin }: { onLogin: (key: string) => void }) {
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!password.trim()) return;
-    setLoading(true);
-    try {
-      const res = await fetch('/api/b2b-list', { headers: { 'x-admin-key': password } });
-      if (res.ok) {
-        sessionStorage.setItem('b2b-admin-key', password);
-        onLogin(password);
-      } else {
-        toast.error('Invalid password.', { position: 'top-center' });
-      }
-    } catch {
-      toast.error('Connection error.', { position: 'top-center' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
-            <Lock className="h-6 w-6 text-primary" />
-          </div>
-          <CardTitle>B2B Admin</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input type="password" placeholder="Enter admin password" value={password}
-              onChange={(e) => setPassword(e.target.value)} autoFocus />
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Sign In
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
 
 function StatCard({ icon: Icon, label, value, color }: { icon: typeof Users; label: string; value: number; color: string }) {
   return (
@@ -365,7 +320,7 @@ function mergeData(applications: ApplicationSummary[], shopifyCustomers: Shopify
 }
 
 export default function B2BAdmin() {
-  const [adminKey, setAdminKey] = useState(() => sessionStorage.getItem('b2b-admin-key') || '');
+  const { adminKey, logout } = useManageAuth();
   const [applications, setApplications] = useState<ApplicationSummary[]>([]);
   const [shopifyCustomers, setShopifyCustomers] = useState<ShopifyB2BCustomer[]>([]);
   const [loading, setLoading] = useState(false);
@@ -442,17 +397,15 @@ export default function B2BAdmin() {
         fetch('/api/b2b-list', { headers: { 'x-admin-key': adminKey } }),
         fetch('/api/b2b-shopify', { headers: { 'x-admin-key': adminKey } }),
       ]);
-      if (appRes.status === 401) { setAdminKey(''); sessionStorage.removeItem('b2b-admin-key'); return; }
+      if (appRes.status === 401) { logout(); return; }
       const [appData, shopData] = await Promise.all([appRes.json(), shopRes.json()]);
       setApplications(appData.applications || []);
       setShopifyCustomers(shopData.customers || []);
     } catch { toast.error('Failed to load data.'); }
     finally { setLoading(false); }
-  }, [adminKey]);
+  }, [adminKey, logout]);
 
   useEffect(() => { fetchAll(); fetchDiscountRate(); }, [fetchAll, fetchDiscountRate]);
-
-  if (!adminKey) return <LoginGate onLogin={setAdminKey} />;
 
   const merged = mergeData(applications, shopifyCustomers);
 
@@ -490,7 +443,7 @@ export default function B2BAdmin() {
   const countrySorted = Object.entries(countryStats).sort((a, b) => b[1].count - a[1].count);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div>
       <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Building2 className="h-6 w-6 text-primary" />
@@ -500,9 +453,6 @@ export default function B2BAdmin() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => { setAdminKey(''); sessionStorage.removeItem('b2b-admin-key'); }}>
-            Logout
           </Button>
         </div>
       </header>
