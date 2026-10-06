@@ -3,7 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Lock, Loader2 } from 'lucide-react';
+import { Lock, Loader2, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -116,15 +116,31 @@ export default function ManageLayout() {
   );
 }
 
-export function ManageComingSoon({ title }: { title: string }) {
+/** Same header bar as B2BAdmin, minus the data-driven badge and Refresh. */
+export function ManagePageHeader({ icon: Icon, heading }: { icon: LucideIcon; heading: string }) {
   return (
-    <main className="max-w-6xl mx-auto p-6">
-      <Card>
-        <CardContent className="py-16 text-center space-y-2">
-          <p className="text-lg font-bold">{title}</p>
-          <p className="text-sm text-muted-foreground">준비 중입니다.</p>
-        </CardContent>
-      </Card>
-    </main>
+    <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
+      {/* h-9 matches the height of B2BAdmin's Refresh button so the bars line up. */}
+      <div className="flex items-center gap-3 h-9">
+        <Icon className="h-6 w-6 text-primary" />
+        <h1 className="text-lg font-bold">{heading}</h1>
+      </div>
+    </header>
+  );
+}
+
+export function ManageComingSoon({ icon, heading, title }: { icon: LucideIcon; heading: string; title: string }) {
+  return (
+    <div>
+      <ManagePageHeader icon={icon} heading={heading} />
+      <main className="max-w-6xl mx-auto p-6">
+        <Card>
+          <CardContent className="py-16 text-center space-y-2">
+            <p className="text-lg font-bold">{title}</p>
+            <p className="text-sm text-muted-foreground">준비 중입니다.</p>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
   );
 }
