@@ -14,7 +14,7 @@ const ADMIN_KEY_STORAGE = 'b2b-admin-key';
 const MANAGE_TABS = [
   { to: '/manage/b2b', label: 'B2B' },
   { to: '/manage/affiliate', label: '어필리에이트' },
-  { to: '/manage/international-shipping', label: '해외배송' },
+  { to: '/manage/international-shipping', label: '해외출고' },
 ];
 
 interface ManageAuth {

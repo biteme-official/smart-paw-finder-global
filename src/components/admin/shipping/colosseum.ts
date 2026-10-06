@@ -3,6 +3,7 @@
 // Everything here runs client-side only; recipient data never leaves the browser.
 import type * as XLSXNS from 'xlsx';
 import { normalizePhone } from './phone';
+import { allocateUnitAmounts } from './shopifyOrders';
 
 type XLSXModule = typeof XLSXNS;
 
@@ -18,12 +19,11 @@ const BATTERY_KEYWORDS = /boogie|blinker/i;
 
 export const hasBattery = (productName: string) => BATTERY_KEYWORDS.test(productName);
 
-/** 수취인 Email (AD): seeding shipments vs. customer orders (Shopify export, incl. B2B). */
+/** 수취인 Email (AD) on seeding shipments; order shipments use the customer's email from Shopify. */
 export const SEEDING_EMAIL = 'zoey@biteme.co.kr';
-export const ORDER_EMAIL = 'suejoo@biteme.co.kr';
 
-// Sender block (L–Q) as on the original sheet. N (sender mobile) is intentionally
-// left blank so no personal number ships in the public bundle.
+// Sender block (L–Q) as on the original sheet. N (sender mobile) is left blank on seeding
+// shipments; order shipments fill it (ORDER_SENDER_MOBILE), as the overseas team does.
 const FIXED: Record<string, string | number> = {
   A: 'SHOPIFY',
   B: 'Express',
@@ -37,6 +37,7 @@ const FIXED: Record<string, string | number> = {
   P: 17180,
   Q: 'Gyeonggi-do',
   AD: SEEDING_EMAIL,
+  AE: 'N',
   // 세금식별코드: fixed for every product (the product list's HS CODE is not used here).
   AJ: 4201009000,
 };
@@ -62,19 +63,61 @@ export interface ShopifyOrderInfo {
   currency: string;
   total: string;
   b2b: boolean;
+  /** Customer email from the export (수취인 Email). */
+  email: string;
   qtys: number[];
   prices: string[];
+  /** Shopify Address2 is part of the card's address line (affects the W / AC separator). */
+  hasAddress2: boolean;
+  /** Address2 that was left out because it looked like a phone number (shown for review). */
+  droppedAddress2?: string;
+  /** The surname / given-name split of the Shopify name was unclear (shown for review). */
+  nameAmbiguous?: boolean;
 }
 
-/** 세금식별코드 for order lines whose product has no HS CODE in the product list. */
-export const DEFAULT_HS_CODE = '4201009000';
+/** 송화인휴대폰번호 (N) on order shipments, as the overseas team fills it. */
+export const ORDER_SENDER_MOBILE = '010-3258-0834';
 
-/** Lower-cased product name → HS CODE, from the product list. */
-export type HsCodeLookup = ReadonlyMap<string, string>;
+/** Countries without states / provinces: 수취인주 gets the country name. */
+export const NO_STATE_COUNTRIES = new Set(['SG', 'HK', 'MO']);
 
-export function hsCodeFor(productName: string, lookup?: HsCodeLookup): string {
-  const hs = lookup?.get(productName.trim().toLowerCase())?.trim();
-  return hs && /^\d+$/.test(hs) ? hs : DEFAULT_HS_CODE;
+/** 수취인우편번호 for countries without postal codes (e.g. Hong Kong). */
+export const NO_POSTAL_CODE = '000000';
+
+/** "$90.00" → "$90", "$136.59" stays. */
+export const formatTotal = (total: string) => {
+  const n = Number.parseFloat(total);
+  if (!Number.isFinite(n)) return total.trim();
+  return Number.isInteger(n) ? String(n) : n.toFixed(2);
+};
+
+/**
+ * Order shipment address (W / AC), as on the team sheet:
+ *   "2514 Henry St, Honolulu HI 96817 USA", "174C Edgedale Plains, #09-181 Singapore 823174".
+ * Address lines first; then city, state (US only), postal code and country, space separated
+ * (country left out when it repeats the city; "000000" placeholder zip left out).
+ * Without a postal code (Hong Kong) the team writes "<lines> <district>, Hong Kong".
+ */
+export function formatOrderAddress(
+  r: Pick<Recipient, 'address' | 'city' | 'state' | 'zip' | 'countryCode'>,
+  hasAddress2: boolean,
+  country?: Country,
+): string {
+  const lines = r.address.replace(/\s+/g, ' ').trim().replace(/,\s*$/, '');
+  const city = r.city.trim();
+  const countryName = r.countryCode === 'US' ? 'USA' : country?.en ?? r.countryCode;
+  const noPostal = !r.zip.trim() || r.zip.trim() === NO_POSTAL_CODE;
+  if (noPostal && countryName.toLowerCase() !== city.toLowerCase()) {
+    return [[lines, city].filter(Boolean).join(' '), countryName].filter(Boolean).join(', ');
+  }
+  const tail = [
+    city,
+    r.countryCode === 'US' ? r.state.trim() : '',
+    r.zip.trim() === NO_POSTAL_CODE ? '' : r.zip.trim(),
+    countryName.toLowerCase() === city.toLowerCase() ? '' : countryName,
+  ].filter(Boolean).join(' ');
+  if (!tail) return lines;
+  return hasAddress2 ? `${lines} ${tail}` : `${lines}, ${tail}`;
 }
 
 export interface Country {
@@ -124,12 +167,10 @@ export function assignOrderNumbers(
 
 /** Shopify order remark: "송장번호 / B2B / 배터리 포함 / $총금액" (B2B and battery parts only when they apply). */
 export function orderRemark(tracking: string, b2b: boolean, battery: boolean, total: string): string {
-  return [tracking.trim(), b2b && 'B2B', battery && '배터리 포함', `$${total.trim()}`]
+  return [tracking.trim(), b2b && 'B2B', battery && '배터리 포함', `$${formatTotal(total)}`]
     .filter(Boolean)
     .join(' / ');
 }
-
-const toNumber = (v: string) => (v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : v.trim());
 
 export function remark(tracking: string, battery: boolean): string {
   return battery
@@ -142,27 +183,32 @@ export function buildRows(
   recipients: Recipient[],
   date: string,
   countries: Country[] = [],
-  hsCodes?: HsCodeLookup,
   start = ORDER_START,
 ): SheetRow[] {
   const orders = assignOrderNumbers(recipients, date, start);
   return recipients.flatMap((r) => {
     const order = orders.get(r.id) ?? '';
-    // The address is pasted as written in the survey; W / AC get the normalized form.
-    const address = formatShippingAddress(r, countries.find((c) => c.code === r.countryCode));
-    return r.products.map((p, i) => ({ name: p.trim(), i })).filter((x) => x.name).map(({ name, i }) => {
+    const country = countries.find((c) => c.code === r.countryCode);
+    const o = r.order;
+    // Seeding: the address is pasted as written in the survey, W / AC get the normalized form.
+    // Orders: Shopify address lines + city / state / zip / country, as the overseas team writes it.
+    const address = o ? formatOrderAddress(r, o.hasAddress2, country) : formatShippingAddress(r, country);
+    const lines = r.products.map((p, i) => ({ name: p.trim(), i })).filter((x) => x.name);
+    // 구매자전체결제금 per unit: order total spread over the lines (Σ unit × qty = total).
+    const units = o
+      ? allocateUnitAmounts(lines.map((x) => o.qtys[x.i] ?? 1), lines.map((x) => o.prices[x.i] ?? ''), o.total).units
+      : [];
+    return lines.map(({ name, i }, li) => {
       const battery = hasBattery(name);
-      const o = r.order;
-      // Shopify order lines: real currency / total / quantity / unit price and per-product HS CODE.
       const orderCells: SheetRow = o
         ? {
             F: o.currency || 'USD',
-            G: toNumber(o.total),
+            G: units[li],
             K: o.qtys[i] ?? 1,
-            AH: toNumber(o.prices[i] ?? ''),
-            AJ: Number(hsCodeFor(name, hsCodes)),
+            N: ORDER_SENDER_MOBILE,
+            AB: r.zip.trim() || NO_POSTAL_CODE,
             AT: orderRemark(r.tracking, o.b2b, battery, o.total),
-            AD: ORDER_EMAIL,
+            AD: o.email,
           }
         : {};
       return {

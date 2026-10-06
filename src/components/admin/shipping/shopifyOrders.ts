@@ -13,6 +13,7 @@ export interface ShopifyOrderLine {
 export interface ShopifyOrder {
   number: string;
   shippingName: string;
+  email: string;
   phone: string;
   address1: string;
   address2: string;
@@ -23,6 +24,7 @@ export interface ShopifyOrder {
   currency: string;
   total: string;
   shippingMethod: string;
+  cancelled: boolean;
   lines: ShopifyOrderLine[];
 }
 
@@ -30,8 +32,8 @@ type Row = Record<string, string>;
 
 // Order-level columns are only filled on an order's first line; later lines inherit them.
 const ORDER_COLUMNS = [
-  'Shipping Name', 'Shipping Phone', 'Shipping Address1', 'Shipping Address2', 'Shipping City',
-  'Shipping Province', 'Shipping Zip', 'Shipping Country', 'Currency', 'Total', 'Shipping Method',
+  'Email', 'Shipping Name', 'Shipping Phone', 'Shipping Address1', 'Shipping Address2', 'Shipping City',
+  'Shipping Province', 'Shipping Zip', 'Shipping Country', 'Currency', 'Total', 'Shipping Method', 'Cancelled at',
 ] as const;
 
 const cell = (row: Row, col: string) => String(row[col] ?? '').trim();
@@ -64,6 +66,7 @@ export function parseShopifyOrders(rows: Row[]): ShopifyOrder[] {
       order = {
         number,
         shippingName: pick('Shipping Name'),
+        email: pick('Email'),
         phone: pick('Shipping Phone').replace(/^'/, ''),
         address1: pick('Shipping Address1'),
         address2: pick('Shipping Address2'),
@@ -75,6 +78,7 @@ export function parseShopifyOrders(rows: Row[]): ShopifyOrder[] {
         currency: pick('Currency'),
         total: pick('Total'),
         shippingMethod: pick('Shipping Method'),
+        cancelled: !!pick('Cancelled at'),
         lines: [],
       };
       orders.set(number, order);
@@ -85,7 +89,55 @@ export function parseShopifyOrders(rows: Row[]): ShopifyOrder[] {
       order.lines.push({ name, qty: Number.isFinite(qty) && qty > 0 ? qty : 1, price: cell(row, 'Lineitem price') });
     }
   }
-  return [...orders.values()];
+  // Cancelled orders are not shipped; fulfilment status doesn't matter (every line goes out).
+  return [...orders.values()].filter((o) => !o.cancelled);
+}
+
+/**
+ * Shopify exports the shipping name as surname+given name glued together ("NgDesmond",
+ * "NagaishiUn Hui"). Split at the lower→upper case boundary and put the given name first:
+ * "Desmond Ng", "Un Hui Nagaishi". `ambiguous` when there is no single clear boundary.
+ */
+export function reorderShopifyName(raw: string): { name: string; ambiguous: boolean } {
+  const name = raw.replace(/\s+/g, ' ').trim();
+  if (!name) return { name, ambiguous: false };
+  const boundaries = [...name.matchAll(/(?<=[a-z])(?=[A-Z])/g)].map((m) => m.index ?? 0);
+  if (boundaries.length === 1) {
+    const at = boundaries[0];
+    const surname = name.slice(0, at).trim();
+    const given = name.slice(at).trim();
+    // The surname part is a single word; anything else (spaces before the boundary) is unclear.
+    return { name: `${given} ${surname}`, ambiguous: /\s/.test(surname) };
+  }
+  return { name, ambiguous: true };
+}
+
+/**
+ * 구매자전체결제금 per unit: the order total (discounts, shipping, duties included) split over
+ * the lines in proportion to price × quantity, 2 decimals, so that Σ unit × qty === total.
+ * Rounding leftovers go to a quantity-1 line; `exact` is false if they couldn't be placed.
+ */
+export function allocateUnitAmounts(qtys: number[], prices: string[], total: string): { units: number[]; exact: boolean } {
+  const totalCents = Math.round(Number.parseFloat(total) * 100);
+  const n = qtys.length;
+  if (!n || !Number.isFinite(totalCents)) return { units: qtys.map(() => 0), exact: false };
+  const lineValues = qtys.map((q, i) => (Number.parseFloat(prices[i]) || 0) * q);
+  const sum = lineValues.reduce((a, b) => a + b, 0);
+  const qtySum = qtys.reduce((a, b) => a + b, 0);
+  // Unit share in cents: by line value, or evenly per unit when every price is 0.
+  const unitCents = qtys.map((q, i) => (sum > 0
+    ? Math.round((totalCents * lineValues[i]) / sum / q)
+    : Math.round(totalCents / qtySum)));
+  let diff = totalCents - unitCents.reduce((a, c, i) => a + c * qtys[i], 0);
+  if (diff !== 0) {
+    const single = qtys.findIndex((q) => q === 1);
+    const target = single >= 0 ? single : qtys.findIndex((q) => diff % q === 0);
+    if (target >= 0) {
+      unitCents[target] += diff / qtys[target];
+      diff = 0;
+    }
+  }
+  return { units: unitCents.map((c) => c / 100), exact: diff === 0 };
 }
 
 export const isB2BShipping = (method: string) => method.trim().toLowerCase() === 'b2b shipping';

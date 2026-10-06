@@ -21,7 +21,8 @@ import {
 import { geocodeAddress } from './geocode';
 import { parseSurveyPaste } from './surveyPaste';
 import { normalizePhone } from './phone';
-import { isB2BShipping, parseShopifyOrders, readShopifyRows } from './shopifyOrders';
+import { parseShopifyOrders, readShopifyRows } from './shopifyOrders';
+import { orderToCardFields } from './orderCards';
 
 type AutoField = 'countryCode' | 'city' | 'state' | 'zip';
 /** parsed = taken from the address line, manual = typed by the user, geo = filled by address search. */
@@ -239,7 +240,6 @@ export default function ColosseumShippingForm() {
   }, [shipDate, startEdited]);
   const [products, setProducts] = useState<{ name: string; hs: string }[]>([]);
   const productNames = useMemo(() => products.map((p) => p.name), [products]);
-  const hsCodes = useMemo(() => new Map(products.map((p) => [p.name.toLowerCase(), p.hs])), [products]);
   const [recipients, setRecipients] = useState<RecipientState[]>(() => [newRecipient()]);
   const [showMissingNotice, setShowMissingNotice] = useState(false);
   const [pasteText, setPasteText] = useState('');
@@ -403,33 +403,20 @@ export default function ColosseumShippingForm() {
       }
       const unmatched: string[] = [];
       const added = orders.map((o) => {
-        const country = countries.find((c) => c.code === o.country.toUpperCase()) ?? findCountry(o.country, countries);
+        const { fields, country } = orderToCardFields(o, countries);
         if (!country) unmatched.push(`${o.number} (${o.country || '국가 없음'})`);
-        const address = [o.address1, o.address2].filter(Boolean).join(', ');
         const given = (v: string) => (v ? 'manual' as const : undefined);
-        return withPhone({
+        return {
           ...newRecipient(),
-          name: o.shippingName,
-          phone: o.phone,
-          countryCode: country?.code ?? '',
-          address,
-          city: o.city,
-          state: o.province,
-          zip: o.zip,
+          ...fields,
           // Shopify already split the address: no extraction / search for these cards.
-          sources: { countryCode: country ? 'manual' as const : undefined, city: given(o.city), state: given(o.province), zip: given(o.zip) },
-          resolvedAddress: address,
-          collapsed: true,
-          products: o.lines.length ? o.lines.map((l) => l.name) : [''],
-          order: {
-            number: o.number,
-            currency: o.currency,
-            total: o.total,
-            b2b: isB2BShipping(o.shippingMethod),
-            qtys: o.lines.length ? o.lines.map((l) => l.qty) : [1],
-            prices: o.lines.length ? o.lines.map((l) => l.price) : [''],
+          sources: {
+            countryCode: country ? 'manual' as const : undefined,
+            city: given(fields.city), state: given(fields.state), zip: given(fields.zip),
           },
-        });
+          resolvedAddress: fields.address,
+          collapsed: true,
+        };
       });
       setRecipients((prev) => [...prev.filter((r) => !isBlankRecipient(r)), ...added]);
       toast.success(`주문 ${added.length}건을 등록했습니다.`, { position: 'top-center' });
@@ -478,8 +465,8 @@ export default function ColosseumShippingForm() {
 
   const orders = useMemo(() => assignOrderNumbers(recipients, shipDate || todayIso(), start), [recipients, shipDate, start]);
   const rows = useMemo(
-    () => buildRows(recipients, shipDate || todayIso(), countries, hsCodes, start),
-    [recipients, shipDate, countries, hsCodes, start],
+    () => buildRows(recipients, shipDate || todayIso(), countries, start),
+    [recipients, shipDate, countries, start],
   );
   // Seeding numbers only: Shopify order cards keep their own #numbers.
   const seedingOrders = useMemo(
@@ -677,7 +664,9 @@ export default function ColosseumShippingForm() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <Label>수취인 이름</Label>
-                  <Input value={r.name} onChange={(e) => setField(r.id, 'name', e.target.value)} />
+                  <Input value={r.name} onChange={(e) => setField(r.id, 'name', e.target.value)}
+                    className={cn(r.order?.nameAmbiguous && 'border-yellow-500 focus-visible:ring-yellow-500')} />
+                  {r.order?.nameAmbiguous && <p className="text-[11px] text-yellow-700 mt-1">이름/성 순서 확인 필요</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label>전화번호</Label>
@@ -701,13 +690,18 @@ export default function ColosseumShippingForm() {
                   <Input value={r.address} placeholder="예: 123 Main St, Apt 4, Springfield, IL 62704, USA"
                     onChange={(e) => setField(r.id, 'address', e.target.value)}
                     onBlur={() => resolveAddress(r.id)}
-                    className="flex-1" />
+                    className={cn('flex-1', r.order?.droppedAddress2 && 'border-yellow-500 focus-visible:ring-yellow-500')} />
                   <Button variant="outline" className="w-full md:w-auto" disabled={!r.address.trim() || r.searching}
                     onClick={() => resolveAddress(r.id, true)}>
                     {r.searching ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Search className="h-4 w-4 mr-1" />}
                     {r.searching ? '검색 중' : '주소로 다시 채우기'}
                   </Button>
                 </div>
+                {r.order?.droppedAddress2 && (
+                  <p className="text-[11px] text-yellow-700">
+                    주소2 "{r.order.droppedAddress2}"는 숫자만 있어 주소에서 뺐습니다 — 확인 필요
+                  </p>
+                )}
                 <p className="text-[11px] text-muted-foreground">
                   입력칸을 벗어나면 도시·주·우편번호·국가를 주소에서 추출하고, 못 찾은 칸만 검색합니다 (싱가포르: OneMap → OpenStreetMap, 그 외: OpenStreetMap).
                 </p>
