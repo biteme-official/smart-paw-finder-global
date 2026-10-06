@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -78,6 +78,11 @@ function LoginGate({ onLogin }: { onLogin: (key: string) => void }) {
 
 export default function ManageLayout() {
   const [adminKey, setAdminKey] = useState(() => sessionStorage.getItem(ADMIN_KEY_STORAGE) || '');
+  const { pathname } = useLocation();
+
+  // Notifications belong to the tab that raised them (e.g. a B2B load error):
+  // don't carry them over to the next tab.
+  useEffect(() => { toast.dismiss(); }, [pathname]);
 
   const logout = useCallback(() => {
     setAdminKey('');

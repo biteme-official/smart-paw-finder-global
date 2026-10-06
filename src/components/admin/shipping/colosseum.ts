@@ -18,6 +18,10 @@ const BATTERY_KEYWORDS = /boogie|blinker/i;
 
 export const hasBattery = (productName: string) => BATTERY_KEYWORDS.test(productName);
 
+/** 수취인 Email (AD): seeding shipments vs. customer orders (Shopify export, incl. B2B). */
+export const SEEDING_EMAIL = 'zoey@biteme.co.kr';
+export const ORDER_EMAIL = 'suejoo@biteme.co.kr';
+
 // Sender block (L–Q) as on the original sheet. N (sender mobile) is intentionally
 // left blank so no personal number ships in the public bundle.
 const FIXED: Record<string, string | number> = {
@@ -32,7 +36,7 @@ const FIXED: Record<string, string | number> = {
   O: '31-14, Baegam-ro, Baegam-myeon, Cheoin-gu, Yongin-si, Gyeonggi-do, Republic of Korea',
   P: 17180,
   Q: 'Gyeonggi-do',
-  AD: 'zoey@biteme.co.kr',
+  AD: SEEDING_EMAIL,
   // 세금식별코드: fixed for every product (the product list's HS CODE is not used here).
   AJ: 4201009000,
 };
@@ -84,9 +88,12 @@ export interface Country {
 
 export type SheetRow = Record<string, string | number>;
 
-/** "2026-10-06" + 2 → "261006-162" */
-export function orderNumber(date: string, index: number): string {
-  return `${date.replace(/-/g, '').slice(2)}-${ORDER_START + index}`;
+/** "2026-10-06" → "261006" */
+export const orderDatePrefix = (date: string) => date.replace(/-/g, '').slice(2);
+
+/** "2026-10-06" + 2 → "261006-162" (start defaults to 160) */
+export function orderNumber(date: string, index: number, start = ORDER_START): string {
+  return `${orderDatePrefix(date)}-${start + index}`;
 }
 
 /**
@@ -96,6 +103,7 @@ export function orderNumber(date: string, index: number): string {
 export function assignOrderNumbers(
   recipients: Pick<Recipient, 'id' | 'name' | 'order'>[],
   date: string,
+  start = ORDER_START,
 ): Map<string, string> {
   const byName = new Map<string, string>();
   const result = new Map<string, string>();
@@ -106,7 +114,7 @@ export function assignOrderNumbers(
     const key = r.name.trim().toLowerCase();
     let order = key ? byName.get(key) : undefined;
     if (!order) {
-      order = orderNumber(date, next++);
+      order = orderNumber(date, next++, start);
       if (key) byName.set(key, order);
     }
     result.set(r.id, order);
@@ -135,8 +143,9 @@ export function buildRows(
   date: string,
   countries: Country[] = [],
   hsCodes?: HsCodeLookup,
+  start = ORDER_START,
 ): SheetRow[] {
-  const orders = assignOrderNumbers(recipients, date);
+  const orders = assignOrderNumbers(recipients, date, start);
   return recipients.flatMap((r) => {
     const order = orders.get(r.id) ?? '';
     // The address is pasted as written in the survey; W / AC get the normalized form.
@@ -153,6 +162,7 @@ export function buildRows(
             AH: toNumber(o.prices[i] ?? ''),
             AJ: Number(hsCodeFor(name, hsCodes)),
             AT: orderRemark(r.tracking, o.b2b, battery, o.total),
+            AD: ORDER_EMAIL,
           }
         : {};
       return {
@@ -542,20 +552,27 @@ function cellXml(ref: string, style: string | undefined, value: string | number 
 }
 
 /** Writes rows into the data sheet XML, keeping each template cell's style. */
+// Data rows use one cell style across A–AZ (template style 23: no fill, thin border, left /
+// middle aligned — as columns O–Q and T). AJ uses style 35, identical but with the number
+// format that shows the full tax code instead of 4.2E+09. Rows without data stay unformatted.
+const DATA_CELL_STYLE = '23';
+const COLUMN_STYLES: Record<string, string> = { AJ: '35' };
+const DATA_COLUMNS = Array.from({ length: colIndex('AZ') }, (_, i) => {
+  let n = i + 1;
+  let s = '';
+  while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
+  return s;
+});
+
 export function fillSheetXml(xml: string, rows: SheetRow[]): string {
   let out = xml;
   rows.forEach((data, i) => {
     const r = FIRST_DATA_ROW + i;
     const rowRe = new RegExp(`<row r="${r}"([^>]*?)(/>|>([\\s\\S]*?)</row>)`);
     const existing = out.match(rowRe);
-    const styles = new Map<string, string | undefined>();
-    if (existing?.[3]) {
-      for (const m of existing[3].matchAll(/<c r="([A-Z]+)\d+"([^>]*?)(\/>|>[\s\S]*?<\/c>)/g)) {
-        styles.set(m[1], m[2].match(/s="(\d+)"/)?.[1]);
-      }
-    }
-    const cols = [...new Set([...styles.keys(), ...Object.keys(data)])].sort((a, b) => colIndex(a) - colIndex(b));
-    const cells = cols.map((c) => cellXml(`${c}${r}`, styles.get(c), data[c])).join('');
+    const cells = DATA_COLUMNS
+      .map((c) => cellXml(`${c}${r}`, COLUMN_STYLES[c] ?? DATA_CELL_STYLE, data[c]))
+      .join('');
     const rowXml = existing
       ? `<row r="${r}"${existing[1]}>${cells}</row>`
       : `<row r="${r}">${cells}</row>`;

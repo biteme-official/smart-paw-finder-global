@@ -15,7 +15,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
-  TEMPLATE_URL, assignOrderNumbers, buildRows, buildWorkbook, detectCountry, downloadFileName, extractPostal, findCountry,
+  ORDER_START, TEMPLATE_URL, assignOrderNumbers, orderDatePrefix, orderNumber, buildRows, buildWorkbook, detectCountry, downloadFileName, extractPostal, findCountry,
   hasBattery, parseAddress, readCountries, searchableAddress, type Country, type Recipient,
 } from './colosseum';
 import { geocodeAddress } from './geocode';
@@ -57,6 +57,26 @@ const withPhone = <T extends Recipient>(r: T): T => {
   if (!r.phone.trim() || !r.countryCode) return r;
   const phone = normalizePhone(r.phone, r.countryCode).value;
   return phone === r.phone ? r : { ...r, phone };
+};
+
+// Last seeding order number downloaded per ship date, so a second shipment on the same day
+// continues the sequence. Browser-only convenience: storage may be unavailable.
+const lastOrderKey = (date: string) => `colosseum-last-order:${orderDatePrefix(date)}`;
+const readLastOrder = (date: string): number | null => {
+  try {
+    const v = Number.parseInt(localStorage.getItem(lastOrderKey(date)) ?? '', 10);
+    return Number.isFinite(v) ? v : null;
+  } catch { return null; }
+};
+const saveLastOrder = (date: string, last: number) => {
+  try {
+    const prev = readLastOrder(date);
+    if (prev === null || last > prev) localStorage.setItem(lastOrderKey(date), String(last));
+  } catch { /* storage unavailable: nothing to remember */ }
+};
+const suggestedStart = (date: string) => {
+  const last = readLastOrder(date);
+  return String(last === null ? ORDER_START : last + 1);
 };
 
 let seq = 0;
@@ -207,6 +227,16 @@ export default function ColosseumShippingForm() {
   const [countries, setCountries] = useState<Country[]>([]);
   const [loadError, setLoadError] = useState(false);
   const [shipDate, setShipDate] = useState(todayIso);
+  // Seeding order number start (YYMMDD-<start>); filled from the last download of that date
+  // until the user types a value.
+  const [startNo, setStartNo] = useState(() => suggestedStart(todayIso()));
+  const [startEdited, setStartEdited] = useState(false);
+  const startNumber = Number.parseInt(startNo, 10);
+  const start = Number.isFinite(startNumber) ? startNumber : ORDER_START;
+
+  useEffect(() => {
+    if (!startEdited && shipDate) setStartNo(suggestedStart(shipDate));
+  }, [shipDate, startEdited]);
   const [products, setProducts] = useState<{ name: string; hs: string }[]>([]);
   const productNames = useMemo(() => products.map((p) => p.name), [products]);
   const hsCodes = useMemo(() => new Map(products.map((p) => [p.name.toLowerCase(), p.hs])), [products]);
@@ -446,8 +476,17 @@ export default function ColosseumShippingForm() {
     }
   };
 
-  const orders = useMemo(() => assignOrderNumbers(recipients, shipDate || todayIso()), [recipients, shipDate]);
-  const rows = useMemo(() => buildRows(recipients, shipDate || todayIso(), countries, hsCodes), [recipients, shipDate, countries, hsCodes]);
+  const orders = useMemo(() => assignOrderNumbers(recipients, shipDate || todayIso(), start), [recipients, shipDate, start]);
+  const rows = useMemo(
+    () => buildRows(recipients, shipDate || todayIso(), countries, hsCodes, start),
+    [recipients, shipDate, countries, hsCodes, start],
+  );
+  // Seeding numbers only: Shopify order cards keep their own #numbers.
+  const seedingOrders = useMemo(
+    () => [...new Set(recipients.filter((r) => !r.order).map((r) => orders.get(r.id) ?? ''))].filter(Boolean),
+    [recipients, orders],
+  );
+  const shopifyOrderCount = recipients.filter((r) => r.order).length;
 
   const incomplete = useMemo(
     () => recipients
@@ -491,6 +530,7 @@ export default function ColosseumShippingForm() {
       a.download = downloadFileName();
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+      if (seedingOrders.length) saveLastOrder(shipDate, start + seedingOrders.length - 1);
     } catch {
       toast.error('엑셀 생성에 실패했습니다.', { position: 'top-center' });
     } finally {
@@ -502,9 +542,8 @@ export default function ColosseumShippingForm() {
     return <p className="text-sm text-red-600">양식 파일을 불러오지 못했습니다. 새로고침해 주세요.</p>;
   }
 
-  const orderList = [...new Set(orders.values())];
-  const firstOrder = orderList[0] ?? '-';
-  const lastOrder = orderList[orderList.length - 1] ?? '-';
+  const firstOrder = seedingOrders[0] ?? orderNumber(shipDate || todayIso(), 0, start);
+  const lastOrder = seedingOrders[seedingOrders.length - 1] ?? firstOrder;
 
   return (
     <div className="space-y-6">
@@ -546,10 +585,21 @@ export default function ColosseumShippingForm() {
               <Label htmlFor="ship-date">출고일자</Label>
               <Input id="ship-date" type="date" value={shipDate} onChange={(e) => setShipDate(e.target.value)} />
             </div>
-            <div className="space-y-1.5 md:col-span-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="start-no">시작 번호</Label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-mono text-muted-foreground">{orderDatePrefix(shipDate || todayIso())}-</span>
+                <Input id="start-no" inputMode="numeric" value={startNo} placeholder={String(ORDER_START)}
+                  onChange={(e) => { setStartNo(e.target.value.replace(/\D/g, '')); setStartEdited(true); }} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
               <Label>주문번호 미리보기</Label>
-              <p className="h-10 flex items-center text-sm font-mono">
-                {orderList.length > 1 ? `${firstOrder} ~ ${lastOrder} (${orderList.length}건)` : firstOrder}
+              <p className="min-h-10 flex flex-wrap items-center gap-x-2 text-sm font-mono">
+                <span>{seedingOrders.length > 1 ? `${firstOrder} ~ ${lastOrder} (${seedingOrders.length}건)` : firstOrder}</span>
+                {shopifyOrderCount > 0 && (
+                  <span className="font-sans text-xs text-muted-foreground">· Shopify 주문 {shopifyOrderCount}건은 자체 번호</span>
+                )}
               </p>
             </div>
           </div>
@@ -591,10 +641,13 @@ export default function ColosseumShippingForm() {
                 <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', r.collapsed && '-rotate-90')} />
                 <span className="font-semibold">수취인 #{i + 1}</span>
                 <span className="font-mono text-xs text-muted-foreground">{order}</span>
-                {r.order && (
+                {/* Shipment type: decides the sheet's recipient email (시딩 → zoey@, 주문 → suejoo@). */}
+                {r.order ? (
                   <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-800">
-                    Shopify{r.order.b2b ? ' · B2B' : ''}
+                    주문{r.order.b2b ? ' · B2B' : ''}
                   </span>
+                ) : (
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">시딩</span>
                 )}
                 {r.collapsed ? (
                   // One-line summary: 이름 · 국가 · 상품 N개 · 송장번호
