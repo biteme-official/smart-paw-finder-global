@@ -11,6 +11,12 @@ const OUT = fileURLToPath(new URL('../src/components/admin/shipping/shipping-pro
 const NAME_COL = '상품명 (영문)';
 const HS_COL = 'HS CODE';
 
+// Names shipped to Colosseum that are not in the product list workbooks.
+// Kept here so they survive regenerating the JSON from new workbooks.
+const EXTRA_PRODUCTS = [
+  { name: 'Biteme Jumping Crab Toy (Cover only)', hs: '' },
+];
+
 const files = process.argv.slice(2);
 if (!files.length) {
   console.error('usage: node scripts/build-shipping-products.mjs <상품리스트.xlsx> [more.xlsx ...]');
@@ -28,6 +34,10 @@ for (const file of files) {
       byName.set(name.toLowerCase(), { name, hs: String(row[HS_COL] ?? '').trim() });
     }
   }
+}
+
+for (const extra of EXTRA_PRODUCTS) {
+  if (!byName.has(extra.name.toLowerCase())) byName.set(extra.name.toLowerCase(), extra);
 }
 
 const products = [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));

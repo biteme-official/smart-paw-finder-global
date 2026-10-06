@@ -2,18 +2,25 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { BatteryCharging, ChevronsUpDown, Download, Loader2, Plus, Search, Trash2, X } from 'lucide-react';
+import {
+  AlertCircle, BatteryCharging, CheckCircle2, ChevronDown, ChevronsUpDown, ClipboardPaste, Download, FileSpreadsheet, Loader2,
+  Plus, Search,
+  Trash2, X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
-  TEMPLATE_URL, assignOrderNumbers, buildRows, buildWorkbook, detectCountry, downloadFileName,
+  TEMPLATE_URL, assignOrderNumbers, buildRows, buildWorkbook, detectCountry, downloadFileName, extractPostal, findCountry,
   hasBattery, parseAddress, readCountries, searchableAddress, type Country, type Recipient,
 } from './colosseum';
 import { geocodeAddress } from './geocode';
+import { parseSurveyPaste } from './surveyPaste';
+import { isB2BShipping, parseShopifyOrders, readShopifyRows } from './shopifyOrders';
 
 type AutoField = 'countryCode' | 'city' | 'state' | 'zip';
 /** parsed = taken from the address line, manual = typed by the user, geo = filled by address search. */
@@ -23,10 +30,21 @@ interface RecipientState extends Recipient {
   sources: Partial<Record<AutoField, Source>>;
   searching: boolean;
   resolvedAddress: string;
+  collapsed: boolean;
 }
 
 const AUTO_FIELDS: AutoField[] = ['countryCode', 'city', 'state', 'zip'];
-const REQUIRED: (keyof Recipient)[] = ['name', 'phone', 'countryCode', 'address', 'city', 'state', 'zip', 'tracking'];
+/** Fields that must be filled before download, with the label shown in "미입력: ..." badges. */
+const REQUIRED_FIELDS: { field: keyof Recipient; label: string }[] = [
+  { field: 'name', label: '이름' },
+  { field: 'phone', label: '전화번호' },
+  { field: 'countryCode', label: '국가' },
+  { field: 'address', label: '주소' },
+  { field: 'city', label: '도시' },
+  { field: 'zip', label: '우편번호' },
+  { field: 'products', label: '상품' },
+  { field: 'tracking', label: '송장번호' },
+];
 
 const todayIso = () => {
   const d = new Date();
@@ -35,20 +53,30 @@ const todayIso = () => {
 
 let seq = 0;
 const newRecipient = (): RecipientState => ({
-  id: `r${++seq}`,
+  // Time-based prefix keeps ids unique even if this module is reloaded (dev hot reload resets seq).
+  id: `r${Date.now().toString(36)}-${++seq}`,
   name: '', phone: '', countryCode: '', address: '', city: '', state: '', zip: '', tracking: '',
   products: [''],
   sources: {},
   searching: false,
   resolvedAddress: '',
+  collapsed: false,
 });
 
 const isMissing = (r: Recipient, f: keyof Recipient) =>
   f === 'products' ? !r.products.some((p) => p.trim()) : !String(r[f]).trim();
 
-function fieldTone(source: Source | undefined, missing: boolean) {
-  if (source === 'notfound' || missing) return 'border-red-500 bg-red-100 focus-visible:ring-red-500';
-  if (source === 'geo') return 'border-yellow-500 bg-yellow-100 focus-visible:ring-yellow-500';
+/** A card nothing has been typed into yet: still being written, so no "미입력" marks. */
+const isBlankRecipient = (r: Recipient) =>
+  !r.name.trim() && !r.phone.trim() && !r.address.trim() && !r.countryCode && !r.tracking.trim()
+  && !r.products.some((p) => p.trim());
+
+const missingLabels = (r: Recipient) => REQUIRED_FIELDS.filter((f) => isMissing(r, f.field)).map((f) => f.label);
+
+/** Border color only reflects the address search: yellow = filled by search, red = search found nothing. */
+function fieldTone(source: Source | undefined) {
+  if (source === 'notfound') return 'border-red-500 focus-visible:ring-red-500';
+  if (source === 'geo') return 'border-yellow-500 focus-visible:ring-yellow-500';
   return '';
 }
 
@@ -70,8 +98,8 @@ function suggest(names: string[], query: string, limit = 8): string[] {
 }
 
 /** Free-text product name with suggestions from the product list; any name may be typed. */
-function ProductInput({ value, names, invalid, onChange }: {
-  value: string; names: string[]; invalid: boolean; onChange: (v: string) => void;
+function ProductInput({ value, names, onChange }: {
+  value: string; names: string[]; onChange: (v: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
@@ -84,23 +112,28 @@ function ProductInput({ value, names, invalid, onChange }: {
       <Input value={value} placeholder="상품명 (영문) 입력 — 비슷한 상품이 아래에 표시됩니다"
         onChange={(e) => { onChange(e.target.value); setOpen(true); setActive(-1); }}
         onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
+        onBlur={() => { setOpen(false); setActive(-1); }}
         onKeyDown={(e) => {
+          // Enter keeps the typed text as-is unless a suggestion was chosen with the arrow keys.
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (active >= 0 && options[active]) pick(options[active]);
+            else { setOpen(false); setActive(-1); }
+            return;
+          }
+          if (e.key === 'Escape') { setOpen(false); setActive(-1); return; }
           if (!options.length) return;
           if (e.key === 'ArrowDown') { e.preventDefault(); setActive((i) => (i + 1) % options.length); }
           else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => (i <= 0 ? options.length - 1 : i - 1)); }
-          else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); pick(options[active]); }
-          else if (e.key === 'Escape') setOpen(false);
-        }}
-        className={cn(fieldTone(undefined, invalid))} />
+        }} />
       {options.length > 0 && (
         <ul className="absolute z-20 mt-1 w-full max-h-64 overflow-auto rounded-md border bg-popover p-1 shadow-md">
           {options.map((name, i) => (
             <li key={name}
               // mousedown, not click: the pick must land before the input's blur closes the list.
               onMouseDown={(e) => { e.preventDefault(); pick(name); }}
-              onMouseEnter={() => setActive(i)}
-              className={cn('cursor-pointer rounded-sm px-2 py-1.5 text-sm flex items-center gap-1',
+              // Hover only highlights visually; it must not arm Enter (that would replace typed text).
+              className={cn('cursor-pointer rounded-sm px-2 py-1.5 text-sm flex items-center gap-1 hover:bg-accent/60',
                 i === active && 'bg-accent text-accent-foreground')}>
               <span className="flex-1">{name}</span>
               {hasBattery(name) && <BatteryCharging className="h-3.5 w-3.5 text-primary shrink-0" />}
@@ -152,9 +185,16 @@ export default function ColosseumShippingForm() {
   const [countries, setCountries] = useState<Country[]>([]);
   const [loadError, setLoadError] = useState(false);
   const [shipDate, setShipDate] = useState(todayIso);
-  const [productNames, setProductNames] = useState<string[]>([]);
+  const [products, setProducts] = useState<{ name: string; hs: string }[]>([]);
+  const productNames = useMemo(() => products.map((p) => p.name), [products]);
+  const hsCodes = useMemo(() => new Map(products.map((p) => [p.name.toLowerCase(), p.hs])), [products]);
   const [recipients, setRecipients] = useState<RecipientState[]>(() => [newRecipient()]);
-  const [showErrors, setShowErrors] = useState(false);
+  const [showMissingNotice, setShowMissingNotice] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+  const orderFileInput = useRef<HTMLInputElement>(null);
+  const [importingOrders, setImportingOrders] = useState(false);
+  // Recipients added by bulk paste whose address still has to be resolved (after render).
+  const pendingResolve = useRef<string[]>([]);
   const [downloading, setDownloading] = useState(false);
 
   // Latest state for async address resolution.
@@ -183,7 +223,7 @@ export default function ColosseumShippingForm() {
   useEffect(() => {
     let cancelled = false;
     import('./shipping-products.json')
-      .then((m) => { if (!cancelled) setProductNames(m.default.map((p) => p.name)); })
+      .then((m) => { if (!cancelled) setProducts(m.default); })
       .catch(() => { /* suggestions are optional; free text still works */ });
     return () => { cancelled = true; };
   }, []);
@@ -205,9 +245,22 @@ export default function ColosseumShippingForm() {
   const setProduct = (id: string, index: number, value: string) => {
     patch(id, (r) => ({ ...r, products: r.products.map((p, i) => (i === index ? value : p)) }));
   };
-  const addProduct = (id: string) => patch(id, (r) => ({ ...r, products: [...r.products, ''] }));
+  // Order cards keep quantity / unit price per product line, so they move with the product list.
+  const addProduct = (id: string) => patch(id, (r) => ({
+    ...r,
+    products: [...r.products, ''],
+    order: r.order && { ...r.order, qtys: [...r.order.qtys, 1], prices: [...r.order.prices, ''] },
+  }));
   const removeProduct = (id: string, index: number) => {
-    patch(id, (r) => ({ ...r, products: r.products.filter((_, i) => i !== index) }));
+    patch(id, (r) => ({
+      ...r,
+      products: r.products.filter((_, i) => i !== index),
+      order: r.order && {
+        ...r.order,
+        qtys: r.order.qtys.filter((_, i) => i !== index),
+        prices: r.order.prices.filter((_, i) => i !== index),
+      },
+    }));
   };
 
   /**
@@ -265,29 +318,145 @@ export default function ColosseumShippingForm() {
         const value = raw && (f !== 'countryCode' || known.has(raw)) ? raw : '';
         if (value) { out[f] = value; out.sources[f] = 'geo'; } else { out.sources[f] = 'notfound'; }
       }
+      // Once the country is known, a postal code written in the address beats the
+      // search result (map data is often a neighbouring code).
+      if (missing.includes('zip') && out.sources.zip !== 'manual' && out.countryCode) {
+        const written = extractPostal(address, out.countryCode);
+        if (written) { out.zip = written.zip; out.sources.zip = 'parsed'; }
+      }
       return out;
     });
   }, [countries, patch]);
 
-  const orders = useMemo(() => assignOrderNumbers(recipients, shipDate || todayIso()), [recipients, shipDate]);
-  const rows = useMemo(() => buildRows(recipients, shipDate || todayIso()), [recipients, shipDate]);
+  useEffect(() => {
+    if (!pendingResolve.current.length) return;
+    const ids = pendingResolve.current;
+    pendingResolve.current = [];
+    // Lookups are queued inside geocode (1 req/s), so firing them all here is safe.
+    ids.forEach((id) => { void resolveAddress(id); });
+  }, [recipients, resolveAddress]);
 
-  const problems = useMemo(() => {
-    const list: string[] = [];
-    if (!shipDate) list.push('출고일자');
-    recipients.forEach((r, i) => {
-      const miss = [...REQUIRED, 'products' as const].filter((f) => isMissing(r, f));
-      if (miss.length) list.push(`수취인 #${i + 1}`);
-    });
-    return list;
-  }, [recipients, shipDate]);
 
-  const handleDownload = async () => {
-    setShowErrors(true);
-    if (problems.length || !template) {
-      toast.error(`빈 필수 항목이 있습니다: ${problems.join(', ')}`, { position: 'top-center' });
+  /** Shopify "Export orders" file → one collapsed card per order, read in the browser only. */
+  const handleOrderFile = async (file: File | undefined) => {
+    if (!file) return;
+    setImportingOrders(true);
+    try {
+      const XLSX = await import('xlsx');
+      const orders = parseShopifyOrders(readShopifyRows(XLSX, { name: file.name, data: await file.arrayBuffer() }));
+      if (!orders.length) {
+        toast.error('파일에서 주문을 찾지 못했습니다.', { position: 'top-center' });
+        return;
+      }
+      const unmatched: string[] = [];
+      const added = orders.map((o) => {
+        const country = countries.find((c) => c.code === o.country.toUpperCase()) ?? findCountry(o.country, countries);
+        if (!country) unmatched.push(`${o.number} (${o.country || '국가 없음'})`);
+        const address = [o.address1, o.address2].filter(Boolean).join(', ');
+        const given = (v: string) => (v ? 'manual' as const : undefined);
+        return {
+          ...newRecipient(),
+          name: o.shippingName,
+          phone: o.phone,
+          countryCode: country?.code ?? '',
+          address,
+          city: o.city,
+          state: o.province,
+          zip: o.zip,
+          // Shopify already split the address: no extraction / search for these cards.
+          sources: { countryCode: country ? 'manual' as const : undefined, city: given(o.city), state: given(o.province), zip: given(o.zip) },
+          resolvedAddress: address,
+          collapsed: true,
+          products: o.lines.length ? o.lines.map((l) => l.name) : [''],
+          order: {
+            number: o.number,
+            currency: o.currency,
+            total: o.total,
+            b2b: isB2BShipping(o.shippingMethod),
+            qtys: o.lines.length ? o.lines.map((l) => l.qty) : [1],
+            prices: o.lines.length ? o.lines.map((l) => l.price) : [''],
+          },
+        };
+      });
+      setRecipients((prev) => [...prev.filter((r) => !isBlankRecipient(r)), ...added]);
+      toast.success(`주문 ${added.length}건을 등록했습니다.`, { position: 'top-center' });
+      if (unmatched.length) {
+        toast.error(`국가를 찾지 못했습니다: ${unmatched.join(', ')} — 직접 선택해 주세요.`, { position: 'top-center' });
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '주문서를 읽지 못했습니다.', { position: 'top-center' });
+    } finally {
+      setImportingOrders(false);
+      if (orderFileInput.current) orderFileInput.current.value = '';
+    }
+  };
+
+  const handleBulkAdd = () => {
+    const { rows: parsed } = parseSurveyPaste(pasteText);
+    if (!parsed.length) {
+      toast.error('붙여넣은 내용에서 수취인을 찾지 못했습니다.', { position: 'top-center' });
       return;
     }
+    const unmatched: string[] = [];
+    const added = parsed.map((row) => {
+      const r = newRecipient();
+      const country = findCountry(row.country, countries);
+      if (row.country && !country) unmatched.push(row.country);
+      return {
+        ...r,
+        name: row.name,
+        phone: row.phone,
+        address: row.address,
+        countryCode: country?.code ?? '',
+        collapsed: true,
+        // The survey's country is the customer's own answer: keep it like a manual value.
+        sources: country ? { countryCode: 'manual' as const } : {},
+      };
+    });
+    pendingResolve.current.push(...added.filter((r) => r.address).map((r) => r.id));
+    // Replace the untouched starter card instead of leaving it empty at the top.
+    setRecipients((prev) => [...prev.filter((r) => !isBlankRecipient(r)), ...added]);
+    setPasteText('');
+    toast.success(`수취인 ${added.length}명을 추가했습니다.`, { position: 'top-center' });
+    if (unmatched.length) {
+      toast.error(`국가를 찾지 못했습니다: ${[...new Set(unmatched)].join(', ')} — 직접 선택해 주세요.`, { position: 'top-center' });
+    }
+  };
+
+  const orders = useMemo(() => assignOrderNumbers(recipients, shipDate || todayIso()), [recipients, shipDate]);
+  const rows = useMemo(() => buildRows(recipients, shipDate || todayIso(), countries, hsCodes), [recipients, shipDate, countries, hsCodes]);
+
+  const incomplete = useMemo(
+    () => recipients
+      .map((r, i) => ({ id: r.id, index: i, labels: missingLabels(r) }))
+      .filter((x) => x.labels.length > 0),
+    [recipients],
+  );
+
+  const incompleteShown = incomplete.filter((x) => !isBlankRecipient(recipients[x.index]));
+
+  const setAllCollapsed = (collapsed: boolean) => setRecipients((prev) => prev.map((r) => ({ ...r, collapsed })));
+  const toggleCollapsed = (id: string) => patch(id, (r) => ({ ...r, collapsed: !r.collapsed }));
+
+  /** Opens a recipient card and scrolls it into view. */
+  const goToRecipient = (id: string) => {
+    patch(id, (r) => ({ ...r, collapsed: false }));
+    requestAnimationFrame(() => {
+      document.getElementById(`recipient-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
+  const handleDownload = async () => {
+    if (!shipDate) {
+      toast.error('출고일자를 입력해 주세요.', { position: 'top-center' });
+      return;
+    }
+    if (incomplete.length) {
+      setShowMissingNotice(true);
+      toast.error(`${incomplete.length}명 미입력 — 아래 목록에서 눌러 이동하세요.`, { position: 'top-center' });
+      return;
+    }
+    if (!template) return;
     setDownloading(true);
     try {
       const XLSX = await import('xlsx');
@@ -318,14 +487,41 @@ export default function ColosseumShippingForm() {
     <div className="space-y-6">
       <Card>
         <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold">붙여넣기</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-3">
+          <Textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)} rows={4}
+            placeholder="구글 시트에서 설문 응답 행을 복사해 붙여넣으세요 (헤더 줄 포함 가능). 한 줄당 수취인 1명이 추가됩니다."
+            className="font-mono text-xs" />
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            <p className="text-[11px] text-muted-foreground">
+              일괄 등록: 설문 응답의 이름·전화번호·국가·주소만 채웁니다. 주문서 등록: Shopify 주문 내보내기 파일(.csv/.xlsx)로 주문별 카드를 만듭니다. 송장번호는 직접 입력해 주세요.
+            </p>
+            <div className="flex flex-col md:flex-row gap-2">
+              <input ref={orderFileInput} type="file" accept=".csv,.xlsx" className="hidden"
+                onChange={(e) => handleOrderFile(e.target.files?.[0])} />
+              <Button className="w-full md:w-auto bg-green-600 text-white hover:bg-green-700"
+                disabled={!countries.length || importingOrders} onClick={() => orderFileInput.current?.click()}>
+                {importingOrders ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileSpreadsheet className="h-4 w-4 mr-1" />}
+                주문서 등록
+              </Button>
+              <Button className="w-full md:w-auto" disabled={!pasteText.trim() || !countries.length} onClick={handleBulkAdd}>
+                <ClipboardPaste className="h-4 w-4 mr-1" /> 일괄 등록
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold">출고 기본정보</CardTitle>
         </CardHeader>
         <CardContent className="pt-0 space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="ship-date">출고일자</Label>
-              <Input id="ship-date" type="date" value={shipDate} onChange={(e) => setShipDate(e.target.value)}
-                className={cn(showErrors && !shipDate && fieldTone(undefined, true))} />
+              <Input id="ship-date" type="date" value={shipDate} onChange={(e) => setShipDate(e.target.value)} />
             </div>
             <div className="space-y-1.5 md:col-span-2">
               <Label>주문번호 미리보기</Label>
@@ -337,41 +533,82 @@ export default function ColosseumShippingForm() {
         </CardContent>
       </Card>
 
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        <p className="text-sm font-semibold">
+          수취인 {recipients.length}명
+          {incompleteShown.length > 0 && (
+            <span className="ml-2 text-xs font-normal text-red-600">미입력 {incompleteShown.length}명</span>
+          )}
+          {incomplete.length === 0 && <span className="ml-2 text-xs font-normal text-green-700">모두 입력됨</span>}
+        </p>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="flex-1 md:flex-none" onClick={() => setAllCollapsed(true)}>모두 접기</Button>
+          <Button variant="outline" size="sm" className="flex-1 md:flex-none" onClick={() => setAllCollapsed(false)}>모두 펼치기</Button>
+        </div>
+      </div>
+
       {recipients.map((r, i) => {
-        const err = (f: keyof Recipient) => showErrors && isMissing(r, f);
         const order = orders.get(r.id) ?? '';
         const sharedWith = recipients.findIndex((x) => orders.get(x.id) === order);
+        const missing = missingLabels(r);
+        const blank = isBlankRecipient(r);
+        const productCount = r.products.filter((p) => p.trim()).length;
+        const countryName = countries.find((c) => c.code === r.countryCode)?.en;
         return (
-          <Card key={r.id}>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-sm font-semibold">
-                수취인 #{i + 1}
-                <span className="ml-2 font-mono text-xs text-muted-foreground">{order}</span>
-                {sharedWith < i && (
-                  <span className="ml-2 text-xs font-normal text-primary">수취인 #{sharedWith + 1}과 같은 이름 → 합포장</span>
+          <Card key={r.id} id={`recipient-${r.id}`}
+            className={cn('scroll-mt-4', r.collapsed && !blank && missing.length > 0 && 'border-red-200')}>
+            <CardHeader role="button" tabIndex={0} aria-expanded={!r.collapsed}
+              onClick={() => toggleCollapsed(r.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCollapsed(r.id); } }}
+              className={cn('flex flex-row items-center justify-between gap-2 space-y-0 cursor-pointer select-none',
+                r.collapsed ? 'py-3' : 'pb-3')}>
+              <div className="min-w-0 flex-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', r.collapsed && '-rotate-90')} />
+                <span className="font-semibold">수취인 #{i + 1}</span>
+                <span className="font-mono text-xs text-muted-foreground">{order}</span>
+                {r.order && (
+                  <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-800">
+                    Shopify{r.order.b2b ? ' · B2B' : ''}
+                  </span>
                 )}
-              </CardTitle>
+                {r.collapsed ? (
+                  // One-line summary: 이름 · 국가 · 상품 N개 · 송장번호
+                  <span className="text-xs text-muted-foreground truncate">
+                    · {r.name.trim() || '이름 없음'} · {countryName ?? (r.countryCode || '국가 없음')}
+                    {' '}· 상품 {productCount}개 · {r.tracking.trim() || '송장번호 없음'}
+                  </span>
+                ) : !r.order && sharedWith < i && (
+                  <span className="text-xs text-primary">수취인 #{sharedWith + 1}과 같은 이름 → 합포장</span>
+                )}
+                {blank ? null : missing.length > 0 ? (
+                  <span className="text-xs text-red-600" title={missing.join(', ')}>미입력 {missing.length}</span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
+                    <CheckCircle2 className="h-4 w-4" /> 입력 완료
+                  </span>
+                )}
+                {r.searching && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+              </div>
               <Button variant="ghost" size="sm" disabled={recipients.length === 1}
-                onClick={() => setRecipients((prev) => prev.filter((x) => x.id !== r.id))}>
+                onClick={(e) => { e.stopPropagation(); setRecipients((prev) => prev.filter((x) => x.id !== r.id)); }}>
                 <Trash2 className="h-4 w-4 mr-1" /> 삭제
               </Button>
             </CardHeader>
+            {!r.collapsed && (
             <CardContent className="pt-0 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <Label>수취인 이름</Label>
-                  <Input value={r.name} onChange={(e) => setField(r.id, 'name', e.target.value)}
-                    className={cn(fieldTone(undefined, err('name')))} />
+                  <Input value={r.name} onChange={(e) => setField(r.id, 'name', e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>전화번호</Label>
-                  <Input value={r.phone} onChange={(e) => setField(r.id, 'phone', e.target.value)}
-                    className={cn(fieldTone(undefined, err('phone')))} />
+                  <Input value={r.phone} onChange={(e) => setField(r.id, 'phone', e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>국가 {r.countryCode && <span className="text-muted-foreground font-normal">· ISO {r.countryCode}</span>}</Label>
                   <CountryPicker countries={countries} value={r.countryCode}
-                    tone={fieldTone(r.sources.countryCode, err('countryCode'))}
+                    tone={fieldTone(r.sources.countryCode)}
                     onChange={(code) => setField(r.id, 'countryCode', code)} />
                   <FieldHint source={r.sources.countryCode} />
                 </div>
@@ -383,7 +620,7 @@ export default function ColosseumShippingForm() {
                   <Input value={r.address} placeholder="예: 123 Main St, Apt 4, Springfield, IL 62704, USA"
                     onChange={(e) => setField(r.id, 'address', e.target.value)}
                     onBlur={() => resolveAddress(r.id)}
-                    className={cn('flex-1', fieldTone(undefined, err('address')))} />
+                    className="flex-1" />
                   <Button variant="outline" className="w-full md:w-auto" disabled={!r.address.trim() || r.searching}
                     onClick={() => resolveAddress(r.id, true)}>
                     {r.searching ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Search className="h-4 w-4 mr-1" />}
@@ -400,7 +637,7 @@ export default function ColosseumShippingForm() {
                   <div key={f} className="space-y-1.5">
                     <Label>{f === 'city' ? '도시' : f === 'state' ? '주' : '우편번호'}</Label>
                     <Input value={r[f]} onChange={(e) => setField(r.id, f, e.target.value)}
-                      className={cn(fieldTone(r.sources[f], err(f)))} />
+                      className={cn(fieldTone(r.sources[f]))} />
                     <FieldHint source={r.sources[f]} />
                   </div>
                 ))}
@@ -411,8 +648,13 @@ export default function ColosseumShippingForm() {
                 <div className="flex flex-col gap-2">
                   {r.products.map((p, pi) => (
                     <div key={pi} className="flex items-center gap-2">
-                      <ProductInput value={p} names={productNames} invalid={err('products') && !p.trim()}
+                      <ProductInput value={p} names={productNames}
                         onChange={(v) => setProduct(r.id, pi, v)} />
+                      {r.order && (
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          × {r.order.qtys[pi] ?? 1}{r.order.prices[pi] ? ` · ${r.order.currency || 'USD'} ${r.order.prices[pi]}` : ''}
+                        </span>
+                      )}
                       {hasBattery(p) && (
                         <span className="hidden md:inline-flex items-center gap-0.5 text-xs text-primary whitespace-nowrap">
                           <BatteryCharging className="h-3.5 w-3.5" /> 배터리 포함
@@ -433,10 +675,10 @@ export default function ColosseumShippingForm() {
               <div className="space-y-1.5 md:w-1/3">
                 <Label>송장번호</Label>
                 <Input value={r.tracking} placeholder="예: 5227-3375-2663"
-                  onChange={(e) => setField(r.id, 'tracking', e.target.value)}
-                  className={cn(fieldTone(undefined, err('tracking')))} />
+                  onChange={(e) => setField(r.id, 'tracking', e.target.value)} />
               </div>
             </CardContent>
+            )}
           </Card>
         );
       })}
@@ -461,8 +703,7 @@ export default function ColosseumShippingForm() {
                   <TableHead>주문번호</TableHead>
                   <TableHead>상품명</TableHead>
                   <TableHead>수취인</TableHead>
-                  <TableHead>국가</TableHead>
-                  <TableHead>도시 / 주 / 우편번호</TableHead>
+                  <TableHead>주소</TableHead>
                   <TableHead>비고</TableHead>
                 </TableRow>
               </TableHeader>
@@ -472,8 +713,8 @@ export default function ColosseumShippingForm() {
                     <TableCell className="font-mono text-xs whitespace-nowrap">{row.D}</TableCell>
                     <TableCell className="text-xs">{row.J}</TableCell>
                     <TableCell className="text-xs">{row.R}</TableCell>
-                    <TableCell className="text-xs">{row.AA}</TableCell>
-                    <TableCell className="text-xs">{[row.Y, row.Z, row.AB].join(' / ')}</TableCell>
+                    {/* Exactly what goes into column W; long addresses wrap. */}
+                    <TableCell className="text-xs whitespace-normal break-words min-w-[220px]">{row.W}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{row.AT}</TableCell>
                   </TableRow>
                 ))}
@@ -482,6 +723,22 @@ export default function ColosseumShippingForm() {
           )}
         </CardContent>
       </Card>
+
+      {showMissingNotice && incomplete.length > 0 && (
+        <div className="rounded-md border border-red-300 bg-red-50 p-3 space-y-2">
+          <p className="text-sm font-semibold text-red-700 flex items-center gap-1">
+            <AlertCircle className="h-4 w-4" /> {incomplete.length}명 미입력 — 눌러서 해당 카드로 이동
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {incomplete.map((x) => (
+              <Button key={x.id} variant="outline" size="sm" className="h-auto py-1 border-red-300 text-left whitespace-normal"
+                onClick={() => goToRecipient(x.id)}>
+                수취인 #{x.index + 1} · {x.labels.join(', ')}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-2">
         <p className="text-xs text-muted-foreground">입력한 정보는 서버에 저장되지 않으며 새로고침하면 사라집니다.</p>

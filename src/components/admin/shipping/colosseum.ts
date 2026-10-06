@@ -32,7 +32,7 @@ const FIXED: Record<string, string | number> = {
   P: 17180,
   Q: 'Gyeonggi-do',
   AD: 'zoey@biteme.co.kr',
-  AE: 'N',
+  // 세금식별코드: fixed for every product (the product list's HS CODE is not used here).
   AJ: 4201009000,
 };
 
@@ -47,6 +47,29 @@ export interface Recipient {
   zip: string;
   products: string[];
   tracking: string;
+  /** Set for cards created from a Shopify order export; seeding cards leave it undefined. */
+  order?: ShopifyOrderInfo;
+}
+
+/** Shopify order data that seeding shipments don't have. qtys / prices line up with products. */
+export interface ShopifyOrderInfo {
+  number: string;
+  currency: string;
+  total: string;
+  b2b: boolean;
+  qtys: number[];
+  prices: string[];
+}
+
+/** 세금식별코드 for order lines whose product has no HS CODE in the product list. */
+export const DEFAULT_HS_CODE = '4201009000';
+
+/** Lower-cased product name → HS CODE, from the product list. */
+export type HsCodeLookup = ReadonlyMap<string, string>;
+
+export function hsCodeFor(productName: string, lookup?: HsCodeLookup): string {
+  const hs = lookup?.get(productName.trim().toLowerCase())?.trim();
+  return hs && /^\d+$/.test(hs) ? hs : DEFAULT_HS_CODE;
 }
 
 export interface Country {
@@ -66,11 +89,16 @@ export function orderNumber(date: string, index: number): string {
  * Order number per recipient: recipients with the same name share one number
  * (combined packing); each new name takes the next number.
  */
-export function assignOrderNumbers(recipients: Pick<Recipient, 'id' | 'name'>[], date: string): Map<string, string> {
+export function assignOrderNumbers(
+  recipients: Pick<Recipient, 'id' | 'name' | 'order'>[],
+  date: string,
+): Map<string, string> {
   const byName = new Map<string, string>();
   const result = new Map<string, string>();
   let next = 0;
   for (const r of recipients) {
+    // Shopify orders keep their own number (#1648) and don't use up a seeding number.
+    if (r.order) { result.set(r.id, r.order.number); continue; }
     const key = r.name.trim().toLowerCase();
     let order = key ? byName.get(key) : undefined;
     if (!order) {
@@ -82,6 +110,15 @@ export function assignOrderNumbers(recipients: Pick<Recipient, 'id' | 'name'>[],
   return result;
 }
 
+/** Shopify order remark: "송장번호 / B2B / 배터리 포함 / $총금액" (B2B and battery parts only when they apply). */
+export function orderRemark(tracking: string, b2b: boolean, battery: boolean, total: string): string {
+  return [tracking.trim(), b2b && 'B2B', battery && '배터리 포함', `$${total.trim()}`]
+    .filter(Boolean)
+    .join(' / ');
+}
+
+const toNumber = (v: string) => (v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : v.trim());
+
 export function remark(tracking: string, battery: boolean): string {
   return battery
     ? `${tracking.trim()} / 시딩출고건 / 배터리 포함/ $1`
@@ -89,13 +126,31 @@ export function remark(tracking: string, battery: boolean): string {
 }
 
 /** One sheet row per product; products under the same order number are packed together. */
-export function buildRows(recipients: Recipient[], date: string): SheetRow[] {
+export function buildRows(
+  recipients: Recipient[],
+  date: string,
+  countries: Country[] = [],
+  hsCodes?: HsCodeLookup,
+): SheetRow[] {
   const orders = assignOrderNumbers(recipients, date);
   return recipients.flatMap((r) => {
     const order = orders.get(r.id) ?? '';
-    const address = r.address.trim();
-    return r.products.map((p) => p.trim()).filter(Boolean).map((name) => {
+    // The address is pasted as written in the survey; W / AC get the normalized form.
+    const address = formatShippingAddress(r, countries.find((c) => c.code === r.countryCode));
+    return r.products.map((p, i) => ({ name: p.trim(), i })).filter((x) => x.name).map(({ name, i }) => {
       const battery = hasBattery(name);
+      const o = r.order;
+      // Shopify order lines: real currency / total / quantity / unit price and per-product HS CODE.
+      const orderCells: SheetRow = o
+        ? {
+            F: o.currency || 'USD',
+            G: toNumber(o.total),
+            K: o.qtys[i] ?? 1,
+            AH: toNumber(o.prices[i] ?? ''),
+            AJ: Number(hsCodeFor(name, hsCodes)),
+            AT: orderRemark(r.tracking, o.b2b, battery, o.total),
+          }
+        : {};
       return {
         ...FIXED,
         D: order,
@@ -110,6 +165,7 @@ export function buildRows(recipients: Recipient[], date: string): SheetRow[] {
         AB: r.zip.trim(),
         AC: address,
         AT: remark(r.tracking, battery),
+        ...orderCells,
       };
     });
   });
@@ -141,6 +197,8 @@ const POSTAL_RULES: Record<string, { re: RegExp; join?: string }> = {
   TW: { re: /\b(\d{3}(?:\d{2,3})?)\b/g },
 };
 
+const HOUSE_NUMBER_PREFIX = /\b(?:no|number|nr|sec|section|lane|ln|alley|aly|blk|block|lot|km)\.?\s*$|#\s*$/i;
+
 /**
  * Finds the postal code in an address line. Takes the last match that isn't at the very
  * start of the line (a leading number is the house / block number, not a postal code).
@@ -149,8 +207,19 @@ const POSTAL_RULES: Record<string, { re: RegExp; join?: string }> = {
 export function extractPostal(address: string, countryCode?: string): { zip: string; raw: string } | null {
   const rule = countryCode ? POSTAL_RULES[countryCode] : undefined;
   const re = new RegExp((rule?.re ?? ZIP_RE).source, (rule?.re ?? ZIP_RE).flags);
-  // Two-part codes ("150-0001", "M5V 3L9") are distinctive enough to trust even at the start.
-  const matches = [...address.matchAll(re)].filter((m) => (m.index ?? 0) > 0 || (!!rule && rule.join !== undefined));
+  const lastSegmentsStart = (() => {
+    const commas = [...address.matchAll(/,/g)].map((c) => c.index ?? 0);
+    return commas.length >= 2 ? commas[commas.length - 2] : -1;
+  })();
+  const matches = [...address.matchAll(re)].filter((m) => {
+    const at = m.index ?? 0;
+    // Numbers labelled as house / section / lane / block numbers are never postal codes.
+    if (HOUSE_NUMBER_PREFIX.test(address.slice(0, at))) return false;
+    // Short all-digit codes (3–4 digits, e.g. Taiwan, Australia) only count near the end.
+    if (/^\d{3,4}$/.test(m[1]) && !m[2] && at < lastSegmentsStart) return false;
+    // Two-part codes ("150-0001", "M5V 3L9") are distinctive enough to trust even at the start.
+    return at > 0 || (!!rule && rule.join !== undefined);
+  });
   if (!rule) {
     // Without a country rule only trust codes outside the first comma segment (the street line).
     const firstComma = address.indexOf(',');
@@ -164,8 +233,8 @@ export function extractPostal(address: string, countryCode?: string): { zip: str
   return { zip, raw: m[0] };
 }
 
-// Unit details: "#14-59", "Apt 4", "Flat 2", Spanish/Latin floors like "3º B", "piso 2", "dpto 5".
-const UNIT_RE = /#\s?[\w-]+|\b(?:unit|apt|apartment|suite|ste|room|rm|flat|floor|fl|level|lvl|piso|planta|puerta|depto|dpto|bloque|escalera|esc)\b\.?\s*[\w-]+|\b\d+\s?[ºª°]\s?[A-Z]?\b/gi;
+// Unit details: "#14-59", "Apt 4", "Flat 2", Spanish/Latin floors like "3º B", "piso 2", "dpto 5", floors like "1F".
+const UNIT_RE = /#\s?[\w-]+|\b(?:unit|apt|apartment|suite|ste|room|rm|flat|floor|fl|level|lvl|piso|planta|puerta|depto|dpto|bloque|escalera|esc)\b\.?\s*[\w-]+|\b\d+\s?[ºª°]\s?[A-Z]?\b|\b\d{1,3}F\b/gi;
 
 /**
  * Address prepared for a map search: unit / apartment details, "Blk", the postal code
@@ -174,11 +243,23 @@ const UNIT_RE = /#\s?[\w-]+|\b(?:unit|apt|apartment|suite|ste|room|rm|flat|floor
 export function searchableAddress(address: string, countryCode?: string): { full: string; road: string } {
   const postal = extractPostal(address, countryCode);
   let s = postal ? address.replace(postal.raw, ' ') : address;
-  s = s.replace(UNIT_RE, ' ').replace(/\b(?:blk|block)\b\.?/gi, ' ');
-  const parts = s.split(',').map((p) => p.replace(/\s{2,}/g, ' ').trim()).filter((p) => p && !/^[\d\s-]+$/.test(p));
+  s = s.replace(UNIT_RE, ' ').replace(/\b(?:blk|block)\b\.?/gi, ' ').replace(/\bno\.?\s*(?=\d)/gi, '');
+  const raw = s.split(',').map((p) => p.replace(/\s{2,}/g, ' ').trim()).filter(Boolean);
+  // "No. 122, Section 1, Chongqing South Road" → "122 Section 1 Chongqing South Road":
+  // house-number / section-only segments belong to the road that follows them.
+  const isNumberPart = (p: string) => /^(?:\d+[A-Z]?|(?:section|sec\.?|lane|alley)\s*\d+)$/i.test(p);
+  const parts: string[] = [];
+  let carry = '';
+  for (const p of raw) {
+    if (isNumberPart(p)) { carry = `${carry} ${p}`.trim(); continue; }
+    parts.push(`${carry} ${p}`.trim());
+    carry = '';
+  }
   const full = parts.join(', ');
-  // Road only: first segment without its leading house / block number.
-  const road = (parts[0] ?? '').replace(/^\d+[A-Z]?\b\s*/i, '').trim();
+  // Road only: first segment with its leading house number / section removed.
+  const road = (parts[0] ?? '')
+    .replace(/^(?:\d+[A-Z]?\b\s*)?(?:(?:section|sec\.?|lane|alley)\s*\d+\s*)?/i, '')
+    .trim();
   return { full, road };
 }
 
@@ -187,6 +268,9 @@ const COUNTRY_ALIASES: Record<string, string[]> = {
   GB: ['uk', 'u.k.', 'united kingdom', 'great britain', 'england', 'scotland', 'wales'],
   KR: ['korea', 'south korea'],
   AE: ['uae'],
+  HK: ['hong kong', 'hk'],
+  VN: ['viet nam'],
+  TW: ['taiwan (roc)', 'republic of china'],
 };
 
 function matchesCountry(part: string, country: Country): boolean {
@@ -198,14 +282,71 @@ function matchesCountry(part: string, country: Country): boolean {
     || (COUNTRY_ALIASES[country.code] ?? []).includes(t);
 }
 
-/** Country named in the last segment of the address, if any. */
+/** Country for a value typed in a form ("Singapore", "Taiwan", "USA", "싱가포르", "SG"). */
+export function findCountry(value: string, countries: Country[]): Country | undefined {
+  const t = value.trim().toLowerCase();
+  if (!t) return undefined;
+  return countries.find((c) => c.en.toLowerCase() === t || c.ko === value.trim() || c.code.toLowerCase() === t)
+    ?? countries.find((c) => (COUNTRY_ALIASES[c.code] ?? []).includes(t))
+    // "Taiwan" vs "Taiwan, Province of China" style official names.
+    ?? countries.find((c) => t.length >= 4 && c.en.toLowerCase().startsWith(t))
+    ?? countries.find((c) => c.en.length >= 4 && t.startsWith(c.en.toLowerCase()));
+}
+
+// Country names that are also common US state names: never auto-detected.
+const AMBIGUOUS_COUNTRIES = new Set(['GE']);
+
+/**
+ * Country named at the end of the address, if any: the last comma segment, or — for
+ * addresses written without commas — the trailing words ("... Avenue 6 Singapore 731693").
+ */
 export function detectCountry(address: string, countries: Country[]): Country | undefined {
   const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
-  if (parts.length < 2) return undefined;
-  // Drop a trailing postal code ("Singapore 018989") before comparing.
-  const last = parts[parts.length - 1].replace(/\b\d[\d -]*\b/g, '').trim();
-  return countries.find((c) => c.en.toLowerCase() === last.toLowerCase())
-    ?? countries.find((c) => matchesCountry(last, c) && last.length > 2);
+  if (!parts.length) return undefined;
+  // Drop a trailing postal code ("Singapore 018989", "S681816") before comparing.
+  const last = parts[parts.length - 1].replace(/\bS?\d[\d -]*\b/gi, '').trim();
+  const candidates = countries.filter((c) => !AMBIGUOUS_COUNTRIES.has(c.code));
+  if (parts.length >= 2) {
+    const found = candidates.find((c) => c.en.toLowerCase() === last.toLowerCase())
+      ?? candidates.find((c) => matchesCountry(last, c) && last.length > 2);
+    if (found) return found;
+  }
+  const tail = last.toLowerCase();
+  return candidates
+    .filter((c) => c.en.length > 3 && tail.length > c.en.length && tail.endsWith(` ${c.en.toLowerCase()}`))
+    .sort((a, b) => b.en.length - a.en.length)[0];
+}
+
+const STREET_SUFFIX = 'street|st|avenue|ave|road|rd|drive|dr|boulevard|blvd|lane|ln|way|court|ct|place|pl|terrace|ter|circle|cir|parkway|pkwy|highway|hwy|trail|trl|square|sq|loop|plaza|crescent|cres';
+// "<street + suffix> [NW] [#208 | Apt 4 ...] <City>" — the words after the street (and unit) are the city.
+const CITY_AFTER_STREET_RE = new RegExp(
+  `^.*\\b(?:${STREET_SUFFIX})\\.?(?:\\s+(?:n|s|e|w|ne|nw|se|sw)\\b)?`
+  + `(?:\\s+(?:#\\s?[\\w-]+|(?:apt|apartment|unit|suite|ste|fl|floor|rm|room)\\.?\\s*[\\w-]+))*`
+  + `\\s+([A-Za-z][A-Za-z .'-]*?)$`,
+  'i',
+);
+
+/**
+ * US / Canada / Australia style tail: "<street> <City>, <ST> <zip>" or "<street>, <City>, <ST> <zip>"
+ * (zip already removed from parts). Returns null when there is no 2–3 letter state code at the end.
+ */
+function parseStateCodeTail(parts: string[]): { city: string; state: string } | null {
+  if (!parts.length) return null;
+  const segs = [...parts];
+  const last = segs[segs.length - 1];
+  const code = last.match(/(?:^|\s)([A-Z]{2,3})$/);
+  if (!code) return null;
+  const state = code[1];
+  const before = last.slice(0, last.length - state.length).trim();
+  if (before) segs[segs.length - 1] = before;
+  else segs.pop();
+  if (!segs.length) return { city: '', state };
+  const cityPart = segs[segs.length - 1];
+  // City in its own comma segment: "..., Springfield, IL 62704"
+  if (segs.length >= 2) return { city: cityPart.replace(UNIT_RE, '').trim(), state };
+  // City glued to the street line: "21103 Gary Drive #208 Castro Valley, CA 94546"
+  const m = cityPart.match(CITY_AFTER_STREET_RE);
+  return { city: m ? m[1].trim() : '', state };
 }
 
 /**
@@ -233,6 +374,10 @@ export function parseAddress(address: string, country?: Country): { city: string
 
   let state = '';
   let city = '';
+  if (country && ['US', 'CA', 'AU'].includes(country.code)) {
+    const us = parseStateCodeTail(parts);
+    if (us) return { ...us, zip };
+  }
   if (parts.length >= 3) {
     state = parts[parts.length - 1];
     city = parts[parts.length - 2];
@@ -243,6 +388,67 @@ export function parseAddress(address: string, country?: Country): { city: string
   // City-states (e.g. Singapore) have no separate state: use the country name for both.
   if (country && ['SG', 'HK', 'MO'].includes(country.code)) city = state = country.en;
   return { city, state, zip };
+}
+
+// Survey field labels pasted along with the address ("Unit Number:", "Postal Code:" ...).
+const LABEL_RE = /\b(?:unit\s*(?:no\.?|number|#)?|address(?:\s*line\s*\d)?|street(?:\s*address)?|postal\s*code|post\s*code|zip(?:\s*code)?|city|state|province|country)\s*:/gi;
+
+const collapse = (s: string) => s.replace(/\s+/g, ' ').replace(/\s+,/g, ',').replace(/^[\s,]+|[\s,]+$/g, '');
+
+/**
+ * Address written to the sheet (W and AC):
+ *   "<unit> <block / house no. + road>, <city>, <state> <zip>"
+ * e.g. "Unit Number: #07-709 Blk 693A Woodlands Avenue 6  Singapore 731693"
+ *    → "#07-709 Blk 693A Woodlands Avenue 6, Singapore 731693"
+ * City / state / zip come from their own fields; copies of them (and of the country)
+ * inside the pasted text are dropped so each appears once.
+ */
+export function formatShippingAddress(
+  r: Pick<Recipient, 'address' | 'city' | 'state' | 'zip' | 'countryCode'>,
+  country?: Country,
+): string {
+  let text = r.address.replace(LABEL_RE, ' ');
+
+  const units: string[] = [];
+  text = text.replace(UNIT_RE, (m) => { units.push(collapse(m)); return ' '; });
+
+  const zip = r.zip.trim();
+  const postal = extractPostal(text, r.countryCode || undefined);
+  if (postal) text = text.replace(postal.raw, ' ');
+  if (zip) text = text.split(zip).join(' ');
+
+  const city = collapse(r.city);
+  const state = collapse(r.state);
+  const lower = (s: string) => s.toLowerCase();
+  const isPlace = (s: string) => {
+    const t = lower(collapse(s));
+    return !t || t === lower(city) || t === lower(state) || (!!country && matchesCountry(t, country));
+  };
+  // Trailing words that repeat city / state / country, e.g. "... Avenue 6 Singapore".
+  const trailing = [city, state, country?.en, ...(country ? COUNTRY_ALIASES[country.code] ?? [] : [])]
+    .filter((s): s is string => !!s)
+    .sort((a, b) => b.length - a.length);
+  const stripTrailing = (seg: string) => {
+    let s = collapse(seg);
+    for (let changed = true; changed;) {
+      changed = false;
+      for (const word of trailing) {
+        if (s.length > word.length && lower(s).endsWith(` ${lower(word)}`)) {
+          s = collapse(s.slice(0, s.length - word.length));
+          changed = true;
+        }
+      }
+    }
+    return s;
+  };
+
+  const segments = text.split(',').map(collapse).filter((s) => !isPlace(s));
+  if (segments.length) segments[segments.length - 1] = stripTrailing(segments[segments.length - 1]);
+  const street = collapse([units.join(' '), segments.filter(Boolean).join(', ')].filter(Boolean).join(' '));
+
+  const place = [city, lower(state) !== lower(city) ? state : ''].filter(Boolean).join(', ');
+  const tail = collapse([place, zip].filter(Boolean).join(' '));
+  return [street, tail].filter(Boolean).join(', ');
 }
 
 /** Country list from the template's '국가코드' sheet (column B = ISO alpha-2). */
