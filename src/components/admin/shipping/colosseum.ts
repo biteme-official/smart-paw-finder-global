@@ -178,6 +178,30 @@ export function remark(tracking: string, battery: boolean): string {
     : `${tracking.trim()} / 시딩출고건 / $1`;
 }
 
+const US_STATE_CODES = new Set([
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC', 'PR', 'GU', 'VI', 'AS', 'MP',
+]);
+
+/**
+ * ALL-CAPS text → first letter of each word upper-case, to match the other addresses:
+ * "SHOP 307, RICHMOND SHOPPING ARCADE" → "Shop 307, Richmond Shopping Arcade", "SUKI MA" → "Suki Ma".
+ * Mixed-case text is returned unchanged. Tokens with digits (1/F, #09-181, 174C) are kept; with
+ * `countryCode` (addresses), that country code and — for the US — state codes stay upper-case too.
+ */
+export function titleCaseIfAllCaps(text: string, countryCode?: string): string {
+  if (!/[A-Z]/.test(text) || /[a-z]/.test(text)) return text;
+  return text.replace(/[^\s,]+/g, (token) => {
+    if (/\d/.test(token)) return token;
+    if (countryCode) {
+      const bare = token.replace(/[^A-Z]/g, '');
+      if (bare.length === 2 && (bare === countryCode || (countryCode === 'US' && US_STATE_CODES.has(bare)))) return token;
+    }
+    return token.toLowerCase().replace(/(^|[-/'(.])([a-z])/g, (_m, before: string, ch: string) => before + ch.toUpperCase());
+  });
+}
+
 /** One sheet row per product; products under the same order number are packed together. */
 export function buildRows(
   recipients: Recipient[],
@@ -186,9 +210,17 @@ export function buildRows(
   start = ORDER_START,
 ): SheetRow[] {
   const orders = assignOrderNumbers(recipients, date, start);
-  return recipients.flatMap((r) => {
-    const order = orders.get(r.id) ?? '';
-    const country = countries.find((c) => c.code === r.countryCode);
+  return recipients.flatMap((input) => {
+    const order = orders.get(input.id) ?? '';
+    const country = countries.find((c) => c.code === input.countryCode);
+    // The card keeps what was typed / imported; the sheet gets ALL-CAPS name, address and city
+    // in normal capitalisation.
+    const r: Recipient = {
+      ...input,
+      name: titleCaseIfAllCaps(input.name.trim()),
+      address: titleCaseIfAllCaps(input.address, input.countryCode),
+      city: titleCaseIfAllCaps(input.city.trim(), input.countryCode),
+    };
     const o = r.order;
     // Seeding: the address is pasted as written in the survey, W / AC get the normalized form.
     // Orders: Shopify address lines + city / state / zip / country, as the overseas team writes it.

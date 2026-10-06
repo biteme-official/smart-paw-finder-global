@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
   ORDER_START, TEMPLATE_URL, assignOrderNumbers, orderDatePrefix, orderNumber, buildRows, buildWorkbook, detectCountry, downloadFileName, extractPostal, findCountry,
-  hasBattery, parseAddress, readCountries, searchableAddress, type Country, type Recipient,
+  hasBattery, parseAddress, titleCaseIfAllCaps, readCountries, searchableAddress, type Country, type Recipient,
 } from './colosseum';
 import { geocodeAddress } from './geocode';
 import { parseSurveyPaste } from './surveyPaste';
@@ -323,7 +323,8 @@ export default function ColosseumShippingForm() {
   const resolveAddress = useCallback(async (id: string, force = false) => {
     const current = recipientsRef.current.find((r) => r.id === id);
     if (!current) return;
-    const address = current.address.trim();
+    // ALL-CAPS addresses are shown in normal capitalisation (codes like HK / CA / 1/F kept).
+    const address = titleCaseIfAllCaps(current.address.trim(), current.countryCode);
     if (!address || (!force && address === current.resolvedAddress)) return;
 
     const next: RecipientState = { ...current, sources: { ...current.sources }, resolvedAddress: address };
@@ -344,6 +345,7 @@ export default function ColosseumShippingForm() {
     }
     patch(id, (r) => withPhone({
       ...r,
+      address,
       countryCode: next.countryCode, city: next.city, state: next.state, zip: next.zip,
       sources: next.sources, resolvedAddress: address,
     }));
@@ -444,9 +446,9 @@ export default function ColosseumShippingForm() {
       if (row.country && !country) unmatched.push(row.country);
       return withPhone({
         ...r,
-        name: row.name,
+        name: titleCaseIfAllCaps(row.name),
         phone: row.phone,
-        address: row.address,
+        address: titleCaseIfAllCaps(row.address, country?.code),
         countryCode: country?.code ?? '',
         collapsed: true,
         // The survey's country is the customer's own answer: keep it like a manual value.
@@ -665,6 +667,7 @@ export default function ColosseumShippingForm() {
                 <div className="space-y-1.5">
                   <Label>수취인 이름</Label>
                   <Input value={r.name} onChange={(e) => setField(r.id, 'name', e.target.value)}
+                    onBlur={() => patch(r.id, (x) => ({ ...x, name: titleCaseIfAllCaps(x.name.trim()) }))}
                     className={cn(r.order?.nameAmbiguous && 'border-yellow-500 focus-visible:ring-yellow-500')} />
                   {r.order?.nameAmbiguous && <p className="text-[11px] text-yellow-700 mt-1">이름/성 순서 확인 필요</p>}
                 </div>
@@ -712,6 +715,9 @@ export default function ColosseumShippingForm() {
                   <div key={f} className="space-y-1.5">
                     <Label>{f === 'city' ? '도시' : f === 'state' ? '주' : '우편번호'}</Label>
                     <Input value={r[f]} onChange={(e) => setField(r.id, f, e.target.value)}
+                      onBlur={f === 'city'
+                        ? () => patch(r.id, (x) => ({ ...x, city: titleCaseIfAllCaps(x.city.trim(), x.countryCode) }))
+                        : undefined}
                       className={cn(fieldTone(r.sources[f]))} />
                     <FieldHint source={r.sources[f]} />
                   </div>
