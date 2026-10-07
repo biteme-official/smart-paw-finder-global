@@ -22,9 +22,7 @@ export const hasBattery = (productName: string) => BATTERY_KEYWORDS.test(product
 /** 수취인 Email (AD) on seeding shipments; order shipments use the customer's email from Shopify. */
 export const SEEDING_EMAIL = 'zoey@biteme.co.kr';
 
-// Sender block (L–Q) as on the original sheet. N (sender mobile) repeats M (sender phone)
-// on both seeding and order shipments.
-const SENDER_PHONE = '070-4888-6191';
+// Sender block (L–Q) as on the original sheet, the same on seeding and order shipments.
 const FIXED: Record<string, string | number> = {
   A: 'SHOPIFY',
   B: 'Express',
@@ -33,8 +31,8 @@ const FIXED: Record<string, string | number> = {
   G: 1,
   K: 1,
   L: 'Biteme Inc.',
-  M: SENDER_PHONE,
-  N: SENDER_PHONE,
+  M: '070-4888-6191',
+  N: '010-3258-0834',
   O: '31-14, Baegam-ro, Baegam-myeon, Cheoin-gu, Yongin-si, Gyeonggi-do, Republic of Korea',
   P: 17180,
   Q: 'Gyeonggi-do',
