@@ -1,6 +1,6 @@
 // Shopify order → recipient card fields, following the overseas team's sheet rules.
 import {
-  NO_POSTAL_CODE, NO_STATE_COUNTRIES, findCountry, titleCaseIfAllCaps, type Country, type Recipient,
+  NO_STATE_COUNTRIES, findCountry, hasNoPostalCode, titleCaseIfAllCaps, type Country, type Recipient,
 } from './colosseum';
 import { normalizePhone } from './phone';
 import { isB2BShipping, reorderShopifyName, type ShopifyOrder } from './shopifyOrders';
@@ -28,7 +28,8 @@ export function orderToCardFields(o: ShopifyOrder, countries: Country[]): { fiel
       city: titleCaseIfAllCaps(o.city, countryCode),
       // 수취인주: state / province code; countries without states get the country name.
       state: country && NO_STATE_COUNTRIES.has(country.code) ? country.en : o.province || country?.en || '',
-      zip: o.zip || NO_POSTAL_CODE,
+      // 수취인우편번호: blank for countries without postal codes; a missing one is searched for.
+      zip: hasNoPostalCode(countryCode) ? '' : o.zip,
       products: o.lines.length ? o.lines.map((l) => l.name) : [''],
       order: {
         number: o.number,

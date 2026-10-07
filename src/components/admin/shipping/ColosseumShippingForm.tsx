@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
   ORDER_START, TEMPLATE_URL, assignOrderNumbers, orderDatePrefix, orderNumber, buildRows, buildWorkbook, detectCountry, downloadFileName, extractPostal, findCountry,
-  hasBattery, parseAddress, titleCaseIfAllCaps, readCountries, searchableAddress, type Country, type Recipient,
+  hasBattery, hasNoPostalCode, orderTotalGap, parseAddress, titleCaseIfAllCaps, readCountries, searchableAddress, type Country, type Recipient,
 } from './colosseum';
 import { geocodeAddress } from './geocode';
 import { parseSurveyPaste } from './surveyPaste';
@@ -92,8 +92,12 @@ const newRecipient = (): RecipientState => ({
   collapsed: false,
 });
 
-const isMissing = (r: Recipient, f: keyof Recipient) =>
-  f === 'products' ? !r.products.some((p) => p.trim()) : !String(r[f]).trim();
+const isMissing = (r: Recipient, f: keyof Recipient) => {
+  if (f === 'products') return !r.products.some((p) => p.trim());
+  // Countries without postal codes (Hong Kong, ...) leave 우편번호 blank.
+  if (f === 'zip' && hasNoPostalCode(r.countryCode)) return false;
+  return !String(r[f]).trim();
+};
 
 /** A card nothing has been typed into yet: still being written, so no "미입력" marks. */
 const isBlankRecipient = (r: Recipient) =>
@@ -339,9 +343,12 @@ export default function ColosseumShippingForm() {
       const found = detectCountry(address, countries);
       if (found) { next.countryCode = found.code; next.sources.countryCode = 'parsed'; }
     }
-    const parsed = parseAddress(address, countries.find((c) => c.code === next.countryCode));
-    for (const f of ['city', 'state', 'zip'] as const) {
-      if (!next[f] && parsed[f]) { next[f] = parsed[f]; next.sources[f] = 'parsed'; }
+    // Order cards already have Shopify's city / state; their address line holds no postal code.
+    if (!current.order) {
+      const parsed = parseAddress(address, countries.find((c) => c.code === next.countryCode));
+      for (const f of ['city', 'state', 'zip'] as const) {
+        if (!next[f] && parsed[f]) { next[f] = parsed[f]; next.sources[f] = 'parsed'; }
+      }
     }
     patch(id, (r) => withPhone({
       ...r,
@@ -350,13 +357,18 @@ export default function ColosseumShippingForm() {
       sources: next.sources, resolvedAddress: address,
     }));
 
-    const missing = AUTO_FIELDS.filter((f) => !next[f]);
+    // Countries without postal codes (Hong Kong, ...) keep 우편번호 blank: nothing to search for.
+    const missing = AUTO_FIELDS.filter((f) => !next[f] && !(f === 'zip' && hasNoPostalCode(next.countryCode)));
     if (missing.length === 0) return;
 
     patch(id, (r) => ({ ...r, searching: true }));
+    // Order address lines don't include the city / state: add them so the search can place it.
+    const query = current.order
+      ? [address, next.city.trim(), next.state.trim()].filter(Boolean).join(', ')
+      : address;
     let geo: Awaited<ReturnType<typeof geocodeAddress>> = null;
     try {
-      geo = await geocodeAddress(searchableAddress(address, next.countryCode), next.countryCode || undefined);
+      geo = await geocodeAddress(searchableAddress(query, next.countryCode), next.countryCode || undefined);
     } catch {
       toast.error('주소 검색에 실패했습니다. 직접 입력해 주세요.', { position: 'top-center' });
     }
@@ -375,9 +387,14 @@ export default function ColosseumShippingForm() {
       }
       // Once the country is known, a postal code written in the address beats the
       // search result (map data is often a neighbouring code).
-      if (missing.includes('zip') && out.sources.zip !== 'manual' && out.countryCode) {
+      if (missing.includes('zip') && out.sources.zip !== 'manual' && out.countryCode && !r.order) {
         const written = extractPostal(address, out.countryCode);
         if (written) { out.zip = written.zip; out.sources.zip = 'parsed'; }
+      }
+      // The search found a country without postal codes: 우편번호 stays blank.
+      if (hasNoPostalCode(out.countryCode) && out.sources.zip !== 'manual') {
+        out.zip = '';
+        out.sources.zip = undefined;
       }
       return withPhone(out);
     });
@@ -408,18 +425,20 @@ export default function ColosseumShippingForm() {
         const { fields, country } = orderToCardFields(o, countries);
         if (!country) unmatched.push(`${o.number} (${o.country || '국가 없음'})`);
         const given = (v: string) => (v ? 'manual' as const : undefined);
+        // Shopify already split the address; only a missing postal code is looked up.
+        const searchZip = !!country && !fields.zip && !!fields.address && !hasNoPostalCode(country.code);
         return {
           ...newRecipient(),
           ...fields,
-          // Shopify already split the address: no extraction / search for these cards.
           sources: {
             countryCode: country ? 'manual' as const : undefined,
             city: given(fields.city), state: given(fields.state), zip: given(fields.zip),
           },
-          resolvedAddress: fields.address,
+          resolvedAddress: searchZip ? '' : fields.address,
           collapsed: true,
         };
       });
+      pendingResolve.current.push(...added.filter((r) => !r.resolvedAddress).map((r) => r.id));
       setRecipients((prev) => [...prev.filter((r) => !isBlankRecipient(r)), ...added]);
       toast.success(`주문 ${added.length}건을 등록했습니다.`, { position: 'top-center' });
       if (unmatched.length) {
@@ -516,7 +535,7 @@ export default function ColosseumShippingForm() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = downloadFileName();
+      a.download = downloadFileName(shipDate);
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       if (seedingOrders.length) saveLastOrder(shipDate, start + seedingOrders.length - 1);
@@ -618,9 +637,12 @@ export default function ColosseumShippingForm() {
         const countryName = countries.find((c) => c.code === r.countryCode)?.en;
         // Calling code that doesn't belong to the selected country (e.g. +62 number, Singapore selected).
         const phoneMismatch = normalizePhone(r.phone, r.countryCode).mismatch;
+        // Σ G × K ≠ order total after rounding: the sheet total is off by a cent or so.
+        const totalGap = orderTotalGap(r);
         return (
           <Card key={r.id} id={`recipient-${r.id}`}
-            className={cn('scroll-mt-4', r.collapsed && !blank && missing.length > 0 && 'border-red-200')}>
+            className={cn('scroll-mt-4',
+              r.collapsed && !blank && missing.length > 0 ? 'border-red-200' : totalGap !== 0 && 'border-yellow-500')}>
             <CardHeader role="button" tabIndex={0} aria-expanded={!r.collapsed}
               onClick={() => toggleCollapsed(r.id)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCollapsed(r.id); } }}
@@ -652,6 +674,11 @@ export default function ColosseumShippingForm() {
                 ) : (
                   <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
                     <CheckCircle2 className="h-4 w-4" /> 입력 완료
+                  </span>
+                )}
+                {totalGap !== 0 && (
+                  <span className="text-xs text-yellow-700">
+                    Total differs by {totalGap < 0 ? '-' : ''}${Math.abs(totalGap).toFixed(2)}
                   </span>
                 )}
                 {r.searching && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}

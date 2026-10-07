@@ -78,8 +78,33 @@ export interface ShopifyOrderInfo {
 /** Countries without states / provinces: 수취인주 gets the country name. */
 export const NO_STATE_COUNTRIES = new Set(['SG', 'HK', 'MO']);
 
-/** 수취인우편번호 for countries without postal codes (e.g. Hong Kong). */
-export const NO_POSTAL_CODE = '000000';
+/** Countries without postal codes: 수취인우편번호 (AB) stays blank and isn't required. */
+export const NO_POSTAL_COUNTRIES = new Set([
+  'HK', 'MO', 'AE', 'QA', 'AG', 'AW', 'BS', 'BZ', 'BJ', 'BO', 'BW', 'BF', 'BI', 'CM', 'CF', 'TD',
+  'KM', 'CG', 'CD', 'CK', 'CI', 'DJ', 'DM', 'GQ', 'ER', 'FJ', 'GM', 'GH', 'GD', 'GY', 'KI', 'LY',
+  'ML', 'MR', 'NR', 'NU', 'KP', 'RW', 'KN', 'LC', 'ST', 'SC', 'SL', 'SB', 'SR', 'SY', 'TL', 'TG',
+  'TK', 'TO', 'TV', 'UG', 'VU', 'YE', 'ZW',
+]);
+export const hasNoPostalCode = (countryCode: string) => NO_POSTAL_COUNTRIES.has(countryCode);
+
+/** 수취인우편번호 (AB): blank for countries without postal codes. */
+const postalCell = (r: Recipient) => (hasNoPostalCode(r.countryCode) ? '' : r.zip.trim());
+
+/**
+ * Σ G × K minus the order total, in dollars (0 when they match). Non-zero when rounding
+ * leftovers couldn't be placed, e.g. two quantity-2 lines for a total of 30.01.
+ */
+export function orderTotalGap(r: Recipient): number {
+  const o = r.order;
+  if (!o) return 0;
+  const lines = r.products.map((p, i) => ({ name: p.trim(), i })).filter((x) => x.name);
+  const totalCents = Math.round(Number.parseFloat(o.total) * 100);
+  if (!lines.length || !Number.isFinite(totalCents)) return 0;
+  const qtys = lines.map((x) => o.qtys[x.i] ?? 1);
+  const { units } = allocateUnitAmounts(qtys, lines.map((x) => o.prices[x.i] ?? ''), o.total);
+  const sumCents = units.reduce((a, u, j) => a + Math.round(u * 100) * qtys[j], 0);
+  return (sumCents - totalCents) / 100;
+}
 
 /** "$90.00" → "$90", "$136.59" stays. */
 export const formatTotal = (total: string) => {
@@ -92,7 +117,7 @@ export const formatTotal = (total: string) => {
  * Order shipment address (W / AC), as on the team sheet:
  *   "2514 Henry St, Honolulu HI 96817 USA", "174C Edgedale Plains, #09-181 Singapore 823174".
  * Address lines first; then city, state (US only), postal code and country, space separated
- * (country left out when it repeats the city; "000000" placeholder zip left out).
+ * (country left out when it repeats the city).
  * Without a postal code (Hong Kong) the team writes "<lines> <district>, Hong Kong".
  */
 export function formatOrderAddress(
@@ -103,14 +128,14 @@ export function formatOrderAddress(
   const lines = r.address.replace(/\s+/g, ' ').trim().replace(/,\s*$/, '');
   const city = r.city.trim();
   const countryName = r.countryCode === 'US' ? 'USA' : country?.en ?? r.countryCode;
-  const noPostal = !r.zip.trim() || r.zip.trim() === NO_POSTAL_CODE;
+  const noPostal = !r.zip.trim();
   if (noPostal && countryName.toLowerCase() !== city.toLowerCase()) {
     return [[lines, city].filter(Boolean).join(' '), countryName].filter(Boolean).join(', ');
   }
   const tail = [
     city,
     r.countryCode === 'US' ? r.state.trim() : '',
-    r.zip.trim() === NO_POSTAL_CODE ? '' : r.zip.trim(),
+    r.zip.trim(),
     countryName.toLowerCase() === city.toLowerCase() ? '' : countryName,
   ].filter(Boolean).join(' ');
   if (!tail) return lines;
@@ -234,7 +259,6 @@ export function buildRows(
             F: o.currency || 'USD',
             G: units[li],
             K: o.qtys[i] ?? 1,
-            AB: r.zip.trim() || NO_POSTAL_CODE,
             AT: orderRemark(r.tracking, o.b2b, battery, o.total),
             AD: o.email,
           }
@@ -250,7 +274,7 @@ export function buildRows(
         Y: r.city.trim(),
         Z: r.state.trim(),
         AA: r.countryCode,
-        AB: r.zip.trim(),
+        AB: postalCell(r),
         AC: address,
         AT: remark(r.tracking, battery),
         ...orderCells,
@@ -669,9 +693,5 @@ export function buildWorkbook(XLSX: XLSXModule, template: ArrayBuffer, rows: She
   return written instanceof Uint8Array ? written : new Uint8Array(written as ArrayLike<number>);
 }
 
-export function downloadFileName(now = new Date()): string {
-  const yy = String(now.getFullYear()).slice(2);
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  return `해외출고양식_${yy}${mm}${dd}.xlsx`;
-}
+/** 해외출고양식_YYMMDD.xlsx, dated by the ship date (YYYY-MM-DD). */
+export const downloadFileName = (shipDate: string) => `해외출고양식_${orderDatePrefix(shipDate)}.xlsx`;

@@ -93,6 +93,9 @@ export function parseShopifyOrders(rows: Row[]): ShopifyOrder[] {
   return [...orders.values()].filter((o) => !o.cancelled);
 }
 
+// Name prefixes written with an inner capital (LeBron, McDonald) that are not a name boundary.
+const NAME_PARTICLES = /^(?:Le|La|De|Da|Di|Du|Del|Della|Des|Mc|Mac|Van|Von)$/;
+
 /**
  * Shopify exports the shipping name as surname+given name glued together ("NgDesmond",
  * "NagaishiUn Hui"). Split at the lower→upper case boundary and put the given name first:
@@ -104,6 +107,10 @@ export function reorderShopifyName(raw: string): { name: string; ambiguous: bool
   const boundaries = [...name.matchAll(/(?<=[a-z])(?=[A-Z])/g)].map((m) => m.index ?? 0);
   if (boundaries.length === 1) {
     const at = boundaries[0];
+    // LeBron, DeAndre, McDonald, MacKenzie: the capital is inside one word, not a
+    // surname / given-name boundary. Keep the name as typed and flag it.
+    const word = name.slice(0, at).split(' ').pop() ?? '';
+    if (NAME_PARTICLES.test(word)) return { name, ambiguous: true };
     const surname = name.slice(0, at).trim();
     const given = name.slice(at).trim();
     // The surname part is a single word; anything else (spaces before the boundary) is unclear.
