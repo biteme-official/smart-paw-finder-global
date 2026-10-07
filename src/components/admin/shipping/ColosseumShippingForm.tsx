@@ -20,6 +20,10 @@ import {
 } from './colosseum';
 import { geocodeAddress } from './geocode';
 import { parseSurveyPaste } from './surveyPaste';
+// Survey product option answer (BANANA, ...) → product name; edit the JSON for other seedings.
+import seedingOptions from './seeding-options.json';
+
+const SEEDING_OPTIONS = new Map(Object.entries(seedingOptions).map(([k, v]) => [k.trim().toUpperCase(), v]));
 import { normalizePhone } from './phone';
 import { parseShopifyOrders, readShopifyRows } from './shopifyOrders';
 import { orderToCardFields } from './orderCards';
@@ -33,6 +37,8 @@ interface RecipientState extends Recipient {
   searching: boolean;
   resolvedAddress: string;
   collapsed: boolean;
+  /** Country written in the survey that matched no country: left empty for the user to pick. */
+  surveyCountry?: string;
 }
 
 const AUTO_FIELDS: AutoField[] = ['countryCode', 'city', 'state', 'zip'];
@@ -339,7 +345,8 @@ export default function ColosseumShippingForm() {
         next.sources[f] = undefined;
       }
     }
-    if (!next.countryCode) {
+    // An unrecognised survey country is never guessed from the address.
+    if (!next.countryCode && !current.surveyCountry) {
       const found = detectCountry(address, countries);
       if (found) { next.countryCode = found.code; next.sources.countryCode = 'parsed'; }
     }
@@ -357,8 +364,11 @@ export default function ColosseumShippingForm() {
       sources: next.sources, resolvedAddress: address,
     }));
 
-    // Countries without postal codes (Hong Kong, ...) keep 우편번호 blank: nothing to search for.
-    const missing = AUTO_FIELDS.filter((f) => !next[f] && !(f === 'zip' && hasNoPostalCode(next.countryCode)));
+    // The country is never taken from the search, and without one the search isn't run
+    // (results could come from anywhere). Countries without postal codes keep 우편번호 blank.
+    if (!next.countryCode) return;
+    const missing = (['city', 'state', 'zip'] as const)
+      .filter((f) => !next[f] && !(f === 'zip' && hasNoPostalCode(next.countryCode)));
     if (missing.length === 0) return;
 
     patch(id, (r) => ({ ...r, searching: true }));
@@ -368,11 +378,10 @@ export default function ColosseumShippingForm() {
       : address;
     let geo: Awaited<ReturnType<typeof geocodeAddress>> = null;
     try {
-      geo = await geocodeAddress(searchableAddress(query, next.countryCode), next.countryCode || undefined);
+      geo = await geocodeAddress(searchableAddress(query, next.countryCode), next.countryCode);
     } catch {
       toast.error('주소 검색에 실패했습니다. 직접 입력해 주세요.', { position: 'top-center' });
     }
-    const known = new Set(countries.map((c) => c.code));
     patch(id, (r) => {
       // The address changed while searching: drop this result.
       if (r.address.trim() !== address) return { ...r, searching: false };
@@ -381,8 +390,7 @@ export default function ColosseumShippingForm() {
       const geoState = geo && !geo.state ? geo.city : geo?.state ?? '';
       for (const f of missing) {
         if (out[f]) continue; // filled by hand meanwhile
-        const raw = f === 'state' ? geoState : geo?.[f] ?? '';
-        const value = raw && (f !== 'countryCode' || known.has(raw)) ? raw : '';
+        const value = f === 'state' ? geoState : geo?.[f] ?? '';
         if (value) { out[f] = value; out.sources[f] = 'geo'; } else { out.sources[f] = 'notfound'; }
       }
       // Once the country is known, a postal code written in the address beats the
@@ -453,22 +461,24 @@ export default function ColosseumShippingForm() {
   };
 
   const handleBulkAdd = () => {
-    const { rows: parsed } = parseSurveyPaste(pasteText);
+    const { rows: parsed } = parseSurveyPaste(pasteText, (v) => !!findCountry(v, countries), new Set(SEEDING_OPTIONS.keys()));
     if (!parsed.length) {
       toast.error('붙여넣은 내용에서 수취인을 찾지 못했습니다.', { position: 'top-center' });
       return;
     }
-    const unmatched: string[] = [];
+    // A country that isn't recognised stays empty: the card shows it as 미입력 (국가).
     const added = parsed.map((row) => {
       const r = newRecipient();
       const country = findCountry(row.country, countries);
-      if (row.country && !country) unmatched.push(row.country);
+      const products = row.options.flatMap((o) => SEEDING_OPTIONS.get(o) ?? []);
       return withPhone({
         ...r,
         name: titleCaseIfAllCaps(row.name),
         phone: row.phone,
         address: titleCaseIfAllCaps(row.address, country?.code),
         countryCode: country?.code ?? '',
+        products: products.length ? products : [''],
+        surveyCountry: row.country && !country ? row.country : undefined,
         collapsed: true,
         // The survey's country is the customer's own answer: keep it like a manual value.
         sources: country ? { countryCode: 'manual' as const } : {},
@@ -479,9 +489,6 @@ export default function ColosseumShippingForm() {
     setRecipients((prev) => [...prev.filter((r) => !isBlankRecipient(r)), ...added]);
     setPasteText('');
     toast.success(`수취인 ${added.length}명을 추가했습니다.`, { position: 'top-center' });
-    if (unmatched.length) {
-      toast.error(`국가를 찾지 못했습니다: ${[...new Set(unmatched)].join(', ')} — 직접 선택해 주세요.`, { position: 'top-center' });
-    }
   };
 
   const orders = useMemo(() => assignOrderNumbers(recipients, shipDate || todayIso(), start), [recipients, shipDate, start]);
@@ -711,6 +718,9 @@ export default function ColosseumShippingForm() {
                     tone={fieldTone(r.sources.countryCode)}
                     onChange={(code) => setField(r.id, 'countryCode', code)} />
                   <FieldHint source={r.sources.countryCode} />
+                  {!r.countryCode && r.surveyCountry && (
+                    <p className="text-[11px] text-red-600 mt-1">설문 국가 "{r.surveyCountry}"를 찾지 못했습니다 - 직접 선택</p>
+                  )}
                 </div>
               </div>
 
@@ -799,6 +809,9 @@ export default function ColosseumShippingForm() {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold">
             미리보기 <span className="font-normal text-muted-foreground">· 수취인 {recipients.length}명 / 엑셀 {rows.length}줄</span>
+            {incompleteShown.length > 0 && (
+              <span className="font-normal text-xs text-red-600"> · 미입력 {incompleteShown.length}명</span>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0 overflow-x-auto">

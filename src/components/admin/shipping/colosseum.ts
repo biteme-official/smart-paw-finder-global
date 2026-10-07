@@ -524,6 +524,79 @@ function parseStateCodeTail(parts: string[]): { city: string; state: string } | 
   return { city: m ? m[1].trim() : '', state };
 }
 
+/** "petaling jaya" / "PETALING JAYA" → "Petaling Jaya"; mixed case is kept as written. */
+const titleCaseWords = (s: string) => (s === s.toLowerCase() || s === s.toUpperCase()
+  ? s.toLowerCase().replace(/(^|[\s-])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase())
+  : s);
+
+const MALAYSIA_STATES = [
+  'Johor', 'Kedah', 'Kelantan', 'Melaka', 'Malacca', 'Negeri Sembilan', 'Pahang', 'Penang', 'Pulau Pinang',
+  'Perak', 'Perlis', 'Sabah', 'Sarawak', 'Selangor', 'Terengganu', 'Kuala Lumpur', 'Labuan', 'Putrajaya',
+  'Wilayah Persekutuan',
+];
+const malaysiaState = (s: string) => MALAYSIA_STATES.find((st) => st.toLowerCase() === s.trim().toLowerCase());
+
+/**
+ * Malaysia writes "<street>, <zip> <City>, <State>" (zip sometimes in its own segment:
+ * "..., 47400, petaling jaya"). The place after the postal code is the city — or the one
+ * before it when nothing follows; a known state name after the city is the state.
+ * A missing state is left for the address search.
+ */
+function parseMalaysiaTail(parts: string[], zipAt: number, zipRest: string): { city: string; state: string } {
+  let cityAt = -1;
+  let city = '';
+  if (zipAt >= 0 && zipRest) {
+    city = zipRest; cityAt = zipAt;
+  } else if (zipAt >= 0 && parts[zipAt]) {
+    city = parts[zipAt]; cityAt = zipAt; // zip segment removed: the next segment moved here
+  } else if (parts.length >= 2) {
+    city = parts[parts.length - 1]; cityAt = parts.length - 1;
+  }
+  let state = malaysiaState(parts[cityAt + 1] ?? '') ?? '';
+  if (!state && malaysiaState(city) && cityAt > 0 && zipAt >= 0 && !zipRest) {
+    // "..., <City>, <zip>, <State>": the segment after the zip is the state, the city is before it.
+    state = malaysiaState(city) ?? '';
+    city = parts[cityAt - 1] ?? '';
+  }
+  return { city: titleCaseWords(city.trim()), state };
+}
+
+// Philippine cities as written in addresses, with the abbreviations customers use.
+const PHILIPPINE_CITIES: { name: string; re: RegExp }[] = [
+  { name: 'Quezon City', re: /\b(?:quezon\s+city|q\.?\s?c\.?)(?=\s|$)/i },
+  { name: 'Makati', re: /\bmakati(?:\s+city)?\b/i },
+  { name: 'Taguig', re: /\btaguig(?:\s+city)?\b/i },
+  { name: 'Pasig', re: /\bpasig(?:\s+city)?\b/i },
+  { name: 'Mandaluyong', re: /\bmandaluyong(?:\s+city)?\b/i },
+  // Not "Metro Manila" (the region, written after the actual city).
+  { name: 'Manila', re: /(?<!metro\s)\b(?:city\s+of\s+)?manila\b(?!\s+bay)/i },
+  { name: 'Pasay', re: /\bpasay(?:\s+city)?\b/i },
+  { name: 'Parañaque', re: /\bpara[ñn]aque(?:\s+city)?\b/i },
+  { name: 'Las Piñas', re: /\blas\s+pi[ñn]as(?:\s+city)?\b/i },
+  { name: 'Muntinlupa', re: /\bmuntinlupa(?:\s+city)?\b/i },
+  { name: 'Marikina', re: /\bmarikina(?:\s+city)?\b/i },
+  { name: 'Caloocan', re: /\bcaloocan(?:\s+city)?\b/i },
+  { name: 'Valenzuela', re: /\bvalenzuela(?:\s+city)?\b/i },
+  { name: 'San Juan', re: /\bsan\s+juan(?:\s+city)?\b/i },
+  { name: 'Cebu City', re: /\bcebu\s+city\b/i },
+  { name: 'Davao City', re: /\bdavao\s+city\b/i },
+];
+
+/**
+ * Philippine addresses are often one run-on line ("63A dalisay st ... q c 1104 Philippines").
+ * Returns the known city written last in it, or '' (then the address search fills it).
+ */
+function findPhilippineCity(text: string): string {
+  const t = text.replace(/\bphilippines\b/gi, ' ');
+  let best = { name: '', at: -1 };
+  for (const c of PHILIPPINE_CITIES) {
+    for (const m of t.matchAll(new RegExp(c.re.source, 'gi'))) {
+      if ((m.index ?? -1) > best.at) best = { name: c.name, at: m.index ?? -1 };
+    }
+  }
+  return best.name;
+}
+
 /**
  * Best-effort split of a one-line address into city / state / zip.
  * Comma-separated: trailing country is dropped, the postal code is taken from the
@@ -536,15 +609,26 @@ export function parseAddress(address: string, country?: Country): { city: string
   while (parts.length > 1 && isCountry(parts[parts.length - 1])) parts.pop();
 
   let zip = '';
+  // Where the postal code was, and the text sharing its comma segment (MY "47400 Petaling Jaya").
+  let zipAt = -1;
+  let zipRest = '';
   const postal = extractPostal(parts.join(', '), country?.code);
   if (postal) {
     zip = postal.zip;
     const i = parts.findIndex((p) => p.includes(postal.raw.trim()));
     if (i >= 0) {
+      zipAt = i;
       const rest = parts[i].replace(postal.raw.trim(), '').replace(/\s{2,}/g, ' ').trim();
+      zipRest = rest;
       if (rest || i === 0) parts[i] = rest;
       else parts.splice(i, 1);
     }
+  }
+
+  if (country?.code === 'MY') return { ...parseMalaysiaTail(parts, zipAt, zipRest), zip };
+  if (country?.code === 'PH') {
+    const city = findPhilippineCity(parts.join(' '));
+    if (city || parts.length < 2) return { city, state: '', zip };
   }
 
   let state = '';
