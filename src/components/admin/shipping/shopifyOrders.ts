@@ -116,6 +116,8 @@ export function reorderShopifyName(raw: string): { name: string; ambiguous: bool
     // The surname part is a single word; anything else (spaces before the boundary) is unclear.
     return { name: `${given} ${surname}`, ambiguous: /\s/.test(surname) };
   }
+  // Already written with a space and no glued part ("Desmond Ng"): kept as is, nothing to check.
+  if (boundaries.length === 0 && /\s/.test(name)) return { name, ambiguous: false };
   return { name, ambiguous: true };
 }
 
