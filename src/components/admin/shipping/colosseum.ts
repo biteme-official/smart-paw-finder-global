@@ -22,8 +22,9 @@ export const hasBattery = (productName: string) => BATTERY_KEYWORDS.test(product
 /** 수취인 Email (AD) on seeding shipments; order shipments use the customer's email from Shopify. */
 export const SEEDING_EMAIL = 'zoey@biteme.co.kr';
 
-// Sender block (L–Q) as on the original sheet. N (sender mobile) is left blank on seeding
-// shipments; order shipments fill it (ORDER_SENDER_MOBILE), as the overseas team does.
+// Sender block (L–Q) as on the original sheet. N (sender mobile) repeats M (sender phone)
+// on both seeding and order shipments.
+const SENDER_PHONE = '070-4888-6191';
 const FIXED: Record<string, string | number> = {
   A: 'SHOPIFY',
   B: 'Express',
@@ -32,7 +33,8 @@ const FIXED: Record<string, string | number> = {
   G: 1,
   K: 1,
   L: 'Biteme Inc.',
-  M: '070-4888-6191',
+  M: SENDER_PHONE,
+  N: SENDER_PHONE,
   O: '31-14, Baegam-ro, Baegam-myeon, Cheoin-gu, Yongin-si, Gyeonggi-do, Republic of Korea',
   P: 17180,
   Q: 'Gyeonggi-do',
@@ -74,9 +76,6 @@ export interface ShopifyOrderInfo {
   /** The surname / given-name split of the Shopify name was unclear (shown for review). */
   nameAmbiguous?: boolean;
 }
-
-/** 송화인휴대폰번호 (N) on order shipments, as the overseas team fills it. */
-export const ORDER_SENDER_MOBILE = '010-3258-0834';
 
 /** Countries without states / provinces: 수취인주 gets the country name. */
 export const NO_STATE_COUNTRIES = new Set(['SG', 'HK', 'MO']);
@@ -237,7 +236,6 @@ export function buildRows(
             F: o.currency || 'USD',
             G: units[li],
             K: o.qtys[i] ?? 1,
-            N: ORDER_SENDER_MOBILE,
             AB: r.zip.trim() || NO_POSTAL_CODE,
             AT: orderRemark(r.tracking, o.b2b, battery, o.total),
             AD: o.email,
