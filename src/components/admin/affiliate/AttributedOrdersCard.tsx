@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import {
-  approvesOn, formatUsd, isRestrictedCountry, orderCommission, orderStatus, type AttributedOrder, type PartnerRow,
+  approvesOn, formatUsd, isCountedOrder, orderCommission, orderStatus, type AttributedOrder, type PartnerRow,
 } from './affiliateAdminData';
 import {
-  EmptyRow, ORDER_STATUS, RestrictedBadge, RowAction, SectionCard, StatusBadge, TABLE_WRAP, TD, TH, TR,
+  EmptyRow, ORDER_STATUS, Pager, RowAction, SectionCard, StatusBadge, TABLE_WRAP, TD, TEXT_COL, TH, TR, VALUE_COL, paginate,
 } from './adminUi';
 
-const COLLAPSED_LIMIT = 10;
+const PAGE_SIZE = 10;
 
-/** `orders` are already limited to the selected period, newest first. */
+/**
+ * `orders` are already limited to the selected period, newest first. The parent
+ * re-mounts this card when the period changes, so paging restarts at page 1.
+ */
 export function AttributedOrdersCard({ orders, partners, today, onVoid, onSelectPartner }: {
   orders: AttributedOrder[];
   partners: PartnerRow[];
@@ -18,14 +19,16 @@ export function AttributedOrdersCard({ orders, partners, today, onVoid, onSelect
   onVoid: (orderId: string) => void;
   onSelectPartner: (partnerId: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const canExpand = orders.length > COLLAPSED_LIMIT;
-  const visible = expanded ? orders : orders.slice(0, COLLAPSED_LIMIT);
+  const [page, setPage] = useState(1);
+  const paged = paginate(orders, page, PAGE_SIZE);
+  const visible = paged.items;
+  // Same exclusions as the "Excluded orders" card.
+  const excluded = orders.filter((o) => o.outcome === 'self-purchase' || o.outcome === 'excluded-b2b').length;
 
   return (
     <SectionCard
       title="Attributed orders"
-      count={orders.length}
+      count={excluded > 0 ? `${orders.length} · ${excluded} excluded` : orders.length}
       description="Orders placed in the selected period. Rate is locked at the time of order."
     >
       {visible.length === 0 ? (
@@ -33,18 +36,30 @@ export function AttributedOrdersCard({ orders, partners, today, onVoid, onSelect
       ) : (
         <>
           <div className={TABLE_WRAP}>
-            <table className="w-full text-sm">
+            {/* Fixed column shares so the table spans the card evenly (same approach as Payouts). */}
+            <table className="w-full table-fixed text-sm">
+              <colgroup>
+                <col className="w-[10%]" />{/* Order */}
+                <col className="w-[11%]" />{/* Date */}
+                <col className="w-[13%]" />{/* Partner */}
+                <col className="w-[12%]" />{/* Order amount */}
+                <col className="w-[7%]" />{/* Rate */}
+                <col className="w-[11%]" />{/* Commission */}
+                <col className="w-[13%]" />{/* Status */}
+                <col className="w-[13%]" />{/* Approves on */}
+                <col className="w-[10%]" />{/* Action */}
+              </colgroup>
               <thead>
                 <tr className="border-b bg-gray-50/50">
-                  <th className={`${TH} text-left`}>Order</th>
-                  <th className={`${TH} text-left`}>Date</th>
-                  <th className={`${TH} text-left`}>Partner</th>
-                  <th className={`${TH} text-right`}>Order amount</th>
-                  <th className={`${TH} text-right`}>Rate</th>
-                  <th className={`${TH} text-right`}>Commission</th>
-                  <th className={`${TH} text-center`}>Status</th>
-                  <th className={`${TH} text-left`}>Approves on</th>
-                  <th className={TH}></th>
+                  <th className={`${TH} ${TEXT_COL}`}>Order</th>
+                  <th className={`${TH} ${VALUE_COL}`}>Date</th>
+                  <th className={`${TH} ${TEXT_COL}`}>Partner</th>
+                  <th className={`${TH} ${VALUE_COL}`}>Order amount</th>
+                  <th className={`${TH} ${VALUE_COL}`}>Rate</th>
+                  <th className={`${TH} ${VALUE_COL}`}>Commission</th>
+                  <th className={`${TH} ${VALUE_COL}`}>Status</th>
+                  <th className={`${TH} ${VALUE_COL}`}>Approves on</th>
+                  <th className={`${TH} ${VALUE_COL}`}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -53,26 +68,25 @@ export function AttributedOrdersCard({ orders, partners, today, onVoid, onSelect
                   const partner = partners.find((p) => p.id === o.partnerId);
                   return (
                     <tr key={o.id} className={TR}>
-                      <td className={`${TD} font-mono text-xs whitespace-nowrap`}>
+                      <td className={`${TD} ${TEXT_COL} font-mono text-xs whitespace-nowrap`}>
                         {o.id}
                         {o.guest && <span className="ml-1.5 font-sans text-[10px] text-muted-foreground">Guest</span>}
-                        {isRestrictedCountry(o.shippingCountry) && (
-                          <div className="mt-1 font-sans"><RestrictedBadge country={o.shippingCountry} /></div>
-                        )}
                       </td>
-                      <td className={`${TD} text-xs text-muted-foreground whitespace-nowrap`}>{o.orderedAt}</td>
-                      <td className={TD}>
+                      <td className={`${TD} ${VALUE_COL} text-xs text-muted-foreground whitespace-nowrap`}>{o.orderedAt}</td>
+                      <td className={`${TD} ${TEXT_COL} whitespace-nowrap`}>
                         <button type="button" onClick={() => onSelectPartner(o.partnerId)} className="text-left hover:underline">
                           <span className="font-mono text-xs">{o.partnerId}</span>
-                          {partner && <span className="ml-1.5 text-xs text-muted-foreground">{partner.name}</span>}
+                          {partner && <span className="block text-xs text-muted-foreground">{partner.name}</span>}
                         </button>
                       </td>
-                      <td className={`${TD} text-right`}>{formatUsd(o.amount)}</td>
-                      <td className={`${TD} text-right`}>{o.ratePercent}%</td>
-                      <td className={`${TD} text-right font-medium`}>{formatUsd(orderCommission(o))}</td>
-                      <td className={`${TD} text-center`}><StatusBadge config={ORDER_STATUS[status]} /></td>
-                      <td className={`${TD} text-xs text-muted-foreground whitespace-nowrap`}>{approvesOn(o)}</td>
-                      <td className={`${TD} text-right`}>
+                      <td className={`${TD} ${VALUE_COL}`}>{formatUsd(o.amount)}</td>
+                      <td className={`${TD} ${VALUE_COL}`}>{o.ratePercent}%</td>
+                      <td className={`${TD} ${VALUE_COL} font-medium`}>{formatUsd(orderCommission(o))}</td>
+                      <td className={`${TD} ${VALUE_COL}`}><StatusBadge config={ORDER_STATUS[status]} /></td>
+                      <td className={`${TD} ${VALUE_COL} text-xs text-muted-foreground whitespace-nowrap`}>
+                        {isCountedOrder(o, today) ? approvesOn(o) : '—'}
+                      </td>
+                      <td className={`${TD} ${VALUE_COL}`}>
                         {status === 'pending' && <RowAction onClick={() => onVoid(o.id)}>Void</RowAction>}
                       </td>
                     </tr>
@@ -81,15 +95,7 @@ export function AttributedOrdersCard({ orders, partners, today, onVoid, onSelect
               </tbody>
             </table>
           </div>
-          {canExpand && (
-            <div className="mt-3 flex justify-center">
-              <Button variant="ghost" size="sm" onClick={() => setExpanded((v) => !v)}>
-                {expanded
-                  ? <>Show less <ChevronUp className="h-4 w-4 ml-1" /></>
-                  : <>Show all {orders.length} <ChevronDown className="h-4 w-4 ml-1" /></>}
-              </Button>
-            </div>
-          )}
+          <Pager page={paged.page} pageCount={paged.pageCount} onChange={setPage} />
         </>
       )}
     </SectionCard>

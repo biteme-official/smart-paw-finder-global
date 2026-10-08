@@ -1,6 +1,10 @@
 import type { ReactNode } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { OrderStatus, PartnerStatus, PayoutStatus } from './affiliateAdminData';
 
@@ -40,16 +44,6 @@ export function StatusBadge({ config, className }: { config: BadgeConfig; classN
   return (
     <Badge variant="outline" className={cn('text-xs whitespace-nowrap', config.color, className)}>
       {config.label}
-    </Badge>
-  );
-}
-
-/** Small red flag for China, Taiwan, Malaysia and Philippines — shown, never blocked. */
-export function RestrictedBadge({ country, className }: { country: string; className?: string }) {
-  return (
-    <Badge variant="outline" title={`${country} is a restricted country`}
-      className={cn('px-1.5 py-0 text-[10px] font-medium whitespace-nowrap', RED, className)}>
-      Restricted country
     </Badge>
   );
 }
@@ -101,7 +95,61 @@ export function EmptyRow({ children }: { children: ReactNode }) {
 }
 
 // Same table look as B2BAdmin.
+//
+// Column alignment rule for every affiliate admin table (use for new tables too):
+// - TEXT_COL (left): text columns — order #, partner ID, name, email, product.
+// - VALUE_COL (center): everything else — dates, amounts, rates, counts, country codes, status badges, checks.
+// - Row actions (Void, Mark as paid, Remind) sit in a last "Action" column, centered.
+// Header, its gray sub-label and the cells of a column always share the same alignment.
+// A table always spans its card; fix column shares with a <colgroup> when the
+// automatic widths bunch up (see PayoutsCard).
+export const TEXT_COL = 'text-left';
+export const VALUE_COL = 'text-center';
+export const ACTION_COL = 'text-right';
+
 export const TABLE_WRAP = 'rounded-lg border overflow-x-auto';
 export const TH = 'p-3 font-medium text-muted-foreground whitespace-nowrap';
 export const TD = 'p-3';
 export const TR = 'border-b last:border-0 hover:bg-gray-50 transition-colors';
+
+/** "< 1 / 2 >" pager, right-aligned under a table. Hidden when everything fits on one page. */
+export function Pager({ page, pageCount, onChange }: { page: number; pageCount: number; onChange: (page: number) => void }) {
+  if (pageCount <= 1) return null;
+  return (
+    <div className="mt-3 flex items-center justify-end gap-1 text-sm">
+      <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Previous page"
+        disabled={page <= 1} onClick={() => onChange(page - 1)}>
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      <span className="min-w-[3.5rem] text-center tabular-nums text-muted-foreground">{page} / {pageCount}</span>
+      <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Next page"
+        disabled={page >= pageCount} onClick={() => onChange(page + 1)}>
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
+/** Clamps `page` so a shrinking list never leaves you on an empty page. */
+export function paginate<T>(items: T[], page: number, pageSize: number) {
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const current = Math.min(page, pageCount);
+  return { pageCount, page: current, items: items.slice((current - 1) * pageSize, current * pageSize) };
+}
+
+/**
+ * Hover tooltip for table cells. Rendered in a portal so the tables' overflow-x
+ * wrapper can't clip it (the shared TooltipContent renders in place).
+ */
+export function CellTooltip({ content, children }: { content: ReactNode; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="inline-flex cursor-help">{children}</span>
+      </TooltipTrigger>
+      <TooltipPrimitive.Portal>
+        <TooltipContent>{content}</TooltipContent>
+      </TooltipPrimitive.Portal>
+    </Tooltip>
+  );
+}

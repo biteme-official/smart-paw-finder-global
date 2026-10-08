@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react';
-import { Ban, CheckCircle, Clock, DollarSign, ShoppingBag, type LucideIcon } from 'lucide-react';
+import {
+  Ban, CheckCircle, Clock, Copy, DollarSign, MousePointer, MousePointerClick, Percent, ShoppingBag, UserPlus, type LucideIcon,
+} from 'lucide-react';
 import {
   AFFILIATE_APPROVAL_DAYS, AFFILIATE_ATTRIBUTION_DAYS, AFFILIATE_COMMISSION_PERCENT,
   approvesOn, formatUsd, inRange, isCountedOrder, orderCommission, orderStatus, round2,
-  type AttributedOrder, type DateRange,
+  type AttributedOrder, type DateRange, type LinkCopyDay, type PartnerRow,
 } from './affiliateAdminData';
 
 export function ProgramRulesBar() {
@@ -41,10 +43,26 @@ function StatCard({ icon: Icon, label, value, hint, color }: {
   );
 }
 
-/** Orders placed in the period; approved commission = approved during the period. */
-export function PeriodCards({ orders, today, range, title }: {
-  orders: AttributedOrder[]; today: string; range: DateRange; title: string;
+/**
+ * Activity row + money row for the period. Clicks and orders are summed from the
+ * partner rows so the cards always match the Partners table.
+ */
+export function PeriodCards({ orders, partners, linkCopies, today, range, title }: {
+  orders: AttributedOrder[];
+  /** Built for the same range (buildPartnerRows). */
+  partners: PartnerRow[];
+  linkCopies: LinkCopyDay[];
+  today: string;
+  range: DateRange;
+  title: string;
 }) {
+  const newPartners = partners.filter((p) => inRange(p.joinedAt, range)).length;
+  const clickingPartners = partners.filter((p) => p.clicks > 0).length;
+  const copies = linkCopies.filter((c) => inRange(c.date, range)).reduce((s, c) => s + c.copies, 0);
+  const clicks = partners.reduce((s, p) => s + p.clicks, 0);
+  const partnerOrders = partners.reduce((s, p) => s + p.orders, 0);
+  const conversion = clicks > 0 ? `${((partnerOrders / clicks) * 100).toFixed(1)}%` : '—';
+
   const placed = orders.filter((o) => inRange(o.orderedAt, range));
   const counted = placed.filter((o) => isCountedOrder(o, today));
   const excluded = placed.filter((o) => o.outcome === 'self-purchase' || o.outcome === 'excluded-b2b');
@@ -59,6 +77,13 @@ export function PeriodCards({ orders, today, range, title }: {
   return (
     <div>
       <h2 className="text-sm font-semibold mb-2">{title} <span className="font-normal text-muted-foreground">(KST)</span></h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+        <StatCard icon={UserPlus} label="New partners" value={String(newPartners)} hint="Joined (agreed to terms)" color="bg-purple-50 text-purple-600" />
+        <StatCard icon={MousePointerClick} label="Clicking partners" value={String(clickingPartners)} hint="1+ link click" color="bg-purple-50 text-purple-600" />
+        <StatCard icon={Copy} label="Link copies" value={String(copies)} hint='"Copy link" presses' color="bg-purple-50 text-purple-600" />
+        <StatCard icon={MousePointer} label="Clicks" value={String(clicks)} hint="Bots excluded" color="bg-purple-50 text-purple-600" />
+        <StatCard icon={Percent} label="Conversion rate" value={conversion} hint={`${partnerOrders} orders ÷ ${clicks} clicks`} color="bg-purple-50 text-purple-600" />
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard icon={ShoppingBag} label="Attributed orders" value={String(counted.length)} color="bg-blue-50 text-blue-600" />
         <StatCard icon={DollarSign} label="Attributed sales" value={formatUsd(sum(counted, (o) => o.amount))} color="bg-blue-50 text-blue-600" />

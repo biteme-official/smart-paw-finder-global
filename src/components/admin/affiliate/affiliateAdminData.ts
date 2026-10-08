@@ -20,12 +20,6 @@ export const AFFILIATE_ATTRIBUTION_DAYS = 30;
 /** An order's commission is approved this many days after the order. */
 export const AFFILIATE_APPROVAL_DAYS = 30;
 export const AFFILIATE_MIN_PAYOUT_USD = 20;
-/** Partners can't join from these countries (default shipping address). */
-export const RESTRICTED_COUNTRIES = ['China', 'Taiwan', 'Malaysia', 'Philippines'];
-
-export function isRestrictedCountry(country: string): boolean {
-  return RESTRICTED_COUNTRIES.includes(country);
-}
 
 const AFFILIATE_LINK_ORIGIN = 'https://www.biteme.one';
 
@@ -85,6 +79,17 @@ export interface DateRange {
   to: string;
 }
 
+const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+
+/** 'US' → 'United States' (falls back to the code). */
+export function countryName(code: string): string {
+  try {
+    return regionNames.of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
 export function inRange(date: string, range: DateRange): boolean {
   return date >= range.from && date <= range.to;
 }
@@ -133,8 +138,11 @@ export interface AffiliatePartner {
   id: string;
   name: string;
   email: string;
-  /** From the default shipping address (no country is asked at sign-up). */
-  country: string;
+  /**
+   * ISO 3166-1 alpha-2 code from the default shipping address (Shopify countryCodeV2) —
+   * no country is asked at sign-up. Show the full name with countryName().
+   */
+  countryCode: string;
   joinedAt: string;
   status: PartnerStatus;
   paypalEmail?: string;
@@ -148,6 +156,14 @@ export interface LinkClickDay {
   partnerId: string;
   handle: string;
   clicks: number;
+}
+
+/** "Copy link" presses per partner, product and KST day (PDP box and partner dashboard). */
+export interface LinkCopyDay {
+  date: string;
+  partnerId: string;
+  handle: string;
+  copies: number;
 }
 
 /** Ways an order drops out of commission; undefined = counted (pending/approved by age). */
@@ -229,17 +245,17 @@ interface SampleOrder extends Omit<AttributedOrder, 'orderedAt' | 'ratePercent' 
 }
 
 const SAMPLE_PARTNERS: SamplePartner[] = [
-  { id: 'K7MXQ2', name: 'Emily Carter', email: 'emily.carter@gmail.com', country: 'United States', joinedDaysAgo: 96, status: 'active', paypalEmail: 'emily.carter@gmail.com', linkClicks: clicks(184, 96, 41) },
-  { id: 'R4TWNB', name: 'Grace Tan', email: 'gracetan.sg@gmail.com', country: 'Singapore', joinedDaysAgo: 88, status: 'active', paypalEmail: 'grace.tan@outlook.com', linkClicks: clicks(52, 0, 120, 18) },
-  { id: 'HZ8CPV', name: 'Olivia Brown', email: 'olivia.b@yahoo.com', country: 'Australia', joinedDaysAgo: 81, status: 'active', linkClicks: clicks(23, 61) },
-  { id: 'W3JDKE', name: 'Chloe Wong', email: 'chloe.wong@gmail.com', country: 'Hong Kong', joinedDaysAgo: 74, status: 'active', paypalEmail: 'chloe.wong@gmail.com', linkClicks: clicks(12, 9, 0, 0, 30) },
-  { id: 'P9GYSA', name: 'Mia Johnson', email: 'mia.johnson@icloud.com', country: 'Canada', joinedDaysAgo: 69, status: 'active', paypalEmail: 'mia.j@icloud.com', linkClicks: clicks(8, 4) },
-  { id: 'D2LQUF', name: 'Hannah Lee', email: 'hannah.lee@gmail.com', country: 'United States', joinedDaysAgo: 41, status: 'suspended', paypalEmail: 'hannah.lee@gmail.com', linkClicks: clicks(3) },
-  { id: 'B6NVRT', name: 'Jasmine Lin', email: 'jasmine.lin@gmail.com', country: 'Taiwan', joinedDaysAgo: 22, status: 'active', linkClicks: clicks(15, 7) },
-  { id: 'M5EHXC', name: 'Sophie Martin', email: 'sophie.martin@gmail.com', country: 'United Kingdom', joinedDaysAgo: 6, status: 'active', paypalEmail: 'sophie.martin@gmail.com', linkClicks: clicks(37, 0, 14) },
-  { id: 'T8ZKWP', name: 'Aria Kim', email: 'aria.kim@naver.com', country: 'United States', joinedDaysAgo: 3, status: 'active', paypalEmail: 'aria.kim@naver.com', linkClicks: clicks(5) },
-  { id: 'Q3RUMY', name: 'Lucas Silva', email: 'lucas.silva@gmail.com', country: 'Brazil', joinedDaysAgo: 2, status: 'active', linkClicks: [] },
-  { id: 'N7FAGJ', name: 'Ella Davis', email: 'ella.davis@gmail.com', country: 'United States', joinedDaysAgo: 58, status: 'removed', linkClicks: [] },
+  { id: 'K7MXQ2', name: 'Emily Carter', email: 'emily.carter@gmail.com', countryCode: 'US', joinedDaysAgo: 96, status: 'active', paypalEmail: 'emily.carter@gmail.com', linkClicks: clicks(184, 96, 41) },
+  { id: 'R4TWNB', name: 'Grace Tan', email: 'gracetan.sg@gmail.com', countryCode: 'SG', joinedDaysAgo: 88, status: 'active', paypalEmail: 'grace.tan@outlook.com', linkClicks: clicks(52, 0, 120, 18) },
+  { id: 'HZ8CPV', name: 'Olivia Brown', email: 'olivia.b@yahoo.com', countryCode: 'AU', joinedDaysAgo: 81, status: 'active', linkClicks: clicks(23, 61) },
+  { id: 'W3JDKE', name: 'Chloe Wong', email: 'chloe.wong@gmail.com', countryCode: 'HK', joinedDaysAgo: 74, status: 'active', paypalEmail: 'chloe.wong@gmail.com', linkClicks: clicks(12, 9, 0, 0, 30) },
+  { id: 'P9GYSA', name: 'Mia Johnson', email: 'mia.johnson@icloud.com', countryCode: 'CA', joinedDaysAgo: 69, status: 'active', paypalEmail: 'mia.j@icloud.com', linkClicks: clicks(8, 4) },
+  { id: 'D2LQUF', name: 'Hannah Lee', email: 'hannah.lee@gmail.com', countryCode: 'US', joinedDaysAgo: 41, status: 'suspended', paypalEmail: 'hannah.lee@gmail.com', linkClicks: clicks(3) },
+  { id: 'B6NVRT', name: 'Jasmine Lin', email: 'jasmine.lin@gmail.com', countryCode: 'SG', joinedDaysAgo: 22, status: 'active', linkClicks: clicks(15, 7) },
+  { id: 'M5EHXC', name: 'Sophie Martin', email: 'sophie.martin@gmail.com', countryCode: 'GB', joinedDaysAgo: 6, status: 'active', paypalEmail: 'sophie.martin@gmail.com', linkClicks: clicks(37, 0, 14) },
+  { id: 'T8ZKWP', name: 'Aria Kim', email: 'aria.kim@naver.com', countryCode: 'US', joinedDaysAgo: 3, status: 'active', paypalEmail: 'aria.kim@naver.com', linkClicks: clicks(5) },
+  { id: 'Q3RUMY', name: 'Lucas Silva', email: 'lucas.silva@gmail.com', countryCode: 'BR', joinedDaysAgo: 2, status: 'active', linkClicks: [] },
+  { id: 'N7FAGJ', name: 'Ella Davis', email: 'ella.davis@gmail.com', countryCode: 'US', joinedDaysAgo: 58, status: 'removed', linkClicks: [] },
 ];
 
 const SAMPLE_ORDERS: SampleOrder[] = [
@@ -251,7 +267,7 @@ const SAMPLE_ORDERS: SampleOrder[] = [
   { id: '#1540', daysAgo: 72, partnerId: 'W3JDKE', product: 4, amount: 88.0, shippingCountry: 'Hong Kong', guest: true },
   // Approved last month (to be closed now)
   { id: '#1561', daysAgo: 61, partnerId: 'K7MXQ2', product: 0, amount: 212.3, shippingCountry: 'United States', guest: false },
-  { id: '#1566', daysAgo: 58, partnerId: 'R4TWNB', product: 2, amount: 176.0, shippingCountry: 'Malaysia', guest: false },
+  { id: '#1566', daysAgo: 58, partnerId: 'R4TWNB', product: 2, amount: 176.0, shippingCountry: 'Singapore', guest: false },
   { id: '#1570', daysAgo: 55, partnerId: 'P9GYSA', product: 0, amount: 74.9, shippingCountry: 'Canada', guest: true },
   { id: '#1574', daysAgo: 52, partnerId: 'HZ8CPV', product: 1, amount: 119.0, shippingCountry: 'Australia', guest: false },
   { id: '#1579', daysAgo: 49, partnerId: 'W3JDKE', product: 4, amount: 59.5, shippingCountry: 'Hong Kong', guest: false, outcome: 'refunded' },
@@ -261,12 +277,12 @@ const SAMPLE_ORDERS: SampleOrder[] = [
   { id: '#1601', daysAgo: 33, partnerId: 'R4TWNB', product: 2, amount: 131.5, shippingCountry: 'Singapore', guest: true },
   // This month / still pending
   { id: '#1612', daysAgo: 24, partnerId: 'R4TWNB', product: 2, amount: 142.6, shippingCountry: 'Singapore', guest: false },
-  { id: '#1618', daysAgo: 20, partnerId: 'B6NVRT', product: 0, amount: 79.0, shippingCountry: 'Taiwan', guest: false },
+  { id: '#1618', daysAgo: 20, partnerId: 'B6NVRT', product: 0, amount: 79.0, shippingCountry: 'Singapore', guest: false },
   { id: '#1627', daysAgo: 15, partnerId: 'K7MXQ2', product: 1, amount: 168.2, shippingCountry: 'United States', guest: true },
   { id: '#1633', daysAgo: 11, partnerId: 'HZ8CPV', product: 1, amount: 92.4, shippingCountry: 'Australia', guest: false },
   { id: '#1641', daysAgo: 6, partnerId: 'K7MXQ2', product: 0, amount: 236.8, shippingCountry: 'United States', guest: false },
   { id: '#1644', daysAgo: 5, partnerId: 'M5EHXC', product: 0, amount: 104.5, shippingCountry: 'United Kingdom', guest: true },
-  { id: '#1646', daysAgo: 4, partnerId: 'P9GYSA', product: 1, amount: 58.0, shippingCountry: 'Philippines', guest: false },
+  { id: '#1646', daysAgo: 4, partnerId: 'P9GYSA', product: 1, amount: 58.0, shippingCountry: 'Canada', guest: false },
   { id: '#1648', daysAgo: 3, partnerId: 'W3JDKE', product: 4, amount: 71.3, shippingCountry: 'Hong Kong', guest: false },
   { id: '#1650', daysAgo: 2, partnerId: 'M5EHXC', product: 2, amount: 63.9, shippingCountry: 'United Kingdom', guest: false, outcome: 'self-purchase' },
   { id: '#1652', daysAgo: 1, partnerId: 'T8ZKWP', product: 0, amount: 48.0, shippingCountry: 'United States', guest: true },
@@ -286,14 +302,17 @@ export interface AffiliateAdminSample {
   partners: AffiliatePartner[];
   orders: AttributedOrder[];
   clicks: LinkClickDay[];
-  /** Months whose payouts were already closed before today. */
+  linkCopies: LinkCopyDay[];
+  /** Months already auto-closed (each closes on the 1st of the next month, 00:00 KST). */
   closedMonths: string[];
   /** Payout rows already marked paid, by payoutKey(). */
   paidAt: Record<string, string>;
+  /** Last "Add your PayPal" reminder per partner ID (KST date). */
+  remindedAt: Record<string, string>;
 }
 
 export function getSampleAffiliateAdmin(today = kstToday()): AffiliateAdminSample {
-  if (isDevEmptyPreview()) return { partners: [], orders: [], clicks: [], closedMonths: [], paidAt: {} };
+  if (isDevEmptyPreview()) return { partners: [], orders: [], clicks: [], linkCopies: [], closedMonths: [], paidAt: {}, remindedAt: {} };
 
   const partners = SAMPLE_PARTNERS.map(({ joinedDaysAgo, linkClicks, ...p }) => ({
     ...p,
@@ -301,6 +320,10 @@ export function getSampleAffiliateAdmin(today = kstToday()): AffiliateAdminSampl
     sharedLinks: linkClicks.map(({ handle, title }) => ({ handle, title })),
   }));
   const clicks = SAMPLE_PARTNERS.flatMap((p) => sampleClickDays(p, today));
+  // Roughly one copy per six clicks on the same day — enough to look plausible.
+  const linkCopies = clicks
+    .map(({ clicks: n, ...c }) => ({ ...c, copies: Math.round(n / 6) }))
+    .filter((c) => c.copies > 0);
   const orders = SAMPLE_ORDERS
     .map(({ daysAgo, product, ...o }) => ({
       ...o,
@@ -310,14 +333,15 @@ export function getSampleAffiliateAdmin(today = kstToday()): AffiliateAdminSampl
     }))
     .sort((a, b) => b.orderedAt.localeCompare(a.orderedAt));
 
-  // Every month before last is closed; its payouts went out last month.
+  // Every month up to last month was auto-closed on the 1st (KST). Last month's
+  // payouts are still to be paid; earlier months went out on the 25th.
   const lastMonth = addMonths(monthOf(today), -1);
   const firstMonth = monthOf(orders[orders.length - 1]?.orderedAt ?? today);
   const closedMonths: string[] = [];
-  for (let m = firstMonth; m < lastMonth; m = addMonths(m, 1)) closedMonths.push(m);
+  for (let m = firstMonth; m <= lastMonth; m = addMonths(m, 1)) closedMonths.push(m);
 
-  const sample: AffiliateAdminSample = { partners, orders, clicks, closedMonths, paidAt: {} };
-  for (const month of closedMonths) {
+  const sample: AffiliateAdminSample = { partners, orders, clicks, linkCopies, closedMonths, paidAt: {}, remindedAt: {} };
+  for (const month of closedMonths.filter((m) => m < lastMonth)) {
     for (const row of buildPayouts(sample, month, today)) {
       if (row.status === 'ready') sample.paidAt[payoutKey(row)] = `${addMonths(month, 1)}-25`;
     }
@@ -423,11 +447,41 @@ export interface PartnerRow extends AffiliatePartner {
   orders: number;
   sales: number;
   commission: number;
-  /** Approved commission not paid out yet (incl. carried over). */
+  /** Approved commission not paid out yet (incl. carried over) = sum of unpaidParts. */
   unpaidBalance: number;
+  /** Where the unpaid balance sits in Payouts, month by month. */
+  unpaidParts: UnpaidPart[];
   /** Attributed orders of any status, all time — Delete is only offered at 0. */
   totalOrders: number;
   links: AffiliateLinkStat[];
+}
+
+export interface UnpaidPart {
+  month: string;
+  amount: number;
+  status: PayoutStatus;
+}
+
+/**
+ * The partner's unpaid money exactly as Payouts lists it: Ready rows of past months
+ * not marked paid yet, plus the current month's row (which already includes anything
+ * carried over). Partners table and Payouts both read from here, so they always match.
+ */
+export function unpaidParts(
+  data: Pick<AffiliateAdminSample, 'partners' | 'orders' | 'paidAt'>,
+  partnerId: string,
+  today: string,
+): UnpaidPart[] {
+  const current = monthOf(today);
+  const firstMonth = data.orders.reduce((m, o) => (monthOf(approvesOn(o)) < m ? monthOf(approvesOn(o)) : m), current);
+  const parts: UnpaidPart[] = [];
+  for (let m = firstMonth; m < current; m = addMonths(m, 1)) {
+    const row = buildPayouts(data, m, today).find((x) => x.partnerId === partnerId);
+    if (row?.status === 'ready') parts.push({ month: m, amount: row.amount, status: row.status });
+  }
+  const now = buildPayouts(data, current, today).find((x) => x.partnerId === partnerId);
+  if (now && now.status !== 'paid') parts.push({ month: current, amount: now.amount, status: now.status });
+  return parts;
 }
 
 /**
@@ -443,15 +497,7 @@ export function buildPartnerRows(
     const all = data.orders.filter((o) => o.partnerId === p.id);
     const inPeriod = all.filter((o) => inRange(o.orderedAt, range) && isCountedOrder(o, today));
     const clicksInPeriod = data.clicks.filter((c) => c.partnerId === p.id && inRange(c.date, range));
-    const approvedTotal = all
-      .filter((o) => orderStatus(o, today) === 'approved')
-      .reduce((s, o) => s + orderCommission(o), 0);
-    const paidTotal = Object.entries(data.paidAt)
-      .filter(([key]) => key.endsWith(`:${p.id}`))
-      .reduce((s, [key]) => {
-        const row = buildPayouts(data, key.split(':')[0], today).find((r) => r.partnerId === p.id);
-        return s + (row?.amount ?? 0);
-      }, 0);
+    const parts = unpaidParts(data, p.id, today);
 
     const links: AffiliateLinkStat[] = p.sharedLinks
       .map((l) => {
@@ -473,7 +519,8 @@ export function buildPartnerRows(
       orders: inPeriod.length,
       sales: round2(inPeriod.reduce((s, o) => s + o.amount, 0)),
       commission: round2(inPeriod.reduce((s, o) => s + orderCommission(o), 0)),
-      unpaidBalance: round2(Math.max(0, approvedTotal - paidTotal)),
+      unpaidBalance: round2(parts.reduce((s, x) => s + x.amount, 0)),
+      unpaidParts: parts,
       totalOrders: all.length,
       links,
     };

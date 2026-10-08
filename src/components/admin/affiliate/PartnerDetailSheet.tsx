@@ -3,10 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
-  approvesOn, buildAffiliateLink, buildPayouts, formatMonth, formatUsd, maskEmail, orderCommission, orderStatus,
+  approvesOn, buildAffiliateLink, countryName, buildPayouts, formatMonth, formatUsd, maskEmail, orderCommission, orderStatus,
   type AffiliateAdminSample, type PartnerRow,
 } from './affiliateAdminData';
-import { EmptyRow, ORDER_STATUS, PARTNER_STATUS, PAYOUT_STATUS, StatusBadge } from './adminUi';
+import { EmptyRow, ORDER_STATUS, PARTNER_STATUS, PAYOUT_STATUS, StatusBadge, TEXT_COL, VALUE_COL } from './adminUi';
 
 function Info({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -81,7 +81,7 @@ export function PartnerDetailSheet({ partner, data, today, periodLabel, onClose,
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Info label="Email">{partner.email}</Info>
-              <Info label="Country (default shipping)">{partner.country}</Info>
+              <Info label="Country (default shipping)">{countryName(partner.countryCode)} ({partner.countryCode})</Info>
               <Info label="Joined">{partner.joinedAt}</Info>
               <Info label="PayPal email">
                 {partner.paypalEmail ? maskEmail(partner.paypalEmail) : <span className="text-red-600">Missing</span>}
@@ -113,22 +113,22 @@ export function PartnerDetailSheet({ partner, data, today, periodLabel, onClose,
               ) : (
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b text-left">
-                      <th className={MINI_TH}>Product</th>
-                      <th className={`${MINI_TH} text-right`}>Clicks</th>
-                      <th className={`${MINI_TH} text-right`}>Orders</th>
-                      <th className={`${MINI_TH} text-right`}>Commission</th>
+                    <tr className="border-b">
+                      <th className={`${MINI_TH} ${TEXT_COL}`}>Product</th>
+                      <th className={`${MINI_TH} ${VALUE_COL}`}>Clicks</th>
+                      <th className={`${MINI_TH} ${VALUE_COL}`}>Orders</th>
+                      <th className={`${MINI_TH} ${VALUE_COL}`}>Commission</th>
                     </tr>
                   </thead>
                   <tbody>
                     {partner.links.map((l) => (
                       <tr key={l.handle} className="border-b last:border-0">
-                        <td className={MINI_TD}>
+                        <td className={`${MINI_TD} ${TEXT_COL}`}>
                           <a href={`/product/${l.handle}`} target="_blank" rel="noreferrer" className="hover:underline">{l.title}</a>
                         </td>
-                        <td className={`${MINI_TD} text-right`}>{l.clicks}</td>
-                        <td className={`${MINI_TD} text-right`}>{l.orders}</td>
-                        <td className={`${MINI_TD} text-right`}>{formatUsd(l.commission)}</td>
+                        <td className={`${MINI_TD} ${VALUE_COL}`}>{l.clicks}</td>
+                        <td className={`${MINI_TD} ${VALUE_COL}`}>{l.orders}</td>
+                        <td className={`${MINI_TD} ${VALUE_COL}`}>{formatUsd(l.commission)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -142,12 +142,12 @@ export function PartnerDetailSheet({ partner, data, today, periodLabel, onClose,
               ) : (
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b text-left">
-                      <th className={MINI_TH}>Order</th>
-                      <th className={MINI_TH}>Date</th>
-                      <th className={`${MINI_TH} text-right`}>Amount</th>
-                      <th className={`${MINI_TH} text-right`}>Commission</th>
-                      <th className={MINI_TH}>Status</th>
+                    <tr className="border-b">
+                      <th className={`${MINI_TH} ${TEXT_COL}`}>Order</th>
+                      <th className={`${MINI_TH} ${VALUE_COL}`}>Date</th>
+                      <th className={`${MINI_TH} ${VALUE_COL}`}>Amount</th>
+                      <th className={`${MINI_TH} ${VALUE_COL}`}>Commission</th>
+                      <th className={`${MINI_TH} ${VALUE_COL}`}>Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -155,11 +155,11 @@ export function PartnerDetailSheet({ partner, data, today, periodLabel, onClose,
                       const status = orderStatus(o, today);
                       return (
                         <tr key={o.id} className="border-b last:border-0">
-                          <td className={`${MINI_TD} font-mono`}>{o.id}</td>
-                          <td className={`${MINI_TD} text-muted-foreground whitespace-nowrap`}>{o.orderedAt}</td>
-                          <td className={`${MINI_TD} text-right`}>{formatUsd(o.amount)}</td>
-                          <td className={`${MINI_TD} text-right`}>{formatUsd(orderCommission(o))}</td>
-                          <td className={MINI_TD}>
+                          <td className={`${MINI_TD} ${TEXT_COL} font-mono`}>{o.id}</td>
+                          <td className={`${MINI_TD} ${VALUE_COL} text-muted-foreground whitespace-nowrap`}>{o.orderedAt}</td>
+                          <td className={`${MINI_TD} ${VALUE_COL}`}>{formatUsd(o.amount)}</td>
+                          <td className={`${MINI_TD} ${VALUE_COL}`}>{formatUsd(orderCommission(o))}</td>
+                          <td className={`${MINI_TD} ${VALUE_COL}`}>
                             <StatusBadge config={ORDER_STATUS[status]} />
                             {status === 'pending' && <p className="text-[10px] text-muted-foreground mt-0.5">Approves {approvesOn(o)}</p>}
                           </td>
@@ -177,18 +177,18 @@ export function PartnerDetailSheet({ partner, data, today, periodLabel, onClose,
               ) : (
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b text-left">
-                      <th className={MINI_TH}>Month</th>
-                      <th className={`${MINI_TH} text-right`}>Amount</th>
-                      <th className={MINI_TH}>Status</th>
+                    <tr className="border-b">
+                      <th className={`${MINI_TH} ${VALUE_COL}`}>Month</th>
+                      <th className={`${MINI_TH} ${VALUE_COL}`}>Amount</th>
+                      <th className={`${MINI_TH} ${VALUE_COL}`}>Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {payouts.map((r) => (
                       <tr key={r.month} className="border-b last:border-0">
-                        <td className={MINI_TD}>{formatMonth(r.month)}</td>
-                        <td className={`${MINI_TD} text-right`}>{formatUsd(r.amount)}</td>
-                        <td className={MINI_TD}>
+                        <td className={`${MINI_TD} ${VALUE_COL}`}>{formatMonth(r.month)}</td>
+                        <td className={`${MINI_TD} ${VALUE_COL}`}>{formatUsd(r.amount)}</td>
+                        <td className={`${MINI_TD} ${VALUE_COL}`}>
                           <StatusBadge config={PAYOUT_STATUS[r.status]} />
                           {r.paidAt && <span className="ml-2 text-[10px] text-muted-foreground">{r.paidAt}</span>}
                         </td>

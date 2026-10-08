@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ManagePageHeader } from '@/components/admin/ManageLayout';
 import {
-  RANGE_PRESET_LABELS, buildPartnerRows, formatMonth, formatRange, getSampleAffiliateAdmin, inRange, kstToday,
+  RANGE_PRESET_LABELS, buildPartnerRows, formatRange, getSampleAffiliateAdmin, inRange, kstToday,
   payoutKey, presetRange, type AffiliateAdminSample, type PartnerStatus, type PayoutRow,
 } from '@/components/admin/affiliate/affiliateAdminData';
 import { PeriodCards, ProgramRulesBar } from '@/components/admin/affiliate/AffiliateOverview';
@@ -16,7 +16,7 @@ import { PayoutsCard } from '@/components/admin/affiliate/PayoutsCard';
 import { PartnersCard } from '@/components/admin/affiliate/PartnersCard';
 import { PartnerDetailSheet } from '@/components/admin/affiliate/PartnerDetailSheet';
 import { AttributedOrdersCard } from '@/components/admin/affiliate/AttributedOrdersCard';
-import { TermsUpdatesCard } from '@/components/admin/affiliate/TermsUpdatesCard';
+import { GmvChartCard } from '@/components/admin/affiliate/GmvChartCard';
 
 interface PendingConfirm {
   title: string;
@@ -37,7 +37,7 @@ export default function AffiliateAdmin() {
   const [confirm, setConfirm] = useState<PendingConfirm>();
 
   // Period filter applies to the summary cards, the order list and the partner stats —
-  // not to Payouts (monthly close), Terms updates or the all-time unpaid balance.
+  // not to Payouts (monthly close) or the all-time unpaid balance.
   const { range } = period;
   const rangeText = formatRange(range);
   const periodTitle = `${RANGE_PRESET_LABELS[period.preset]}: ${rangeText}`;
@@ -93,15 +93,14 @@ export default function AffiliateAdmin() {
     },
   });
 
-  const finalizeMonth = (month: string) => setConfirm({
-    title: `Finalize ${formatMonth(month)} payouts?`,
-    description: `This locks ${formatMonth(month)} amounts and creates the payout list. Continue?`,
-    confirmLabel: 'Continue',
-    run: () => {
-      setData((d) => ({ ...d, closedMonths: [...d.closedMonths, month] }));
-      notSaved(`${formatMonth(month)} payouts finalized`);
-    },
-  });
+  // Real flow (API step): the partner sees "Add your PayPal to get paid" on their next visit.
+  const remind = (row: PayoutRow) => {
+    setData((d) => ({ ...d, remindedAt: { ...d.remindedAt, [row.partnerId]: today } }));
+    toast.success(`Reminder set for ${row.partnerName}`, {
+      description: 'It will be shown on their next login. Preview only — not saved.',
+      position: 'top-center',
+    });
+  };
 
   const markPaid = (row: PayoutRow) => {
     setData((d) => ({ ...d, paidAt: { ...d.paidAt, [payoutKey(row)]: today } }));
@@ -120,20 +119,21 @@ export default function AffiliateAdmin() {
         <ProgramRulesBar />
 
         {/* Follows the date filter above. */}
-        <PeriodCards orders={data.orders} today={today} range={range} title={periodTitle} />
+        <PeriodCards
+          orders={data.orders} partners={partners} linkCopies={data.linkCopies}
+          today={today} range={range} title={periodTitle}
+        />
+        <GmvChartCard orders={data.orders} range={range} today={today} />
         <AttributedOrdersCard
+          key={rangeText}
           orders={ordersInPeriod} partners={partners} today={today}
           onVoid={voidOrder} onSelectPartner={setSelectedId}
         />
         <PartnersCard partners={partners} onSelect={setSelectedId} />
 
-        {/* Not tied to the date filter: monthly payouts and program notices. */}
-        <div className="pt-4 border-t">
-          <h2 className="text-sm font-semibold">Payouts & terms</h2>
-          <p className="text-xs text-muted-foreground">Not affected by the date filter.</p>
-        </div>
-        <PayoutsCard data={data} today={today} onCloseMonth={finalizeMonth} onMarkPaid={markPaid} />
-        <TermsUpdatesCard />
+        {/* Below the line: not tied to the date filter (monthly payouts). */}
+        <hr className="border-t" />
+        <PayoutsCard data={data} today={today} onMarkPaid={markPaid} onRemind={remind} />
       </main>
 
       <PartnerDetailSheet
