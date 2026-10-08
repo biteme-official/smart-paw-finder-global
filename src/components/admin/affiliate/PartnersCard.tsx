@@ -17,7 +17,7 @@ const COLUMNS: { key: SortKey; label: string; align: 'left' | 'right' | 'center'
   { key: 'orders', label: 'Orders', align: 'right', title: 'Selected period' },
   { key: 'sales', label: 'Sales', align: 'right', title: 'Selected period' },
   { key: 'commission', label: 'Commission', align: 'right', title: 'Selected period (pending + approved)' },
-  { key: 'unpaidBalance', label: 'Unpaid balance', align: 'right', title: 'All time: approved, not paid out yet' },
+  { key: 'unpaidBalance', label: 'Unpaid balance (All time)', align: 'right', title: 'All time: approved, not paid out yet' },
   { key: 'paypal', label: 'PayPal', align: 'center' },
   { key: 'status', label: 'Status', align: 'center' },
 ];

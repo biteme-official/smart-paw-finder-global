@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,19 +27,17 @@ export function PayoutsCard({ data, today, onCloseMonth, onMarkPaid }: {
   const lastMonth = addMonths(monthOf(today), -1);
   const nextCutoff = closedMonths.includes(lastMonth) ? monthOf(today) : lastMonth;
   const canClose = nextCutoff < monthOf(today);
+  const monthOptions = [nextCutoff, ...[...closedMonths].reverse()];
 
-  const preview = buildPayouts(data, nextCutoff, today);
-  const payable = preview.filter((r) => r.status === 'ready');
-  const held = preview.length - payable.length;
+  // One month drives the summary, the table and the CSV. Starts on the next cutoff
+  // and stays on that month after it is finalized.
+  const [picked, setPicked] = useState(nextCutoff);
+  const month = monthOptions.includes(picked) ? picked : nextCutoff;
+  const finalized = closedMonths.includes(month);
 
-  const latestClosed = closedMonths[closedMonths.length - 1];
-  const [picked, setPicked] = useState<string | undefined>(latestClosed);
-  // Jump to the month that was just closed.
-  useEffect(() => { setPicked(latestClosed); }, [latestClosed]);
-  const month = picked && closedMonths.includes(picked) ? picked : latestClosed;
-
-  const rows = month ? buildPayouts(data, month, today) : [];
+  const rows = buildPayouts(data, month, today);
   const ready = rows.filter((r) => r.status === 'ready');
+  const held = rows.filter((r) => r.status === 'carried-over' || r.status === 'missing-paypal').length;
 
   const exportCsv = () => {
     downloadCsv(`paypal-payouts-${month}.csv`, buildPayPalPayoutsCsv(rows));
@@ -50,83 +48,90 @@ export function PayoutsCard({ data, today, onCloseMonth, onMarkPaid }: {
       title="Payouts"
       description={`Monthly cutoff · Paid next month via PayPal (USD) · Under $${AFFILIATE_MIN_PAYOUT_USD} carries over`}
       action={
-        month && (
-          <Button variant="outline" size="sm" onClick={exportCsv} disabled={ready.length === 0}>
-            <Download className="h-4 w-4 mr-1" /> Export CSV for PayPal Payouts
-          </Button>
-        )
+        <Button variant="outline" size="sm" onClick={exportCsv} disabled={!finalized || ready.length === 0}
+          title={finalized ? undefined : `Finalize ${formatMonth(month)} first`}>
+          <Download className="h-4 w-4 mr-1" /> Export CSV for PayPal Payouts
+        </Button>
       }
     >
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+      <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Month</span>
+          <select
+            className="border rounded px-2 py-1 text-sm bg-white"
+            value={month}
+            onChange={(e) => setPicked(e.target.value)}
+          >
+            {monthOptions.map((m) => (
+              <option key={m} value={m}>{formatMonth(m)}{closedMonths.includes(m) ? '' : ' (preview)'}</option>
+            ))}
+          </select>
+        </div>
         <div className="rounded-lg border px-4 py-2.5 text-sm">
-          <span className="text-muted-foreground">{formatMonth(nextCutoff)} payout preview: </span>
-          <span className="font-bold">{formatUsd(round2(payable.reduce((s, r) => s + r.amount, 0)))}</span>
-          <span className="text-muted-foreground"> · {payable.length} {payable.length === 1 ? 'partner' : 'partners'}</span>
+          <span className="text-muted-foreground">{formatMonth(month)} {finalized ? 'payout' : 'payout preview'}: </span>
+          <span className="font-bold">{formatUsd(round2(ready.reduce((s, r) => s + r.amount, 0)))}</span>
+          <span className="text-muted-foreground"> · {ready.length} {ready.length === 1 ? 'partner' : 'partners'}</span>
           {held > 0 && <span className="text-muted-foreground"> · {held} held (under ${AFFILIATE_MIN_PAYOUT_USD} or missing PayPal)</span>}
         </div>
-        <Button size="sm" onClick={() => onCloseMonth(nextCutoff)} disabled={!canClose}
-          title={canClose ? undefined : `Can be finalized after ${formatMonth(nextCutoff)} ends (KST)`}>
-          Finalize {formatMonth(nextCutoff)} payouts
-        </Button>
+        {finalized ? (
+          <StatusBadge config={{ label: 'Finalized', color: 'text-green-600 bg-green-50 border-green-200' }} className="w-fit" />
+        ) : (
+          <Button size="sm" onClick={() => onCloseMonth(month)} disabled={!canClose}
+            title={canClose ? undefined : `Can be finalized after ${formatMonth(month)} ends (KST)`}>
+            Finalize {formatMonth(month)} payouts
+          </Button>
+        )}
       </div>
 
-      {closedMonths.length === 0 ? (
-        <EmptyRow>No closed months yet. First approvals start 30 days after the first order.</EmptyRow>
+      {rows.length === 0 ? (
+        <EmptyRow>
+          {closedMonths.length === 0
+            ? 'No closed months yet. First approvals start 30 days after the first order.'
+            : `No approved commission in ${formatMonth(month)}.`}
+        </EmptyRow>
       ) : (
         <>
-          <div className="flex items-center gap-2 mb-2 text-sm">
-            <span className="text-muted-foreground">Month</span>
-            <select
-              className="border rounded px-2 py-1 text-sm bg-white"
-              value={month}
-              onChange={(e) => setPicked(e.target.value)}
-            >
-              {[...closedMonths].reverse().map((m) => <option key={m} value={m}>{formatMonth(m)}</option>)}
-            </select>
-          </div>
-          {rows.length === 0 ? (
-            <EmptyRow>No approved commission in {month && formatMonth(month)}.</EmptyRow>
-          ) : (
-            <div className={TABLE_WRAP}>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-gray-50/50">
-                    <th className={`${TH} text-left`}>Partner</th>
-                    <th className={`${TH} text-left`}>PayPal email</th>
-                    <th className={`${TH} text-right`}>Amount</th>
-                    <th className={`${TH} text-center`}>Status</th>
-                    <th className={TH}></th>
+          <div className={TABLE_WRAP}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-gray-50/50">
+                  <th className={`${TH} text-left`}>Partner</th>
+                  <th className={`${TH} text-left`}>PayPal email</th>
+                  <th className={`${TH} text-right`}>Amount</th>
+                  <th className={`${TH} text-center`}>Status</th>
+                  <th className={TH}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.partnerId} className={TR}>
+                    <td className={TD}>
+                      <span className="font-medium">{r.partnerName}</span>
+                      <span className="ml-2 font-mono text-xs text-muted-foreground">{r.partnerId}</span>
+                    </td>
+                    <td className={`${TD} text-xs text-muted-foreground`}>{maskEmail(r.paypalEmail)}</td>
+                    <td className={`${TD} text-right font-medium`}>
+                      {formatUsd(r.amount)}
+                      {r.carriedIn > 0 && (
+                        <p className="text-[10px] font-normal text-muted-foreground">incl. {formatUsd(r.carriedIn)} carried over</p>
+                      )}
+                    </td>
+                    <td className={`${TD} text-center`}>
+                      <StatusBadge config={PAYOUT_STATUS[r.status]} />
+                      {r.paidAt && <p className="text-[10px] text-muted-foreground mt-0.5">{r.paidAt}</p>}
+                    </td>
+                    <td className={`${TD} text-right`}>
+                      {finalized && r.status === 'ready' && <RowAction onClick={() => onMarkPaid(r)}>Mark as paid</RowAction>}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.partnerId} className={TR}>
-                      <td className={TD}>
-                        <span className="font-medium">{r.partnerName}</span>
-                        <span className="ml-2 font-mono text-xs text-muted-foreground">{r.partnerId}</span>
-                      </td>
-                      <td className={`${TD} text-xs text-muted-foreground`}>{maskEmail(r.paypalEmail)}</td>
-                      <td className={`${TD} text-right font-medium`}>
-                        {formatUsd(r.amount)}
-                        {r.carriedIn > 0 && (
-                          <p className="text-[10px] font-normal text-muted-foreground">incl. {formatUsd(r.carriedIn)} carried over</p>
-                        )}
-                      </td>
-                      <td className={`${TD} text-center`}>
-                        <StatusBadge config={PAYOUT_STATUS[r.status]} />
-                        {r.paidAt && <p className="text-[10px] text-muted-foreground mt-0.5">{r.paidAt}</p>}
-                      </td>
-                      <td className={`${TD} text-right`}>
-                        {r.status === 'ready' && <RowAction onClick={() => onMarkPaid(r)}>Mark as paid</RowAction>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                ))}
+              </tbody>
+            </table>
+          </div>
           <p className="text-[10px] text-muted-foreground mt-2">
-            CSV includes Ready rows only, with full PayPal emails. Carried over and Missing PayPal amounts roll into the next cutoff.
+            {finalized
+              ? 'CSV includes Ready rows only, with full PayPal emails. Carried over and Missing PayPal amounts roll into the next cutoff.'
+              : 'Preview — amounts can still change until this month is finalized.'}
           </p>
         </>
       )}

@@ -6,14 +6,12 @@ import {
   type AttributedOrder, type DateRange,
 } from './affiliateAdminData';
 
-/** periodLabel: e.g. "This month: Oct 1 – Oct 7, 2026" */
-export function ProgramRulesBar({ periodLabel }: { periodLabel: string }) {
+export function ProgramRulesBar() {
   const rules = [
     `${AFFILIATE_COMMISSION_PERCENT}% commission`,
     `${AFFILIATE_ATTRIBUTION_DAYS}-day attribution`,
     `Approved after ${AFFILIATE_APPROVAL_DAYS} days`,
     'B2B & self-purchases excluded',
-    `${periodLabel} (KST)`,
   ];
   return (
     <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-green-800">
@@ -60,7 +58,7 @@ export function PeriodCards({ orders, today, range, title }: {
 
   return (
     <div>
-      <h2 className="text-sm font-semibold mb-2">{title}</h2>
+      <h2 className="text-sm font-semibold mb-2">{title} <span className="font-normal text-muted-foreground">(KST)</span></h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard icon={ShoppingBag} label="Attributed orders" value={String(counted.length)} color="bg-blue-50 text-blue-600" />
         <StatCard icon={DollarSign} label="Attributed sales" value={formatUsd(sum(counted, (o) => o.amount))} color="bg-blue-50 text-blue-600" />

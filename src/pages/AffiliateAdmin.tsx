@@ -15,7 +15,7 @@ import { DateRangeFilter, type PeriodSelection } from '@/components/admin/affili
 import { PayoutsCard } from '@/components/admin/affiliate/PayoutsCard';
 import { PartnersCard } from '@/components/admin/affiliate/PartnersCard';
 import { PartnerDetailSheet } from '@/components/admin/affiliate/PartnerDetailSheet';
-import { RecentOrdersCard } from '@/components/admin/affiliate/RecentOrdersCard';
+import { AttributedOrdersCard } from '@/components/admin/affiliate/AttributedOrdersCard';
 import { TermsUpdatesCard } from '@/components/admin/affiliate/TermsUpdatesCard';
 
 interface PendingConfirm {
@@ -36,8 +36,8 @@ export default function AffiliateAdmin() {
   const [selectedId, setSelectedId] = useState<string>();
   const [confirm, setConfirm] = useState<PendingConfirm>();
 
-  // Period filter applies to the summary cards, the partner stats and the order list —
-  // not to Payouts (monthly close) or the all-time unpaid balance.
+  // Period filter applies to the summary cards, the order list and the partner stats —
+  // not to Payouts (monthly close), Terms updates or the all-time unpaid balance.
   const { range } = period;
   const rangeText = formatRange(range);
   const periodTitle = `${RANGE_PRESET_LABELS[period.preset]}: ${rangeText}`;
@@ -117,14 +117,22 @@ export default function AffiliateAdmin() {
           <p className="text-xs text-muted-foreground">Sample data — not connected to Shopify yet.</p>
           <DateRangeFilter value={period} today={today} onChange={setPeriod} />
         </div>
-        <ProgramRulesBar periodLabel={periodTitle} />
+        <ProgramRulesBar />
+
+        {/* Follows the date filter above. */}
         <PeriodCards orders={data.orders} today={today} range={range} title={periodTitle} />
-        <PayoutsCard data={data} today={today} onCloseMonth={finalizeMonth} onMarkPaid={markPaid} />
-        <PartnersCard partners={partners} onSelect={setSelectedId} />
-        <RecentOrdersCard
+        <AttributedOrdersCard
           orders={ordersInPeriod} partners={partners} today={today}
           onVoid={voidOrder} onSelectPartner={setSelectedId}
         />
+        <PartnersCard partners={partners} onSelect={setSelectedId} />
+
+        {/* Not tied to the date filter: monthly payouts and program notices. */}
+        <div className="pt-4 border-t">
+          <h2 className="text-sm font-semibold">Payouts & terms</h2>
+          <p className="text-xs text-muted-foreground">Not affected by the date filter.</p>
+        </div>
+        <PayoutsCard data={data} today={today} onCloseMonth={finalizeMonth} onMarkPaid={markPaid} />
         <TermsUpdatesCard />
       </main>
 
