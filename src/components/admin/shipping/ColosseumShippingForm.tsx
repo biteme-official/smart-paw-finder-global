@@ -632,6 +632,8 @@ export default function ColosseumShippingForm() {
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="flex-1 md:flex-none" onClick={() => setAllCollapsed(true)}>모두 접기</Button>
           <Button variant="outline" size="sm" className="flex-1 md:flex-none" onClick={() => setAllCollapsed(false)}>모두 펼치기</Button>
+          <Button variant="outline" size="sm" className="flex-1 md:flex-none" disabled={recipients.length === 0}
+            onClick={() => setRecipients([])}>모두 삭제</Button>
         </div>
       </div>
 
