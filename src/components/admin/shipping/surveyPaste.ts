@@ -64,6 +64,25 @@ const clean = (s: string | undefined) => (s ?? '').replace(/^'/, '').replace(/\s
 /** "+6592768179", "0917 813 3000", "+65 9023-3190": digits with optional +, spaces, dashes, brackets. */
 const isPhoneCell = (v: string) => /^\+?[\d\s().-]+$/.test(v) && v.replace(/\D/g, '').length >= 7;
 
+// Sheet timestamp (A): "2026. 10. 6 오후 1:40:48", "2026/10/06 13:40:48", "10/6/2026 13:40:48".
+const isTimestampCell = (v: string) => /^(?:\d{4}\s*[./-]\s*\d{1,2}\s*[./-]\s*\d{1,2}|\d{1,2}\/\d{1,2}\/\d{4})(?:\s|$)/.test(v);
+// Consent answer (C).
+const isYesNoCell = (v: string) => /^(?:yes|no)\b/i.test(v);
+
+/**
+ * Row copied from the sheet starting at A (timestamp first) or at B (ID, then Yes / No):
+ * the survey's own column order, so an ID made of digits or a name that is also a
+ * country ("Jordan") can't be mistaken for the phone or the country.
+ */
+function sheetColumns(row: string[]): Record<Field, number> | null {
+  const cells = row.map(clean);
+  if (cells.length >= 7 && isTimestampCell(cells[0]) && isYesNoCell(cells[2])) return DEFAULT_COLUMNS;
+  if (cells.length >= 6 && !isTimestampCell(cells[0]) && isYesNoCell(cells[1])) {
+    return { name: 2, phone: 3, country: 4, address: 5 };
+  }
+  return null;
+}
+
 /**
  * Columns of a row copied without a header, found by content (any columns may be left out
  * or added around them): phone = digits-only cell, country = known country name after it,
@@ -114,7 +133,7 @@ export function parseSurveyPaste(
 
   const rows = body
     .map((r) => {
-      const columns = fixed ?? contentColumns(r, isCountry);
+      const columns = fixed ?? sheetColumns(r) ?? contentColumns(r, isCountry);
       if (!columns) return null;
       const cell = (i: number) => (i >= 0 ? clean(r[i]) : '');
       // Option answers sit after the address (BANANA, PINK, ...); other columns are ignored.
