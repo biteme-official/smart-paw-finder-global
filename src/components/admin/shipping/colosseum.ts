@@ -309,6 +309,11 @@ const POSTAL_RULES: Record<string, { re: RegExp; join?: string }> = {
   TW: { re: /\b(\d{3}(?:\d{2,3})?)\b/g },
 };
 
+// Brackets left empty once the postal code is taken out: "crescent (540155)" → "crescent ( )".
+const EMPTY_BRACKETS_RE = /[([{（【]\s*[)\]}）】]/g;
+/** Removes the postal code together with the brackets it was written in. */
+const removePostal = (text: string, raw: string) => text.replace(raw, ' ').replace(EMPTY_BRACKETS_RE, ' ');
+
 const HOUSE_NUMBER_PREFIX = /\b(?:no|number|nr|sec|section|lane|ln|alley|aly|blk|block|lot|km)\.?\s*$|#\s*$/i;
 
 /**
@@ -354,7 +359,7 @@ const UNIT_RE = /#\s?[\w-]+|\b(?:unit|apt|apartment|suite|ste|room|rm|flat|floor
  */
 export function searchableAddress(address: string, countryCode?: string): { full: string; road: string } {
   const postal = extractPostal(address, countryCode);
-  let s = postal ? address.replace(postal.raw, ' ') : address;
+  let s = postal ? removePostal(address, postal.raw) : address;
   s = s.replace(UNIT_RE, ' ').replace(/\b(?:blk|block)\b\.?/gi, ' ').replace(/\bno\.?\s*(?=\d)/gi, '');
   const raw = s.split(',').map((p) => p.replace(/\s{2,}/g, ' ').trim()).filter(Boolean);
   // "No. 122, Section 1, Chongqing South Road" → "122 Section 1 Chongqing South Road":
@@ -621,7 +626,7 @@ export function parseAddress(address: string, country?: Country): { city: string
     const i = parts.findIndex((p) => p.includes(postal.raw.trim()));
     if (i >= 0) {
       zipAt = i;
-      const rest = parts[i].replace(postal.raw.trim(), '').replace(/\s{2,}/g, ' ').trim();
+      const rest = removePostal(parts[i], postal.raw.trim()).replace(/\s{2,}/g, ' ').trim();
       zipRest = rest;
       if (rest || i === 0) parts[i] = rest;
       else parts.splice(i, 1);
@@ -676,8 +681,8 @@ export function formatShippingAddress(
 
   const zip = r.zip.trim();
   const postal = extractPostal(text, r.countryCode || undefined);
-  if (postal) text = text.replace(postal.raw, ' ');
-  if (zip) text = text.split(zip).join(' ');
+  if (postal) text = removePostal(text, postal.raw);
+  if (zip) text = text.split(zip).join(' ').replace(EMPTY_BRACKETS_RE, ' ');
 
   const city = collapse(r.city);
   const state = collapse(r.state);
