@@ -196,7 +196,7 @@ export function orderRemark(tracking: string, b2b: boolean, battery: boolean, to
 
 export function remark(tracking: string, battery: boolean): string {
   return battery
-    ? `${tracking.trim()} / 시딩출고건 / 배터리 포함/ $1`
+    ? `${tracking.trim()} / 시딩출고건 / 배터리 포함 / $1`
     : `${tracking.trim()} / 시딩출고건 / $1`;
 }
 
@@ -822,5 +822,5 @@ export function buildWorkbook(XLSX: XLSXModule, template: ArrayBuffer, rows: She
   return written instanceof Uint8Array ? written : new Uint8Array(written as ArrayLike<number>);
 }
 
-/** 해외출고양식_YYMMDD.xlsx, dated by the ship date (YYYY-MM-DD). */
-export const downloadFileName = (shipDate: string) => `해외출고양식_${orderDatePrefix(shipDate)}.xlsx`;
+/** 콜로세움+해외출고양식_YYMMDD.xlsx, dated by the ship date (YYYY-MM-DD). */
+export const downloadFileName = (shipDate: string) => `콜로세움+해외출고양식_${orderDatePrefix(shipDate)}.xlsx`;
