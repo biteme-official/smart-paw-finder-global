@@ -26,6 +26,9 @@ import AuthCallback from "./pages/AuthCallback";
 import GuestOrderLookup from "./pages/GuestOrderLookup";
 import B2BApply from "./pages/B2BApply";
 import B2BAdmin from "./pages/B2BAdmin";
+import AffiliateAdmin from "./pages/AffiliateAdmin";
+import InternationalShippingAdmin from "./pages/InternationalShippingAdmin";
+import ManageLayout from "./components/admin/ManageLayout";
 import AdminDashboard from "./pages/AdminDashboard";
 import DiscountRedirect from "./pages/DiscountRedirect";
 import PopupOffline from "./pages/PopupOffline";
@@ -128,7 +131,12 @@ const App = () => (
           <Route path="/guest-order" element={<GuestOrderLookup />} />
           <Route path="/wishlist" element={<WishlistPage />} />
           <Route path="/mypage/b2b-apply" element={<B2BApply />} />
-          <Route path="/manage/b2b" element={<B2BAdmin />} />
+          <Route path="/manage" element={<ManageLayout />}>
+            <Route index element={<Navigate to="b2b" replace />} />
+            <Route path="b2b" element={<B2BAdmin />} />
+            <Route path="affiliate" element={<AffiliateAdmin />} />
+            <Route path="international-shipping" element={<InternationalShippingAdmin />} />
+          </Route>
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/popup-offline-stores" element={<PopupOffline />} />
           <Route path="/blog" element={<BlogList />} />
