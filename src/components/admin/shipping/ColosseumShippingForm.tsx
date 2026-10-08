@@ -378,7 +378,7 @@ export default function ColosseumShippingForm() {
       : address;
     let geo: Awaited<ReturnType<typeof geocodeAddress>> = null;
     try {
-      geo = await geocodeAddress(searchableAddress(query, next.countryCode), next.countryCode);
+      geo = await geocodeAddress(searchableAddress(query, next.countryCode), next.countryCode, next.zip);
     } catch {
       toast.error('주소 검색에 실패했습니다. 직접 입력해 주세요.', { position: 'top-center' });
     }

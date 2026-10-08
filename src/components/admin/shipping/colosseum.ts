@@ -492,9 +492,17 @@ export function detectCountry(address: string, countries: Country[]): Country | 
     if (found) return found;
   }
   const tail = last.toLowerCase();
-  return candidates
+  const named = candidates
     .filter((c) => c.en.length > 3 && tail.length > c.en.length && tail.endsWith(` ${c.en.toLowerCase()}`))
     .sort((a, b) => b.en.length - a.en.length)[0];
+  if (named) return named;
+  // No country written: a Malaysian state name plus a 5-digit postal code ("..., 47500, Selangor",
+  // "..., 80400 Johor") is a Malaysian address.
+  // Also a Malaysian city or a road / area word Malaysia alone uses (not "Jalan" / "Taman": Indonesia has them too).
+  const hasState = parts.some((p) => malaysiaState(p) || malaysiaState(p.replace(/^\d{5}\s+/, '')));
+  const malaysian = hasState || MALAYSIA_CITY_RE.test(address) || /\b(?:persiaran|seksyen|lebuh|lorong|lrg)\b/i.test(address);
+  if (malaysian && /(?:^|[\s,])\d{5}(?:$|[\s,])/.test(address)) return countries.find((c) => c.code === 'MY');
+  return undefined;
 }
 
 const STREET_SUFFIX = 'street|st|avenue|ave|road|rd|drive|dr|boulevard|blvd|lane|ln|way|court|ct|place|pl|terrace|ter|circle|cir|parkway|pkwy|highway|hwy|trail|trl|square|sq|loop|plaza|crescent|cres';
@@ -540,19 +548,29 @@ const MALAYSIA_STATES = [
   'Wilayah Persekutuan',
 ];
 const malaysiaState = (s: string) => MALAYSIA_STATES.find((st) => st.toLowerCase() === s.trim().toLowerCase());
+// Federal territories: the city is the territory itself ("50450, Kuala Lumpur" → city and state Kuala Lumpur).
+const MALAYSIA_FEDERAL_TERRITORIES = new Set(['Kuala Lumpur', 'Labuan', 'Putrajaya']);
+const MALAYSIA_CITY_RE = /\b(?:petaling jaya|subang jaya|shah alam|george ?town|johor bahru|kota kinabalu|kuching|ipoh|klang|seremban|puchong|cyberjaya|kajang|ampang|cheras|bangsar|mont kiara|iskandar puteri|alor setar|kuantan|kota bharu|kuala terengganu|miri|sandakan)\b/i;
+// Road / area names ("Jalan Ampang", "Taman Pelangi", "Seksyen 9") and anything with a number
+// ("SS2/72", "No 12"): never the city.
+const MALAYSIA_NOT_CITY_RE = /\d|\b(?:jalan|jln|lorong|lrg|persiaran|psrn|seksyen|taman|tmn|lebuh|lebuhraya|no|lot|blok|block|blk|unit|level|tingkat)\b/i;
+const malaysiaCity = (s: string) => (s && !MALAYSIA_NOT_CITY_RE.test(s) && !malaysiaState(s) ? s : '');
 
 /**
  * Malaysia writes "<street>, <zip> <City>, <State>" (zip sometimes in its own segment:
  * "..., 47400, petaling jaya"). The place after the postal code is the city — or the one
  * before it when nothing follows; a known state name after the city is the state.
- * A missing state is left for the address search.
+ * When the zip is followed by the state ("George Town, 10200, Penang", "Ipoh, 30000 Perak"),
+ * the city is the segment before the zip. Road / area names are never the city: it is left
+ * for the address search. A missing state is left for the search too.
  */
 function parseMalaysiaTail(parts: string[], zipAt: number, zipRest: string): { city: string; state: string } {
-  // "..., 47400 Selangor" / "..., 47400, Selangor": a state name right after the zip is not the city,
-  // and the segment before the zip may be the street ("SS2/72"): the city is left for the address search.
   const afterZip = zipAt >= 0 ? zipRest || parts[zipAt] || '' : '';
   const zipState = malaysiaState(afterZip);
-  if (zipState) return { city: '', state: zipState };
+  if (zipState) {
+    if (MALAYSIA_FEDERAL_TERRITORIES.has(zipState)) return { city: zipState, state: zipState };
+    return { city: titleCaseWords(malaysiaCity(parts[zipAt - 1] ?? '').trim()), state: zipState };
+  }
   let cityAt = -1;
   let city = '';
   if (zipAt >= 0 && zipRest) {
@@ -563,7 +581,7 @@ function parseMalaysiaTail(parts: string[], zipAt: number, zipRest: string): { c
     city = parts[parts.length - 1]; cityAt = parts.length - 1;
   }
   const state = malaysiaState(parts[cityAt + 1] ?? '') ?? '';
-  return { city: titleCaseWords(city.trim()), state };
+  return { city: titleCaseWords(malaysiaCity(city).trim()), state };
 }
 
 // Philippine cities as written in addresses, with the abbreviations customers use.
