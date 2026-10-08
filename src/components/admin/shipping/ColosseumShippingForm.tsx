@@ -22,11 +22,11 @@ import { geocodeAddress } from './geocode';
 import { parseSurveyPaste } from './surveyPaste';
 // Survey product option answer (BANANA, ...) → product name; edit the JSON for other seedings.
 import seedingOptions from './seeding-options.json';
-
-const SEEDING_OPTIONS = new Map(Object.entries(seedingOptions).map(([k, v]) => [k.trim().toUpperCase(), v]));
 import { normalizePhone } from './phone';
 import { parseShopifyOrders, readShopifyRows } from './shopifyOrders';
 import { orderToCardFields } from './orderCards';
+
+const SEEDING_OPTIONS = new Map(Object.entries(seedingOptions).map(([k, v]) => [k.trim().toUpperCase(), v]));
 
 type AutoField = 'countryCode' | 'city' | 'state' | 'zip';
 /** parsed = taken from the address line, manual = typed by the user, geo = filled by address search. */

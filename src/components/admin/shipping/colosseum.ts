@@ -543,6 +543,9 @@ const malaysiaState = (s: string) => MALAYSIA_STATES.find((st) => st.toLowerCase
  * A missing state is left for the address search.
  */
 function parseMalaysiaTail(parts: string[], zipAt: number, zipRest: string): { city: string; state: string } {
+  // "..., 47400 Selangor": a state name after the zip is not the city; the city is left for the address search.
+  const zipState = zipRest ? malaysiaState(zipRest) : undefined;
+  if (zipState) return { city: '', state: zipState };
   let cityAt = -1;
   let city = '';
   if (zipAt >= 0 && zipRest) {
