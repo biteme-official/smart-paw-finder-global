@@ -548,8 +548,10 @@ const malaysiaState = (s: string) => MALAYSIA_STATES.find((st) => st.toLowerCase
  * A missing state is left for the address search.
  */
 function parseMalaysiaTail(parts: string[], zipAt: number, zipRest: string): { city: string; state: string } {
-  // "..., 47400 Selangor": a state name after the zip is not the city; the city is left for the address search.
-  const zipState = zipRest ? malaysiaState(zipRest) : undefined;
+  // "..., 47400 Selangor" / "..., 47400, Selangor": a state name right after the zip is not the city,
+  // and the segment before the zip may be the street ("SS2/72"): the city is left for the address search.
+  const afterZip = zipAt >= 0 ? zipRest || parts[zipAt] || '' : '';
+  const zipState = malaysiaState(afterZip);
   if (zipState) return { city: '', state: zipState };
   let cityAt = -1;
   let city = '';
@@ -560,12 +562,7 @@ function parseMalaysiaTail(parts: string[], zipAt: number, zipRest: string): { c
   } else if (parts.length >= 2) {
     city = parts[parts.length - 1]; cityAt = parts.length - 1;
   }
-  let state = malaysiaState(parts[cityAt + 1] ?? '') ?? '';
-  if (!state && malaysiaState(city) && cityAt > 0 && zipAt >= 0 && !zipRest) {
-    // "..., <City>, <zip>, <State>": the segment after the zip is the state, the city is before it.
-    state = malaysiaState(city) ?? '';
-    city = parts[cityAt - 1] ?? '';
-  }
+  const state = malaysiaState(parts[cityAt + 1] ?? '') ?? '';
   return { city: titleCaseWords(city.trim()), state };
 }
 
