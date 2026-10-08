@@ -662,13 +662,20 @@ const LABEL_RE = /\b(?:unit\s*(?:no\.?|number|#)?|address(?:\s*line\s*\d)?|stree
 
 const collapse = (s: string) => s.replace(/\s+/g, ' ').replace(/\s+,/g, ',').replace(/^[\s,]+|[\s,]+$/g, '');
 
+// Countries that write the postal code before the city ("28014 Madrid", "47400 Petaling Jaya, Selangor").
+const ZIP_BEFORE_CITY = new Set(['ES', 'MY', 'DE', 'FR', 'IT', 'NL', 'BE', 'AT', 'CH', 'PT', 'PL', 'SE', 'DK', 'NO', 'FI']);
+// Countries whose unit / apartment goes after the street ("350 Fifth Avenue, Apt 4B"): a unit written
+// first is moved there. Elsewhere (TW "3F, No. 12 ...", PH / ID building first) the order is kept as written.
+const UNIT_AFTER_STREET = new Set(['US', 'CA', 'AU', 'NZ', 'GB', 'SG', 'ES']);
+
 /**
- * Address written to the sheet (W and AC):
- *   "<unit> <block / house no. + road>, <city>, <state> <zip>"
+ * Address written to the sheet (W and AC), in the country's own order:
+ *   "<street, with unit where it was written>, <city>, <state> <zip>"  (zip first where the country does so)
  * e.g. "Unit Number: #07-709 Blk 693A Woodlands Avenue 6  Singapore 731693"
- *    → "#07-709 Blk 693A Woodlands Avenue 6, Singapore 731693"
+ *    → "Blk 693A Woodlands Avenue 6, #07-709, Singapore 731693"
  * City / state / zip come from their own fields; copies of them (and of the country)
- * inside the pasted text are dropped so each appears once.
+ * inside the pasted text are dropped so each appears once. Parts written after the city
+ * (PH "Makati City, Metro Manila") stay after it.
  */
 export function formatShippingAddress(
   r: Pick<Recipient, 'address' | 'city' | 'state' | 'zip' | 'countryCode'>,
@@ -676,8 +683,10 @@ export function formatShippingAddress(
 ): string {
   let text = r.address.replace(LABEL_RE, ' ');
 
+  // Units are held as placeholders so their numbers aren't taken for the postal code, and put back in place.
   const units: string[] = [];
-  text = text.replace(UNIT_RE, (m) => { units.push(collapse(m)); return ' '; });
+  text = text.replace(UNIT_RE, (m) => ` ${units.push(collapse(m)) - 1} `);
+  const restore = (s: string) => s.replace(/(\d+)/g, (_, i: string) => units[Number(i)]);
 
   const zip = r.zip.trim();
   const postal = extractPostal(text, r.countryCode || undefined);
@@ -687,9 +696,15 @@ export function formatShippingAddress(
   const city = collapse(r.city);
   const state = collapse(r.state);
   const lower = (s: string) => s.toLowerCase();
+  // "Makati City" in the text for the city field "Makati".
+  const isCity = (s: string) => {
+    const t = lower(collapse(s));
+    const c = lower(city);
+    return !!c && (t === c || t === `${c} city` || `${t} city` === c);
+  };
   const isPlace = (s: string) => {
     const t = lower(collapse(s));
-    return !t || t === lower(city) || t === lower(state) || (!!country && matchesCountry(t, country));
+    return !t || isCity(t) || t === lower(state) || (!!country && matchesCountry(t, country));
   };
   // Trailing words that repeat city / state / country, e.g. "... Avenue 6 Singapore".
   const trailing = [city, state, country?.en, ...(country ? aliasesOf(country) : [])]
@@ -709,13 +724,35 @@ export function formatShippingAddress(
     return s;
   };
 
-  const segments = text.split(',').map(collapse).filter((s) => !isPlace(s));
-  if (segments.length) segments[segments.length - 1] = stripTrailing(segments[segments.length - 1]);
-  const street = collapse([units.join(' '), segments.filter(Boolean).join(', ')].filter(Boolean).join(' '));
+  const all = text.split(',').map(collapse).filter(Boolean);
+  let cityAt = -1;
+  all.forEach((s, i) => { if (isCity(s)) cityAt = i; });
+  const street = (cityAt >= 0 ? all.slice(0, cityAt) : all).filter((s) => !isPlace(s));
+  const afterCity = cityAt >= 0 ? all.slice(cityAt + 1).filter((s) => !isPlace(s)) : [];
+  if (street.length) street[street.length - 1] = stripTrailing(street[street.length - 1]);
 
-  const place = [city, lower(state) !== lower(city) ? state : ''].filter(Boolean).join(', ');
-  const tail = collapse([place, zip].filter(Boolean).join(' '));
-  return [street, tail].filter(Boolean).join(', ');
+  // A unit written before the street goes after it where the country writes it so.
+  const leading: string[] = [];
+  if (UNIT_AFTER_STREET.has(r.countryCode)) {
+    for (let m = street[0]?.match(/^\d+/); m; m = street[0]?.match(/^\d+/)) {
+      const rest = collapse(street[0].slice(m[0].length));
+      if (!rest && street.length === 1) break; // nothing but the unit: leave it
+      leading.push(m[0]);
+      if (rest) street[0] = rest;
+      else street.shift();
+    }
+  }
+  const streetLine = [...street, ...leading].filter(Boolean);
+
+  const stateShown = state && lower(state) !== lower(city) ? state : '';
+  let tail: string[];
+  if (ZIP_BEFORE_CITY.has(r.countryCode)) {
+    tail = [collapse(`${zip} ${city}`), ...afterCity, stateShown];
+  } else {
+    tail = [city, ...afterCity, stateShown].filter(Boolean);
+    if (zip) tail = tail.length ? [...tail.slice(0, -1), `${tail[tail.length - 1]} ${zip}`] : [zip];
+  }
+  return collapse(restore([...streetLine, ...tail].filter(Boolean).join(', ')));
 }
 
 /** Country list from the template's '국가코드' sheet (column B = ISO alpha-2). */
