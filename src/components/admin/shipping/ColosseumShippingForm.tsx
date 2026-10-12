@@ -63,20 +63,19 @@ const ACK_KEY: Partial<Record<keyof Recipient, AckKey>> = { countryCode: 'countr
 const nameNeedsCheck = (r: RecipientState) => !!r.nameCheck?.warn && r.name === r.nameCheck.value;
 
 /**
- * Name-order rule of Shopify exports, also run on a name typed or pasted into the card:
- * "NgDesmond" → "Desmond Ng"; a spaced name with a glued part ("JoAnn Smith") is kept and flagged.
- * Kept as typed: a confirmed name, an edit of a flagged name, and a reordered name changed back
- * to how it was written ("Desmond Ng" → "NgDesmond" again). Any other new name gets the rule.
+ * Name typed or pasted into a card: never reordered (only Shopify imports are, glued names being
+ * an export quirk). A name the Shopify rule would touch ("KimMinji", "JoAnn Smith") is flagged
+ * "이름/성 순서 확인 필요". Editing a flagged name or confirming it clears the flag.
  */
-function applyNameRule(r: RecipientState): RecipientState {
+function checkNameOrder(r: RecipientState): RecipientState {
   const name = titleCaseIfAllCaps(r.name.trim());
   const check = r.nameCheck;
   if (check && name === check.value) return { ...r, name };
-  if (check && (check.warn || name === check.source)) return { ...r, name, nameCheck: undefined, nameOk: name };
+  if (check?.warn) return { ...r, name, nameCheck: undefined, nameOk: name };
   if (!name || name === r.nameOk) return { ...r, name, nameCheck: undefined };
-  const fixed = reorderShopifyName(name);
-  if (fixed.name === name && !fixed.ambiguous) return { ...r, name, nameCheck: undefined };
-  return { ...r, name: fixed.name, nameCheck: { value: fixed.name, source: name, warn: fixed.ambiguous } };
+  const rule = reorderShopifyName(name);
+  const unclear = rule.ambiguous || rule.name !== name;
+  return { ...r, name, nameCheck: unclear ? { value: name, source: name, warn: true } : undefined };
 }
 
 /** Yellow note on the country field ('' when nothing to check). */
@@ -536,7 +535,7 @@ export default function ColosseumShippingForm() {
       const exact = findCountry(row.country, countries);
       const country = exact ?? countryFromRegion(row.country, countries);
       const products = row.options.flatMap((o) => SEEDING_OPTIONS.get(o) ?? []);
-      return withPhone({
+      return checkNameOrder(withPhone({
         ...r,
         name: titleCaseIfAllCaps(row.name),
         phone: row.phone,
@@ -551,7 +550,7 @@ export default function ColosseumShippingForm() {
         collapsed: true,
         // The survey's country is the customer's own answer: keep it like a manual value.
         sources: country ? { countryCode: 'manual' as const } : {},
-      });
+      }));
     });
     pendingResolve.current.push(...added.filter((r) => r.address).map((r) => r.id));
     // Replace the untouched starter card instead of leaving it empty at the top.
@@ -787,7 +786,7 @@ export default function ColosseumShippingForm() {
                 <div className="space-y-1.5">
                   <Label>수취인 이름</Label>
                   <Input value={r.name} onChange={(e) => setField(r.id, 'name', e.target.value)}
-                    onBlur={() => patch(r.id, applyNameRule)}
+                    onBlur={() => patch(r.id, checkNameOrder)}
                     className={cn(nameNeedsCheck(r) && 'border-yellow-500 focus-visible:ring-yellow-500')} />
                   {nameNeedsCheck(r) && <AckHint text="이름/성 순서 확인 필요" onAck={() => ackName(r.id)} />}
                 </div>
