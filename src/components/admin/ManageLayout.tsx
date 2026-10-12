@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, Suspense, useCallback, useContext, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -115,7 +115,7 @@ export default function ManageLayout() {
             Logout
           </Button>
         </nav>
-        <Outlet />
+        <Suspense fallback={null}><Outlet /></Suspense>
       </div>
     </ManageAuthContext.Provider>
   );

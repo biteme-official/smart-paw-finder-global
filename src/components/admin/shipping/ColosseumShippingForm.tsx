@@ -626,7 +626,11 @@ export default function ColosseumShippingForm() {
       a.download = downloadFileName(shipDate);
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      if (seedingOrders.length) saveLastOrder(shipDate, start + seedingOrders.length - 1);
+      if (seedingOrders.length) {
+        saveLastOrder(shipDate, start + seedingOrders.length - 1);
+        // The next batch on this screen continues after the saved number instead of reusing it.
+        if (!startEdited) setStartNo(suggestedStart(shipDate));
+      }
     } catch {
       toast.error('엑셀 생성에 실패했습니다.', { position: 'top-center' });
     } finally {
@@ -974,7 +978,7 @@ export default function ColosseumShippingForm() {
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-2">
         <p className="text-xs text-muted-foreground">입력한 정보는 서버에 저장되지 않으며 새로고침하면 사라집니다.</p>
-        <Button className="w-full md:w-auto" disabled={!template || downloading} onClick={handleDownload}>
+        <Button className="w-full md:w-auto" disabled={!template || downloading || recipients.length === 0} onClick={handleDownload}>
           {downloading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
           엑셀 다운로드
         </Button>
