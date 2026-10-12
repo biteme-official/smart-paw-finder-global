@@ -1,6 +1,9 @@
 // Colosseum (overseas fulfilment partner) shipment sheet: fixed values, product list,
 // address parsing and in-browser .xlsx generation from the empty template in public/.
-// Everything here runs client-side only; recipient data never leaves the browser.
+// Everything here runs in the browser only: city / state / zip are read from the address text
+// (no map or address lookup), recipient data is never sent anywhere and nothing is stored on a server.
+// The fixed sender details (FIXED, SEEDING_EMAIL) ship only in the /manage/international-shipping
+// chunk, which App.tsx loads on demand, not in the store bundle.
 import type * as XLSXNS from 'xlsx';
 import { normalizePhone } from './phone';
 import { allocateUnitAmounts } from './shopifyOrders';
