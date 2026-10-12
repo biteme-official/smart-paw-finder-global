@@ -36,7 +36,6 @@ const FIXED: Record<string, string | number> = {
   O: '31-14, Baegam-ro, Baegam-myeon, Cheoin-gu, Yongin-si, Gyeonggi-do, Republic of Korea',
   P: 17180,
   Q: 'Gyeonggi-do',
-  AD: SEEDING_EMAIL,
   AE: 'N',
   // 세금식별코드: fixed for every product (the product list's HS CODE is not used here).
   AJ: 4201009000,
@@ -53,6 +52,8 @@ export interface Recipient {
   zip: string;
   products: string[];
   tracking: string;
+  /** Seeding: the customer's email from the survey (수취인 Email); invalid / empty falls back to SEEDING_EMAIL. */
+  email?: string;
   /** Set for cards created from a Shopify order export; seeding cards leave it undefined. */
   order?: ShopifyOrderInfo;
 }
@@ -86,6 +87,16 @@ export const NO_POSTAL_COUNTRIES = new Set([
   'TK', 'TO', 'TV', 'UG', 'VU', 'YE', 'ZW',
 ]);
 export const hasNoPostalCode = (countryCode: string) => NO_POSTAL_COUNTRIES.has(countryCode);
+
+/** "  Lamariee.Accessories@Gmail.com " → "lamariee.accessories@gmail.com" */
+export const normalizeEmail = (v: string) => v.trim().toLowerCase();
+export const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+/** 수취인 Email (AD) of a seeding shipment: the survey email, or SEEDING_EMAIL when it is missing / malformed. */
+export function seedingEmail(r: Pick<Recipient, 'email'>): string {
+  const email = normalizeEmail(r.email ?? '');
+  return isValidEmail(email) ? email : SEEDING_EMAIL;
+}
 
 /** 수취인우편번호 (AB): blank for countries without postal codes. */
 const postalCell = (r: Recipient) => (hasNoPostalCode(r.countryCode) ? '' : r.zip.trim());
@@ -206,11 +217,71 @@ const US_STATE_CODES = new Set([
   'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC', 'PR', 'GU', 'VI', 'AS', 'MP',
 ]);
 
+/** State / province name → code, for the countries whose addresses use the code (Western Australia → WA). */
+const STATE_NAME_CODES: Record<string, Record<string, string>> = {
+  AU: {
+    'new south wales': 'NSW', victoria: 'VIC', queensland: 'QLD', 'western australia': 'WA', 'south australia': 'SA',
+    tasmania: 'TAS', 'australian capital territory': 'ACT', 'northern territory': 'NT',
+  },
+  CA: {
+    alberta: 'AB', 'british columbia': 'BC', manitoba: 'MB', 'new brunswick': 'NB', 'newfoundland and labrador': 'NL',
+    'nova scotia': 'NS', ontario: 'ON', 'prince edward island': 'PE', quebec: 'QC', québec: 'QC', saskatchewan: 'SK',
+    'northwest territories': 'NT', nunavut: 'NU', yukon: 'YT',
+  },
+  US: {
+    alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA', colorado: 'CO', connecticut: 'CT',
+    delaware: 'DE', florida: 'FL', georgia: 'GA', hawaii: 'HI', idaho: 'ID', illinois: 'IL', indiana: 'IN', iowa: 'IA',
+    kansas: 'KS', kentucky: 'KY', louisiana: 'LA', maine: 'ME', maryland: 'MD', massachusetts: 'MA', michigan: 'MI',
+    minnesota: 'MN', mississippi: 'MS', missouri: 'MO', montana: 'MT', nebraska: 'NE', nevada: 'NV',
+    'new hampshire': 'NH', 'new jersey': 'NJ', 'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC',
+    'north dakota': 'ND', ohio: 'OH', oklahoma: 'OK', oregon: 'OR', pennsylvania: 'PA', 'rhode island': 'RI',
+    'south carolina': 'SC', 'south dakota': 'SD', tennessee: 'TN', texas: 'TX', utah: 'UT', vermont: 'VT',
+    virginia: 'VA', washington: 'WA', 'west virginia': 'WV', wisconsin: 'WI', wyoming: 'WY',
+    'district of columbia': 'DC', 'puerto rico': 'PR',
+  },
+};
+const STATE_CODE_SETS: Record<string, Set<string>> = {
+  AU: new Set(Object.values(STATE_NAME_CODES.AU)),
+  CA: new Set(Object.values(STATE_NAME_CODES.CA)),
+  US: US_STATE_CODES,
+};
+const isStateCode = (token: string, countryCode: string) => !!STATE_CODE_SETS[countryCode]?.has(token.toUpperCase());
+
+/**
+ * State as written in the address: the code for AU / US / CA ("Western Australia" / "Wa" → "WA"),
+ * the name as given elsewhere (Indonesia "Banten").
+ */
+export function stateCode(state: string, countryCode: string): string {
+  const s = state.replace(/\s+/g, ' ').trim();
+  if (isStateCode(s, countryCode)) return s.toUpperCase();
+  return STATE_NAME_CODES[countryCode]?.[s.toLowerCase()] ?? s;
+}
+
+/**
+ * Country of a survey "Country / Region" answer that isn't a plain country name
+ * ("Perth, Western Australia" → Australia): any comma part that is a country, or a state /
+ * province name of a country whose states are known.
+ */
+export function countryFromRegion(value: string, countries: Country[]): Country | undefined {
+  const parts = value.split(/[,/]/).map((p) => p.trim()).filter(Boolean);
+  for (const p of [...parts].reverse()) {
+    const c = findCountry(p, countries);
+    if (c) return c;
+  }
+  for (const p of parts) {
+    const t = p.toLowerCase();
+    const code = Object.keys(STATE_NAME_CODES).find((cc) => t in STATE_NAME_CODES[cc])
+      ?? (MALAYSIA_STATES.some((st) => st.toLowerCase() === t) ? 'MY' : undefined);
+    if (code) return countries.find((c) => c.code === code);
+  }
+  return undefined;
+}
+
 /**
  * ALL-CAPS text → first letter of each word upper-case, to match the other addresses:
  * "SHOP 307, RICHMOND SHOPPING ARCADE" → "Shop 307, Richmond Shopping Arcade", "SUKI MA" → "Suki Ma".
  * Mixed-case text is returned unchanged. Tokens with digits (1/F, #09-181, 174C) are kept; with
- * `countryCode` (addresses), that country code and — for the US — state codes stay upper-case too.
+ * `countryCode` (addresses), that country code and AU / US / CA state codes stay upper-case too.
  */
 export function titleCaseIfAllCaps(text: string, countryCode?: string): string {
   if (!/[A-Z]/.test(text) || /[a-z]/.test(text)) return text;
@@ -218,7 +289,7 @@ export function titleCaseIfAllCaps(text: string, countryCode?: string): string {
     if (/\d/.test(token)) return token;
     if (countryCode) {
       const bare = token.replace(/[^A-Z]/g, '');
-      if (bare.length === 2 && (bare === countryCode || (countryCode === 'US' && US_STATE_CODES.has(bare)))) return token;
+      if (bare.length >= 2 && bare.length <= 3 && (bare === countryCode || isStateCode(bare, countryCode))) return token;
     }
     return token.toLowerCase().replace(/(^|[-/'(.])([a-z])/g, (_m, before: string, ch: string) => before + ch.toUpperCase());
   });
@@ -276,6 +347,7 @@ export function buildRows(
         AA: r.countryCode,
         AB: postalCell(r),
         AC: address,
+        AD: seedingEmail(r),
         AT: remark(r.tracking, battery),
         ...orderCells,
       };
@@ -518,14 +590,20 @@ const CITY_AFTER_STREET_RE = new RegExp(
  * US / Canada / Australia style tail: "<street> <City>, <ST> <zip>" or "<street>, <City>, <ST> <zip>"
  * (zip already removed from parts). Returns null when there is no 2–3 letter state code at the end.
  */
-function parseStateCodeTail(parts: string[]): { city: string; state: string } | null {
+function parseStateCodeTail(parts: string[], countryCode: string): { city: string; state: string } | null {
   if (!parts.length) return null;
   const segs = [...parts];
   const last = segs[segs.length - 1];
-  const code = last.match(/(?:^|\s)([A-Z]{2,3})$/);
-  if (!code) return null;
-  const state = code[1];
-  const before = last.slice(0, last.length - state.length).trim();
+  // "CA", "Wa" (a known code in any case), or the full name ("Western Australia") at the end.
+  const lowerLast = last.toLowerCase();
+  const name = Object.keys(STATE_NAME_CODES[countryCode] ?? {})
+    .sort((a, b) => b.length - a.length)
+    .find((n) => lowerLast === n || lowerLast.endsWith(` ${n}`));
+  const code = name ? null : last.match(/(?:^|\s)([A-Za-z]{2,3})$/);
+  if (!name && !(code && (/^[A-Z]+$/.test(code[1]) || isStateCode(code[1], countryCode)))) return null;
+  const written = name ? last.slice(last.length - name.length) : code![1];
+  const state = name ? written : written.toUpperCase();
+  const before = last.slice(0, last.length - written.length).trim();
   if (before) segs[segs.length - 1] = before;
   else segs.pop();
   if (!segs.length) return { city: '', state };
@@ -647,6 +725,13 @@ export function parseAddress(address: string, country?: Country): { city: string
       else parts.splice(i, 1);
     }
   }
+  // Country written after the state in the same part ("Banten 15334 Indonesia" → "Banten").
+  if (country && parts.length > 1) {
+    const last = parts[parts.length - 1];
+    const name = [country.en, ...aliasesOf(country)].sort((a, b) => b.length - a.length)
+      .find((n) => n.length > 2 && last.toLowerCase().endsWith(` ${n.toLowerCase()}`));
+    if (name) parts[parts.length - 1] = last.slice(0, last.length - name.length).trim();
+  }
 
   if (country?.code === 'MY') return { ...parseMalaysiaTail(parts, zipAt, zipRest), zip };
   if (country?.code === 'PH') {
@@ -657,7 +742,7 @@ export function parseAddress(address: string, country?: Country): { city: string
   let state = '';
   let city = '';
   if (country && ['US', 'CA', 'AU'].includes(country.code)) {
-    const us = parseStateCodeTail(parts);
+    const us = parseStateCodeTail(parts, country.code);
     if (us) return { ...us, zip };
   }
   if (parts.length >= 3) {
@@ -666,6 +751,12 @@ export function parseAddress(address: string, country?: Country): { city: string
   } else if (parts.length === 2) {
     // "street, city": the state is unknown here and is left for the address search.
     city = parts[1];
+  }
+  // Indonesia writes the district before the regency / city in one part: the city is
+  // "Tangerang Regency" in "Pagedangan District Tangerang Regency".
+  if (country?.code === 'ID') {
+    const m = city.match(/\s((?:kota|kabupaten|kab\.)\s+\S+|\S+\s+(?:regency|city))$/i);
+    if (m) city = m[1];
   }
   // City-states (e.g. Singapore) have no separate state: use the country name for both.
   if (country && ['SG', 'HK', 'MO'].includes(country.code)) city = state = country.en;
@@ -682,6 +773,10 @@ const ZIP_BEFORE_CITY = new Set(['ES', 'MY', 'DE', 'FR', 'IT', 'NL', 'BE', 'AT',
 // Countries whose unit / apartment goes after the street ("350 Fifth Avenue, Apt 4B"): a unit written
 // first is moved there. Elsewhere (TW "3F, No. 12 ...", PH / ID building first) the order is kept as written.
 const UNIT_AFTER_STREET = new Set(['US', 'CA', 'AU', 'NZ', 'GB', 'SG', 'ES']);
+// "Kecamatan" / "District" label of an Indonesian district ("Pagedangan District" → "Pagedangan").
+const ID_DISTRICT_LABEL_RE = /\s+(?:district|kecamatan|kec\.?)$|^(?:kecamatan|kec\.?)\s+/i;
+// A lower-case street type after a capitalised name ("Angus avenue" → "Angus Avenue"); all lower-case lines are kept.
+const STREET_SUFFIX_LOWER_RE = new RegExp(`(\\b[A-Z][\\w'.-]*\\s+)(${STREET_SUFFIX})\\b`, 'g');
 
 /**
  * Address written to the sheet (W and AC), in the country's own order:
@@ -717,34 +812,50 @@ export function formatShippingAddress(
     const c = lower(city);
     return !!c && (t === c || t === `${c} city` || `${t} city` === c);
   };
-  const isPlace = (s: string) => {
-    const t = lower(collapse(s));
-    return !t || isCity(t) || t === lower(state) || (!!country && matchesCountry(t, country));
-  };
-  // Trailing words that repeat city / state / country, e.g. "... Avenue 6 Singapore".
-  const trailing = [city, state, country?.en, ...(country ? aliasesOf(country) : [])]
+  const code = stateCode(state, r.countryCode);
+  // State / country words repeated at the end of a segment ("Spearwood WA", "Banten Indonesia").
+  const trailing = [state, code, country?.en, ...(country ? aliasesOf(country) : [])]
     .filter((s): s is string => !!s)
     .sort((a, b) => b.length - a.length);
-  const stripTrailing = (seg: string) => {
+  /**
+   * Splits a segment into what's left once trailing state / country words and the city are
+   * taken off ("17B Edward Street Bedford WA" → "17B Edward Street" + city), so each appears
+   * once in the tail. A segment that is only places leaves ''.
+   */
+  const strip = (seg: string): { rest: string; hasCity: boolean } => {
     let s = collapse(seg);
-    for (let changed = true; changed;) {
+    let hasCity = false;
+    for (let changed = true; changed && s;) {
       changed = false;
+      if (isCity(s)) return { rest: '', hasCity: true };
       for (const word of trailing) {
-        if (s.length > word.length && lower(s).endsWith(` ${lower(word)}`)) {
-          s = collapse(s.slice(0, s.length - word.length));
+        const w = lower(word);
+        if (lower(s) === w || (country && matchesCountry(s, country))) return { rest: '', hasCity };
+        if (lower(s).endsWith(` ${w}`)) { s = collapse(s.slice(0, s.length - word.length)); changed = true; }
+      }
+      // City glued to the end of a segment, written as "Makati City" or "Makati".
+      for (const cityWord of city ? [`${city} city`, city] : []) {
+        if (s.length > cityWord.length && lower(s).endsWith(` ${lower(cityWord)}`)) {
+          s = collapse(s.slice(0, s.length - cityWord.length));
+          hasCity = true;
           changed = true;
+          break;
         }
       }
     }
-    return s;
+    return { rest: s, hasCity };
   };
 
-  const all = text.split(',').map(collapse).filter(Boolean);
+  const all = text.split(',').map(collapse).filter(Boolean).map(strip);
   let cityAt = -1;
-  all.forEach((s, i) => { if (isCity(s)) cityAt = i; });
-  const street = (cityAt >= 0 ? all.slice(0, cityAt) : all).filter((s) => !isPlace(s));
-  const afterCity = cityAt >= 0 ? all.slice(cityAt + 1).filter((s) => !isPlace(s)) : [];
-  if (street.length) street[street.length - 1] = stripTrailing(street[street.length - 1]);
+  all.forEach((s, i) => { if (s.hasCity) cityAt = i; });
+  // The district written with the city stays before it (ID "Pagedangan District Tangerang Regency").
+  const cityRest = cityAt >= 0 ? all[cityAt].rest : '';
+  const street = [...(cityAt >= 0 ? all.slice(0, cityAt) : all).map((s) => s.rest), cityRest]
+    .map((s) => (r.countryCode === 'ID' ? s.replace(ID_DISTRICT_LABEL_RE, '').trim() : s))
+    .filter(Boolean)
+    .map((s) => s.replace(STREET_SUFFIX_LOWER_RE, (_m, name: string, w: string) => name + w[0].toUpperCase() + w.slice(1)));
+  const afterCity = cityAt >= 0 ? all.slice(cityAt + 1).map((s) => s.rest).filter(Boolean) : [];
 
   // A unit written before the street goes after it where the country writes it so.
   const leading: string[] = [];
@@ -759,7 +870,7 @@ export function formatShippingAddress(
   }
   const streetLine = [...street, ...leading].filter(Boolean);
 
-  const stateShown = state && lower(state) !== lower(city) ? state : '';
+  const stateShown = state && lower(state) !== lower(city) ? code : '';
   let tail: string[];
   if (ZIP_BEFORE_CITY.has(r.countryCode)) {
     tail = [collapse(`${zip} ${city}`), ...afterCity, stateShown];
@@ -767,7 +878,9 @@ export function formatShippingAddress(
     tail = [city, ...afterCity, stateShown].filter(Boolean);
     if (zip) tail = tail.length ? [...tail.slice(0, -1), `${tail[tail.length - 1]} ${zip}`] : [zip];
   }
-  return collapse(restore([...streetLine, ...tail].filter(Boolean).join(', ')));
+  // English country name last, unless it is the city too (Singapore, Hong Kong).
+  const countryName = country && !isCity(country.en) ? country.en : '';
+  return collapse(restore([...streetLine, ...tail, countryName].filter(Boolean).join(', ')));
 }
 
 /** Country list from the template's '국가코드' sheet (column B = ISO alpha-2). */

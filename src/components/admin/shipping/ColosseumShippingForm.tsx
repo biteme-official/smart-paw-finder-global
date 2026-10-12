@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import {
   ORDER_START, TEMPLATE_URL, assignOrderNumbers, orderDatePrefix, orderNumber, buildRows, buildWorkbook, detectCountry, downloadFileName, extractPostal, findCountry,
   hasBattery, hasNoPostalCode, orderTotalGap, parseAddress, titleCaseIfAllCaps, readCountries, searchableAddress, type Country, type Recipient,
+  SEEDING_EMAIL, countryFromRegion, isValidEmail, normalizeEmail,
 } from './colosseum';
 import { geocodeAddress } from './geocode';
 import { parseSurveyPaste } from './surveyPaste';
@@ -39,6 +40,46 @@ interface RecipientState extends Recipient {
   collapsed: boolean;
   /** Country written in the survey that matched no country: left empty for the user to pick. */
   surveyCountry?: string;
+  /** Survey country answer that wasn't a country name ("Perth, Western Australia"): the country was taken from it. */
+  surveyRegion?: string;
+  /** Yellow "확인 필요" warnings the user has checked (button, or editing that field). */
+  acked?: Partial<Record<AckKey, true>>;
+}
+
+/** Warnings that can be marked as checked, one per field. */
+type AckKey = 'country' | 'city' | 'state' | 'zip' | 'email';
+const ACK_KEY: Partial<Record<keyof Recipient, AckKey>> = {
+  countryCode: 'country', city: 'city', state: 'state', zip: 'zip', email: 'email',
+};
+
+// Countries whose address needs a state (written as its code).
+const STATE_REQUIRED = new Set(['AU', 'US', 'CA']);
+
+/**
+ * What to check by eye in a seeding card's sheet address (preview highlights it):
+ * survey country cleaned up / not recognised, a part the address didn't give, or a value from the map search.
+ */
+function addressNotes(r: RecipientState): string[] {
+  if (r.order || isBlankRecipient(r)) return [];
+  const notes: string[] = [];
+  if (r.countryCode && r.surveyRegion && !r.acked?.country) notes.push(`국가 정리: "${r.surveyRegion}"`);
+  if (!r.countryCode) notes.push(r.surveyCountry ? `국가 미인식: "${r.surveyCountry}"` : '국가 없음');
+  if (r.searching) notes.push('주소 검색 중');
+  if (!r.city.trim()) notes.push('도시 없음');
+  if (STATE_REQUIRED.has(r.countryCode) && !r.state.trim()) notes.push('주 없음');
+  if (r.countryCode && !hasNoPostalCode(r.countryCode) && !r.zip.trim()) notes.push('우편번호 없음');
+  const searched = (['city', 'state', 'zip'] as const).filter((f) => r.sources[f] === 'geo' && !r.acked?.[f])
+    .map((f) => ({ city: '도시', state: '주', zip: '우편번호' })[f]);
+  if (searched.length) notes.push(`자동 검색값: ${searched.join('·')}`);
+  return notes;
+}
+
+/** Seeding email problem shown on the card and in the preview ('' when fine). */
+function emailNote(r: RecipientState): string {
+  if (r.order || isBlankRecipient(r) || r.acked?.email) return '';
+  const email = normalizeEmail(r.email ?? '');
+  if (!email) return `이메일 없음 → ${SEEDING_EMAIL}로 입력`;
+  return isValidEmail(email) ? '' : `이메일 형식 확인 필요 → ${SEEDING_EMAIL}로 입력`;
 }
 
 const AUTO_FIELDS: AutoField[] = ['countryCode', 'city', 'state', 'zip'];
@@ -96,6 +137,7 @@ const newRecipient = (): RecipientState => ({
   searching: false,
   resolvedAddress: '',
   collapsed: false,
+  acked: {},
 });
 
 const isMissing = (r: Recipient, f: keyof Recipient) => {
@@ -112,15 +154,35 @@ const isBlankRecipient = (r: Recipient) =>
 
 const missingLabels = (r: Recipient) => REQUIRED_FIELDS.filter((f) => isMissing(r, f.field)).map((f) => f.label);
 
-/** Border color only reflects the address search: yellow = filled by search, red = search found nothing. */
-function fieldTone(source: Source | undefined) {
+/**
+ * Border color only reflects the address search: yellow = filled by search (until checked),
+ * red = search found nothing.
+ */
+function fieldTone(source: Source | undefined, acked = false) {
   if (source === 'notfound') return 'border-red-500 focus-visible:ring-red-500';
-  if (source === 'geo') return 'border-yellow-500 focus-visible:ring-yellow-500';
+  if (source === 'geo' && !acked) return 'border-yellow-500 focus-visible:ring-yellow-500';
   return '';
 }
 
-function FieldHint({ source }: { source: Source | undefined }) {
-  if (source === 'geo') return <p className="text-[11px] text-yellow-700 mt-1">자동 검색값 - 확인 필요</p>;
+/** Yellow "확인 필요" line with a button that marks it as checked (hides it here and in the preview). */
+function AckHint({ text, onAck }: { text: string; onAck: () => void }) {
+  return (
+    <div className="flex items-center gap-1.5 mt-1">
+      <p className="text-[11px] text-yellow-700">{text}</p>
+      <Button type="button" variant="outline" size="sm" onClick={onAck}
+        className="h-5 px-1.5 text-[11px] border-yellow-500 text-yellow-800 hover:bg-yellow-50">
+        확인
+      </Button>
+    </div>
+  );
+}
+
+function FieldHint({ source, acked, onAck }: { source: Source | undefined; acked?: boolean; onAck?: () => void }) {
+  if (source === 'geo' && !acked) {
+    return onAck
+      ? <AckHint text="자동 검색값 - 확인 필요" onAck={onAck} />
+      : <p className="text-[11px] text-yellow-700 mt-1">자동 검색값 - 확인 필요</p>;
+  }
   if (source === 'notfound') return <p className="text-[11px] text-red-600 mt-1">검색 결과 없음 - 직접 입력</p>;
   return null;
 }
@@ -297,6 +359,9 @@ export default function ColosseumShippingForm() {
   const setField = (id: string, field: keyof Recipient, value: string) => {
     patch(id, (r) => {
       const next = { ...r, [field]: value };
+      // Editing a field by hand counts as checking its warning.
+      const ack = ACK_KEY[field];
+      if (ack) next.acked = { ...r.acked, [ack]: true };
       if ((AUTO_FIELDS as string[]).includes(field)) {
         next.sources = { ...r.sources, [field]: value.trim() ? 'manual' : undefined };
       }
@@ -304,6 +369,8 @@ export default function ColosseumShippingForm() {
       return field === 'countryCode' ? withPhone(next) : next;
     });
   };
+
+  const ack = (id: string, key: AckKey) => patch(id, (r) => ({ ...r, acked: { ...r.acked, [key]: true } }));
 
   const setProduct = (id: string, index: number, value: string) => {
     patch(id, (r) => ({ ...r, products: r.products.map((p, i) => (i === index ? value : p)) }));
@@ -362,6 +429,8 @@ export default function ColosseumShippingForm() {
       address,
       countryCode: next.countryCode, city: next.city, state: next.state, zip: next.zip,
       sources: next.sources, resolvedAddress: address,
+      // Re-filled values are new: their warnings show again.
+      acked: { ...r.acked, city: undefined, state: undefined, zip: undefined },
     }));
 
     // The country is never taken from the search, and without one the search isn't run
@@ -461,7 +530,10 @@ export default function ColosseumShippingForm() {
   };
 
   const handleBulkAdd = () => {
-    const { rows: parsed } = parseSurveyPaste(pasteText, (v) => !!findCountry(v, countries), new Set(SEEDING_OPTIONS.keys()));
+    const { rows: parsed, missing } = parseSurveyPaste(pasteText, (v) => !!findCountry(v, countries), new Set(SEEDING_OPTIONS.keys()));
+    if (missing.length) {
+      toast.warning(`${missing.map((m) => `${m} 열`).join(', ')}을 찾을 수 없음 — 헤더 이름을 확인해 주세요.`, { position: 'top-center', duration: 8000 });
+    }
     if (!parsed.length) {
       toast.error('붙여넣은 내용에서 수취인을 찾지 못했습니다.', { position: 'top-center' });
       return;
@@ -469,7 +541,9 @@ export default function ColosseumShippingForm() {
     // A country that isn't recognised stays empty: the card shows it as 미입력 (국가).
     const added = parsed.map((row) => {
       const r = newRecipient();
-      const country = findCountry(row.country, countries);
+      // "Perth, Western Australia" in the country column: the country is taken from it, marked for review.
+      const exact = findCountry(row.country, countries);
+      const country = exact ?? countryFromRegion(row.country, countries);
       const products = row.options.flatMap((o) => SEEDING_OPTIONS.get(o) ?? []);
       return withPhone({
         ...r,
@@ -479,6 +553,8 @@ export default function ColosseumShippingForm() {
         countryCode: country?.code ?? '',
         products: products.length ? products : [''],
         surveyCountry: row.country && !country ? row.country : undefined,
+        surveyRegion: country && !exact ? row.country : undefined,
+        email: normalizeEmail(row.email),
         collapsed: true,
         // The survey's country is the customer's own answer: keep it like a manual value.
         sources: country ? { countryCode: 'manual' as const } : {},
@@ -495,6 +571,11 @@ export default function ColosseumShippingForm() {
   const rows = useMemo(
     () => buildRows(recipients, shipDate || todayIso(), countries, start),
     [recipients, shipDate, countries, start],
+  );
+  // Card behind each preview row: buildRows writes one row per non-empty product, in card order.
+  const rowRecipients = useMemo(
+    () => recipients.flatMap((r) => r.products.filter((p) => p.trim()).map(() => r)),
+    [recipients],
   );
   // Seeding numbers only: Shopify order cards keep their own #numbers.
   const seedingOrders = useMemo(
@@ -723,6 +804,9 @@ export default function ColosseumShippingForm() {
                   {!r.countryCode && r.surveyCountry && (
                     <p className="text-[11px] text-red-600 mt-1">설문 국가 "{r.surveyCountry}"를 찾지 못했습니다 - 직접 선택</p>
                   )}
+                  {r.countryCode && r.surveyRegion && !r.acked?.country && (
+                    <AckHint text={`설문 국가 칸 "${r.surveyRegion}"에서 국가를 정리했습니다 - 확인 필요`} onAck={() => ack(r.id, 'country')} />
+                  )}
                 </div>
               </div>
 
@@ -757,8 +841,8 @@ export default function ColosseumShippingForm() {
                       onBlur={f === 'city'
                         ? () => patch(r.id, (x) => ({ ...x, city: titleCaseIfAllCaps(x.city.trim(), x.countryCode) }))
                         : undefined}
-                      className={cn(fieldTone(r.sources[f]))} />
-                    <FieldHint source={r.sources[f]} />
+                      className={cn(fieldTone(r.sources[f], !!r.acked?.[f]))} />
+                    <FieldHint source={r.sources[f]} acked={!!r.acked?.[f]} onAck={() => ack(r.id, f)} />
                   </div>
                 ))}
               </div>
@@ -792,10 +876,22 @@ export default function ColosseumShippingForm() {
                 </div>
               </div>
 
-              <div className="space-y-1.5 md:w-1/3">
-                <Label>송장번호</Label>
-                <Input value={r.tracking} placeholder="예: 5227-3375-2663"
-                  onChange={(e) => setField(r.id, 'tracking', e.target.value)} />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label>송장번호</Label>
+                  <Input value={r.tracking} placeholder="예: 5227-3375-2663"
+                    onChange={(e) => setField(r.id, 'tracking', e.target.value)} />
+                </div>
+                {!r.order && (
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label>수취인 이메일</Label>
+                    <Input value={r.email ?? ''} placeholder={SEEDING_EMAIL}
+                      onChange={(e) => setField(r.id, 'email', e.target.value)}
+                      onBlur={() => patch(r.id, (x) => ({ ...x, email: normalizeEmail(x.email ?? '') }))}
+                      className={cn(emailNote(r) && 'border-yellow-500 focus-visible:ring-yellow-500')} />
+                    {emailNote(r) && <AckHint text={emailNote(r)} onAck={() => ack(r.id, 'email')} />}
+                  </div>
+                )}
               </div>
             </CardContent>
             )}
@@ -820,27 +916,40 @@ export default function ColosseumShippingForm() {
           {rows.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">상품을 입력하면 엑셀에 들어갈 줄이 표시됩니다.</p>
           ) : (
-            <Table>
+            <Table className="whitespace-nowrap">
               <TableHeader>
                 <TableRow>
                   <TableHead>주문번호</TableHead>
                   <TableHead>상품명</TableHead>
                   <TableHead>수취인</TableHead>
                   <TableHead>주소</TableHead>
+                  <TableHead>이메일</TableHead>
                   <TableHead>비고</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="font-mono text-xs whitespace-nowrap">{row.D}</TableCell>
-                    <TableCell className="text-xs">{row.J}</TableCell>
-                    <TableCell className="text-xs">{row.R}</TableCell>
-                    {/* Exactly what goes into column W; long addresses wrap. */}
-                    <TableCell className="text-xs whitespace-normal break-words min-w-[220px]">{row.W}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{row.AT}</TableCell>
-                  </TableRow>
-                ))}
+                {rows.map((row, i) => {
+                  const r = rowRecipients[i];
+                  const notes = r ? addressNotes(r) : [];
+                  const mailNote = r ? emailNote(r) : '';
+                  return (
+                    <TableRow key={i}>
+                      <TableCell className="font-mono text-xs whitespace-nowrap">{row.D}</TableCell>
+                      <TableCell className="text-xs">{row.J}</TableCell>
+                      <TableCell className="text-xs">{row.R}</TableCell>
+                      {/* Exactly what goes into column W. Yellow = check by eye. */}
+                      <TableCell className={cn('text-xs', notes.length && 'bg-yellow-50')}>
+                        {row.W}
+                        {notes.length > 0 && <p className="text-[11px] text-yellow-700 mt-0.5">확인: {notes.join(' · ')}</p>}
+                      </TableCell>
+                      <TableCell className={cn('text-xs', mailNote && 'bg-yellow-50')}>
+                        {row.AD}
+                        {mailNote && <p className="text-[11px] text-yellow-700 mt-0.5">{mailNote.split(' → ')[0]}</p>}
+                      </TableCell>
+                      <TableCell className="text-xs">{row.AT}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
