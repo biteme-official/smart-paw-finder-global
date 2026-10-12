@@ -9,68 +9,96 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   AlertCircle, BatteryCharging, CheckCircle2, ChevronDown, ChevronsUpDown, ClipboardPaste, Download, FileSpreadsheet, Loader2,
-  Plus, Search,
+  Plus, RefreshCw,
   Trash2, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
-  ORDER_START, TEMPLATE_URL, assignOrderNumbers, orderDatePrefix, orderNumber, buildRows, buildWorkbook, detectCountry, downloadFileName, extractPostal, findCountry,
-  hasBattery, hasNoPostalCode, orderTotalGap, parseAddress, titleCaseIfAllCaps, readCountries, searchableAddress, type Country, type Recipient,
+  ORDER_START, TEMPLATE_URL, assignOrderNumbers, orderDatePrefix, orderNumber, buildRows, buildWorkbook, detectCountry, downloadFileName, findCountry,
+  hasBattery, hasNoPostalCode, isAmbiguousCountry, orderTotalGap, parseAddress, titleCaseIfAllCaps, readCountries, type Country, type Recipient,
   SEEDING_EMAIL, countryFromRegion, isValidEmail, normalizeEmail,
 } from './colosseum';
-import { geocodeAddress } from './geocode';
 import { parseSurveyPaste } from './surveyPaste';
 // Survey product option answer (BANANA, ...) → product name; edit the JSON for other seedings.
 import seedingOptions from './seeding-options.json';
 import { normalizePhone } from './phone';
-import { parseShopifyOrders, readShopifyRows } from './shopifyOrders';
+import { parseShopifyOrders, readShopifyRows, reorderShopifyName } from './shopifyOrders';
 import { orderToCardFields } from './orderCards';
 
 const SEEDING_OPTIONS = new Map(Object.entries(seedingOptions).map(([k, v]) => [k.trim().toUpperCase(), v]));
 
 type AutoField = 'countryCode' | 'city' | 'state' | 'zip';
-/** parsed = taken from the address line, manual = typed by the user, geo = filled by address search. */
-type Source = 'parsed' | 'manual' | 'geo' | 'notfound';
+/** parsed = taken from the address line, manual = typed by the user, notfound = not in the address line. */
+type Source = 'parsed' | 'manual' | 'notfound';
 
 interface RecipientState extends Recipient {
   sources: Partial<Record<AutoField, Source>>;
-  searching: boolean;
   resolvedAddress: string;
   collapsed: boolean;
   /** Country written in the survey that matched no country: left empty for the user to pick. */
   surveyCountry?: string;
   /** Survey country answer that wasn't a country name ("Perth, Western Australia"): the country was taken from it. */
   surveyRegion?: string;
+  /** Survey country answer naming Georgia, which is also a US state: shown for review. */
+  surveyAmbiguous?: string;
+  /** Survey phone answer that wasn't a phone number (an email, text): 전화번호 left blank. */
+  surveyPhone?: string;
+  /**
+   * Name as the name-order rule left it (`value`) and as it was written before (`source`);
+   * `warn` = surname / given-name order unclear, to be checked.
+   */
+  nameCheck?: { value: string; source: string; warn: boolean };
+  /** Name the user confirmed or wrote over the rule's result: the rule isn't applied to it again. */
+  nameOk?: string;
   /** Yellow "확인 필요" warnings the user has checked (button, or editing that field). */
   acked?: Partial<Record<AckKey, true>>;
 }
 
 /** Warnings that can be marked as checked, one per field. */
-type AckKey = 'country' | 'city' | 'state' | 'zip' | 'email';
-const ACK_KEY: Partial<Record<keyof Recipient, AckKey>> = {
-  countryCode: 'country', city: 'city', state: 'state', zip: 'zip', email: 'email',
-};
+type AckKey = 'country' | 'email';
+const ACK_KEY: Partial<Record<keyof Recipient, AckKey>> = { countryCode: 'country', email: 'email' };
 
-// Countries whose address needs a state (written as its code).
-const STATE_REQUIRED = new Set(['AU', 'US', 'CA']);
+/** "이름/성 순서 확인 필요": shown while the name is still what the rule left, until edited or checked. */
+const nameNeedsCheck = (r: RecipientState) => !!r.nameCheck?.warn && r.name === r.nameCheck.value;
+
+/**
+ * Name-order rule of Shopify exports, also run on a name typed or pasted into the card:
+ * "NgDesmond" → "Desmond Ng"; a spaced name with a glued part ("JoAnn Smith") is kept and flagged.
+ * Kept as typed: a confirmed name, an edit of a flagged name, and a reordered name changed back
+ * to how it was written ("Desmond Ng" → "NgDesmond" again). Any other new name gets the rule.
+ */
+function applyNameRule(r: RecipientState): RecipientState {
+  const name = titleCaseIfAllCaps(r.name.trim());
+  const check = r.nameCheck;
+  if (check && name === check.value) return { ...r, name };
+  if (check && (check.warn || name === check.source)) return { ...r, name, nameCheck: undefined, nameOk: name };
+  if (!name || name === r.nameOk) return { ...r, name, nameCheck: undefined };
+  const fixed = reorderShopifyName(name);
+  if (fixed.name === name && !fixed.ambiguous) return { ...r, name, nameCheck: undefined };
+  return { ...r, name: fixed.name, nameCheck: { value: fixed.name, source: name, warn: fixed.ambiguous } };
+}
+
+/** Yellow note on the country field ('' when nothing to check). */
+function countryNote(r: RecipientState): string {
+  if (!r.countryCode || r.acked?.country) return '';
+  if (r.surveyAmbiguous) return `설문 국가 "${r.surveyAmbiguous}" - 미국 조지아주일 수 있음, 국가 확인 필요`;
+  if (r.surveyRegion) return `설문 국가 칸 "${r.surveyRegion}"에서 국가를 정리했습니다 - 확인 필요`;
+  return '';
+}
 
 /**
  * What to check by eye in a seeding card's sheet address (preview highlights it):
- * survey country cleaned up / not recognised, a part the address didn't give, or a value from the map search.
+ * survey country cleaned up / not recognised, or a part the address didn't give.
  */
 function addressNotes(r: RecipientState): string[] {
   if (r.order || isBlankRecipient(r)) return [];
   const notes: string[] = [];
-  if (r.countryCode && r.surveyRegion && !r.acked?.country) notes.push(`국가 정리: "${r.surveyRegion}"`);
+  if (countryNote(r)) notes.push(r.surveyAmbiguous ? `국가 확인: "${r.surveyAmbiguous}"` : `국가 정리: "${r.surveyRegion}"`);
   if (!r.countryCode) notes.push(r.surveyCountry ? `국가 미인식: "${r.surveyCountry}"` : '국가 없음');
-  if (r.searching) notes.push('주소 검색 중');
   if (!r.city.trim()) notes.push('도시 없음');
-  if (STATE_REQUIRED.has(r.countryCode) && !r.state.trim()) notes.push('주 없음');
+  if (!r.state.trim()) notes.push('주 없음');
   if (r.countryCode && !hasNoPostalCode(r.countryCode) && !r.zip.trim()) notes.push('우편번호 없음');
-  const searched = (['city', 'state', 'zip'] as const).filter((f) => r.sources[f] === 'geo' && !r.acked?.[f])
-    .map((f) => ({ city: '도시', state: '주', zip: '우편번호' })[f]);
-  if (searched.length) notes.push(`자동 검색값: ${searched.join('·')}`);
   return notes;
 }
 
@@ -90,6 +118,8 @@ const REQUIRED_FIELDS: { field: keyof Recipient; label: string }[] = [
   { field: 'countryCode', label: '국가' },
   { field: 'address', label: '주소' },
   { field: 'city', label: '도시' },
+  // 수취인주 (Z) is a required column on the template.
+  { field: 'state', label: '주' },
   { field: 'zip', label: '우편번호' },
   { field: 'products', label: '상품' },
   { field: 'tracking', label: '송장번호' },
@@ -134,7 +164,6 @@ const newRecipient = (): RecipientState => ({
   name: '', phone: '', countryCode: '', address: '', city: '', state: '', zip: '', tracking: '',
   products: [''],
   sources: {},
-  searching: false,
   resolvedAddress: '',
   collapsed: false,
   acked: {},
@@ -147,6 +176,10 @@ const isMissing = (r: Recipient, f: keyof Recipient) => {
   return !String(r[f]).trim();
 };
 
+/** City / state / zip still empty (zip isn't needed in countries without postal codes). */
+const missingAddressParts = (r: Pick<Recipient, 'city' | 'state' | 'zip' | 'countryCode'>) => (['city', 'state', 'zip'] as const)
+  .filter((f) => !r[f].trim() && !(f === 'zip' && hasNoPostalCode(r.countryCode)));
+
 /** A card nothing has been typed into yet: still being written, so no "미입력" marks. */
 const isBlankRecipient = (r: Recipient) =>
   !r.name.trim() && !r.phone.trim() && !r.address.trim() && !r.countryCode && !r.tracking.trim()
@@ -154,14 +187,9 @@ const isBlankRecipient = (r: Recipient) =>
 
 const missingLabels = (r: Recipient) => REQUIRED_FIELDS.filter((f) => isMissing(r, f.field)).map((f) => f.label);
 
-/**
- * Border color only reflects the address search: yellow = filled by search (until checked),
- * red = search found nothing.
- */
-function fieldTone(source: Source | undefined, acked = false) {
-  if (source === 'notfound') return 'border-red-500 focus-visible:ring-red-500';
-  if (source === 'geo' && !acked) return 'border-yellow-500 focus-visible:ring-yellow-500';
-  return '';
+/** Red border = not found in the address line, to be typed by hand. */
+function fieldTone(source: Source | undefined) {
+  return source === 'notfound' ? 'border-red-500 focus-visible:ring-red-500' : '';
 }
 
 /** Yellow "확인 필요" line with a button that marks it as checked (hides it here and in the preview). */
@@ -177,13 +205,8 @@ function AckHint({ text, onAck }: { text: string; onAck: () => void }) {
   );
 }
 
-function FieldHint({ source, acked, onAck }: { source: Source | undefined; acked?: boolean; onAck?: () => void }) {
-  if (source === 'geo' && !acked) {
-    return onAck
-      ? <AckHint text="자동 검색값 - 확인 필요" onAck={onAck} />
-      : <p className="text-[11px] text-yellow-700 mt-1">자동 검색값 - 확인 필요</p>;
-  }
-  if (source === 'notfound') return <p className="text-[11px] text-red-600 mt-1">검색 결과 없음 - 직접 입력</p>;
+function FieldHint({ source }: { source: Source | undefined }) {
+  if (source === 'notfound') return <p className="text-[11px] text-red-600 mt-1">주소에서 찾지 못함 - 직접 입력</p>;
   return null;
 }
 
@@ -371,6 +394,7 @@ export default function ColosseumShippingForm() {
   };
 
   const ack = (id: string, key: AckKey) => patch(id, (r) => ({ ...r, acked: { ...r.acked, [key]: true } }));
+  const ackName = (id: string) => patch(id, (r) => ({ ...r, nameCheck: undefined, nameOk: r.name }));
 
   const setProduct = (id: string, index: number, value: string) => {
     patch(id, (r) => ({ ...r, products: r.products.map((p, i) => (i === index ? value : p)) }));
@@ -394,10 +418,11 @@ export default function ColosseumShippingForm() {
   };
 
   /**
-   * Fills country / city / state / zip from the address line, then looks up whatever is
-   * still empty. Manual values are never overwritten; search results only fill empty fields.
+   * Fills country / city / state / zip from the address line, in the browser only (nothing is
+   * looked up). Manual values are never overwritten; what the line doesn't give is marked
+   * "주소에서 찾지 못함" for the user to type.
    */
-  const resolveAddress = useCallback(async (id: string, force = false) => {
+  const resolveAddress = useCallback((id: string, force = false) => {
     const current = recipientsRef.current.find((r) => r.id === id);
     if (!current) return;
     // ALL-CAPS addresses are shown in normal capitalisation (codes like HK / CA / 1/F kept).
@@ -417,72 +442,32 @@ export default function ColosseumShippingForm() {
       const found = detectCountry(address, countries);
       if (found) { next.countryCode = found.code; next.sources.countryCode = 'parsed'; }
     }
-    // Order cards already have Shopify's city / state; their address line holds no postal code.
+    // Order cards already have Shopify's city / state / zip; their address line holds no postal code.
     if (!current.order) {
       const parsed = parseAddress(address, countries.find((c) => c.code === next.countryCode));
       for (const f of ['city', 'state', 'zip'] as const) {
         if (!next[f] && parsed[f]) { next[f] = parsed[f]; next.sources[f] = 'parsed'; }
       }
     }
+    // Countries without postal codes keep 우편번호 blank.
+    if (hasNoPostalCode(next.countryCode) && next.sources.zip !== 'manual') {
+      next.zip = '';
+      next.sources.zip = undefined;
+    }
+    for (const f of missingAddressParts(next)) next.sources[f] = 'notfound';
     patch(id, (r) => withPhone({
       ...r,
       address,
       countryCode: next.countryCode, city: next.city, state: next.state, zip: next.zip,
       sources: next.sources, resolvedAddress: address,
-      // Re-filled values are new: their warnings show again.
-      acked: { ...r.acked, city: undefined, state: undefined, zip: undefined },
     }));
-
-    // The country is never taken from the search, and without one the search isn't run
-    // (results could come from anywhere). Countries without postal codes keep 우편번호 blank.
-    if (!next.countryCode) return;
-    const missing = (['city', 'state', 'zip'] as const)
-      .filter((f) => !next[f] && !(f === 'zip' && hasNoPostalCode(next.countryCode)));
-    if (missing.length === 0) return;
-
-    patch(id, (r) => ({ ...r, searching: true }));
-    // Order address lines don't include the city / state: add them so the search can place it.
-    const query = current.order
-      ? [address, next.city.trim(), next.state.trim()].filter(Boolean).join(', ')
-      : address;
-    let geo: Awaited<ReturnType<typeof geocodeAddress>> = null;
-    try {
-      geo = await geocodeAddress(searchableAddress(query, next.countryCode), next.countryCode, next.zip);
-    } catch {
-      toast.error('주소 검색에 실패했습니다. 직접 입력해 주세요.', { position: 'top-center' });
-    }
-    patch(id, (r) => {
-      // The address changed while searching: drop this result.
-      if (r.address.trim() !== address) return { ...r, searching: false };
-      const out: RecipientState = { ...r, searching: false, sources: { ...r.sources } };
-      // City-states come back without a state: mirror the city, as on the original sheet.
-      const geoState = geo && !geo.state ? geo.city : geo?.state ?? '';
-      for (const f of missing) {
-        if (out[f]) continue; // filled by hand meanwhile
-        const value = f === 'state' ? geoState : geo?.[f] ?? '';
-        if (value) { out[f] = value; out.sources[f] = 'geo'; } else { out.sources[f] = 'notfound'; }
-      }
-      // Once the country is known, a postal code written in the address beats the
-      // search result (map data is often a neighbouring code).
-      if (missing.includes('zip') && out.sources.zip !== 'manual' && out.countryCode && !r.order) {
-        const written = extractPostal(address, out.countryCode);
-        if (written) { out.zip = written.zip; out.sources.zip = 'parsed'; }
-      }
-      // The search found a country without postal codes: 우편번호 stays blank.
-      if (hasNoPostalCode(out.countryCode) && out.sources.zip !== 'manual') {
-        out.zip = '';
-        out.sources.zip = undefined;
-      }
-      return withPhone(out);
-    });
   }, [countries, patch]);
 
   useEffect(() => {
     if (!pendingResolve.current.length) return;
     const ids = pendingResolve.current;
     pendingResolve.current = [];
-    // Lookups are queued inside geocode (1 req/s), so firing them all here is safe.
-    ids.forEach((id) => { void resolveAddress(id); });
+    ids.forEach((id) => resolveAddress(id));
   }, [recipients, resolveAddress]);
 
 
@@ -501,21 +486,27 @@ export default function ColosseumShippingForm() {
       const added = orders.map((o) => {
         const { fields, country } = orderToCardFields(o, countries);
         if (!country) unmatched.push(`${o.number} (${o.country || '국가 없음'})`);
-        const given = (v: string) => (v ? 'manual' as const : undefined);
-        // Shopify already split the address; only a missing postal code is looked up.
-        const searchZip = !!country && !fields.zip && !!fields.address && !hasNoPostalCode(country.code);
+        // Shopify already split the address: whatever it left empty is typed by hand.
+        const missing = new Set<string>(missingAddressParts(fields));
+        const source = (f: 'city' | 'state' | 'zip', v: string) =>
+          (v ? 'manual' as const : missing.has(f) ? 'notfound' as const : undefined);
         return {
           ...newRecipient(),
           ...fields,
           sources: {
             countryCode: country ? 'manual' as const : undefined,
-            city: given(fields.city), state: given(fields.state), zip: given(fields.zip),
+            city: source('city', fields.city), state: source('state', fields.state), zip: source('zip', fields.zip),
           },
-          resolvedAddress: searchZip ? '' : fields.address,
+          resolvedAddress: fields.address,
+          // Already reordered by the import: the same check / edit handling as a typed name.
+          nameCheck: {
+            value: fields.name,
+            source: titleCaseIfAllCaps(o.shippingName.replace(/\s+/g, ' ').trim()),
+            warn: !!fields.order?.nameAmbiguous,
+          },
           collapsed: true,
         };
       });
-      pendingResolve.current.push(...added.filter((r) => !r.resolvedAddress).map((r) => r.id));
       setRecipients((prev) => [...prev.filter((r) => !isBlankRecipient(r)), ...added]);
       toast.success(`주문 ${added.length}건을 등록했습니다.`, { position: 'top-center' });
       if (unmatched.length) {
@@ -554,6 +545,8 @@ export default function ColosseumShippingForm() {
         products: products.length ? products : [''],
         surveyCountry: row.country && !country ? row.country : undefined,
         surveyRegion: country && !exact ? row.country : undefined,
+        surveyAmbiguous: country && isAmbiguousCountry(country.code) ? row.country : undefined,
+        surveyPhone: row.phoneRejected,
         email: normalizeEmail(row.email),
         collapsed: true,
         // The survey's country is the customer's own answer: keep it like a manual value.
@@ -567,7 +560,10 @@ export default function ColosseumShippingForm() {
     toast.success(`수취인 ${added.length}명을 추가했습니다.`, { position: 'top-center' });
   };
 
-  const orders = useMemo(() => assignOrderNumbers(recipients, shipDate || todayIso(), start), [recipients, shipDate, start]);
+  const orders = useMemo(
+    () => assignOrderNumbers(recipients, shipDate || todayIso(), start, countries),
+    [recipients, shipDate, start, countries],
+  );
   const rows = useMemo(
     () => buildRows(recipients, shipDate || todayIso(), countries, start),
     [recipients, shipDate, countries, start],
@@ -725,6 +721,8 @@ export default function ColosseumShippingForm() {
       {recipients.map((r, i) => {
         const order = orders.get(r.id) ?? '';
         const sharedWith = recipients.findIndex((x) => orders.get(x.id) === order);
+        const sharedName = sharedWith >= 0 && recipients[sharedWith].name.trim().toLowerCase() === r.name.trim().toLowerCase();
+        const shownCountryNote = countryNote(r);
         const missing = missingLabels(r);
         const blank = isBlankRecipient(r);
         const productCount = r.products.filter((p) => p.trim()).length;
@@ -761,7 +759,9 @@ export default function ColosseumShippingForm() {
                     {' '}· 상품 {productCount}개 · {r.tracking.trim() || '송장번호 없음'}
                   </span>
                 ) : !r.order && sharedWith < i && (
-                  <span className="text-xs text-primary">수취인 #{sharedWith + 1}과 같은 이름 → 합포장</span>
+                  <span className={cn('text-xs', sharedName ? 'text-primary' : 'text-yellow-700')}>
+                    수취인 #{sharedWith + 1}과 같은 주소 → 합포장{sharedName ? '' : ' (이름 다름, 확인 필요)'}
+                  </span>
                 )}
                 {blank ? null : missing.length > 0 ? (
                   <span className="text-xs text-red-600" title={missing.join(', ')}>미입력 {missing.length}</span>
@@ -775,7 +775,6 @@ export default function ColosseumShippingForm() {
                     Total differs by {totalGap < 0 ? '-' : ''}${Math.abs(totalGap).toFixed(2)}
                   </span>
                 )}
-                {r.searching && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
               </div>
               <Button variant="ghost" size="sm" disabled={recipients.length === 1}
                 onClick={(e) => { e.stopPropagation(); setRecipients((prev) => prev.filter((x) => x.id !== r.id)); }}>
@@ -788,9 +787,9 @@ export default function ColosseumShippingForm() {
                 <div className="space-y-1.5">
                   <Label>수취인 이름</Label>
                   <Input value={r.name} onChange={(e) => setField(r.id, 'name', e.target.value)}
-                    onBlur={() => patch(r.id, (x) => ({ ...x, name: titleCaseIfAllCaps(x.name.trim()) }))}
-                    className={cn(r.order?.nameAmbiguous && 'border-yellow-500 focus-visible:ring-yellow-500')} />
-                  {r.order?.nameAmbiguous && <p className="text-[11px] text-yellow-700 mt-1">이름/성 순서 확인 필요</p>}
+                    onBlur={() => patch(r.id, applyNameRule)}
+                    className={cn(nameNeedsCheck(r) && 'border-yellow-500 focus-visible:ring-yellow-500')} />
+                  {nameNeedsCheck(r) && <AckHint text="이름/성 순서 확인 필요" onAck={() => ackName(r.id)} />}
                 </div>
                 <div className="space-y-1.5">
                   <Label>전화번호</Label>
@@ -798,6 +797,9 @@ export default function ColosseumShippingForm() {
                     onBlur={() => patch(r.id, withPhone)}
                     className={cn(phoneMismatch && 'border-yellow-500 focus-visible:ring-yellow-500')} />
                   {phoneMismatch && <p className="text-[11px] text-yellow-700 mt-1">국가번호 확인 필요</p>}
+                  {!r.phone.trim() && r.surveyPhone && (
+                    <p className="text-[11px] text-red-600 mt-1">설문 전화번호 칸 "{r.surveyPhone}"은 번호가 아닙니다 - 직접 입력</p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>국가 {r.countryCode && <span className="text-muted-foreground font-normal">· ISO {r.countryCode}</span>}</Label>
@@ -808,9 +810,7 @@ export default function ColosseumShippingForm() {
                   {!r.countryCode && r.surveyCountry && (
                     <p className="text-[11px] text-red-600 mt-1">설문 국가 "{r.surveyCountry}"를 찾지 못했습니다 - 직접 선택</p>
                   )}
-                  {r.countryCode && r.surveyRegion && !r.acked?.country && (
-                    <AckHint text={`설문 국가 칸 "${r.surveyRegion}"에서 국가를 정리했습니다 - 확인 필요`} onAck={() => ack(r.id, 'country')} />
-                  )}
+                  {shownCountryNote && <AckHint text={shownCountryNote} onAck={() => ack(r.id, 'country')} />}
                 </div>
               </div>
 
@@ -821,10 +821,9 @@ export default function ColosseumShippingForm() {
                     onChange={(e) => setField(r.id, 'address', e.target.value)}
                     onBlur={() => resolveAddress(r.id)}
                     className={cn('flex-1', r.order?.droppedAddress2 && 'border-yellow-500 focus-visible:ring-yellow-500')} />
-                  <Button variant="outline" className="w-full md:w-auto" disabled={!r.address.trim() || r.searching}
+                  <Button variant="outline" className="w-full md:w-auto" disabled={!r.address.trim()}
                     onClick={() => resolveAddress(r.id, true)}>
-                    {r.searching ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Search className="h-4 w-4 mr-1" />}
-                    {r.searching ? '검색 중' : '주소로 다시 채우기'}
+                    <RefreshCw className="h-4 w-4 mr-1" /> 주소로 다시 채우기
                   </Button>
                 </div>
                 {r.order?.droppedAddress2 && (
@@ -833,7 +832,7 @@ export default function ColosseumShippingForm() {
                   </p>
                 )}
                 <p className="text-[11px] text-muted-foreground">
-                  입력칸을 벗어나면 도시·주·우편번호·국가를 주소에서 추출하고, 못 찾은 칸만 검색합니다 (싱가포르: OneMap → OpenStreetMap, 그 외: OpenStreetMap).
+                  입력칸을 벗어나면 도시·주·우편번호·국가를 주소에서 추출합니다 (브라우저 안에서만 처리, 외부 전송 없음). 못 찾은 칸은 직접 입력해 주세요.
                 </p>
               </div>
 
@@ -845,8 +844,8 @@ export default function ColosseumShippingForm() {
                       onBlur={f === 'city'
                         ? () => patch(r.id, (x) => ({ ...x, city: titleCaseIfAllCaps(x.city.trim(), x.countryCode) }))
                         : undefined}
-                      className={cn(fieldTone(r.sources[f], !!r.acked?.[f]))} />
-                    <FieldHint source={r.sources[f]} acked={!!r.acked?.[f]} onAck={() => ack(r.id, f)} />
+                      className={cn(fieldTone(r.sources[f]))} />
+                    <FieldHint source={r.sources[f]} />
                   </div>
                 ))}
               </div>
@@ -940,7 +939,10 @@ export default function ColosseumShippingForm() {
                     <TableRow key={i}>
                       <TableCell className="font-mono text-xs whitespace-nowrap">{row.D}</TableCell>
                       <TableCell className="text-xs">{row.J}</TableCell>
-                      <TableCell className="text-xs">{row.R}</TableCell>
+                      <TableCell className={cn('text-xs', r && nameNeedsCheck(r) && 'bg-yellow-50')}>
+                        {row.R}
+                        {r && nameNeedsCheck(r) && <p className="text-[11px] text-yellow-700 mt-0.5">이름/성 순서 확인 필요</p>}
+                      </TableCell>
                       {/* Exactly what goes into column W. Yellow = check by eye. */}
                       <TableCell className={cn('text-xs', notes.length && 'bg-yellow-50')}>
                         {row.W}

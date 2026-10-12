@@ -30,8 +30,12 @@ export const CALLING_CODES: Record<string, string> = {
 
 const ALL_CODES = [...new Set(Object.values(CALLING_CODES))].sort((a, b) => b.length - a.length);
 
-// Countries whose national numbers keep the leading 0 after the calling code.
-const KEEPS_TRUNK_ZERO = new Set(['IT', 'VA', 'SM']);
+// Calling codes whose national numbers keep the leading 0 (Italy / Vatican, San Marino).
+const KEEPS_TRUNK_ZERO = new Set(['39', '378']);
+
+/** Number after the calling code without the domestic trunk 0 ("+44 07700..." → "7700..."), except where it is kept. */
+const withoutTrunkZero = (rest: string, callingCode: string) =>
+  (!KEEPS_TRUNK_ZERO.has(callingCode) && rest.startsWith('0') ? rest.slice(1) : rest);
 
 export interface NormalizedPhone {
   /** "+65 91596654"; the input with separators removed when it can't be normalized. */
@@ -42,7 +46,8 @@ export interface NormalizedPhone {
 
 /**
  * "+15105577841" (US) → "+1 5105577841", "6591596654" (SG) → "+65 91596654",
- * "+62 813-1109-3329" (ID) → "+62 81311093329", "91596654" (SG) → "+65 91596654".
+ * "+62 813-1109-3329" (ID) → "+62 81311093329", "91596654" (SG) → "+65 91596654",
+ * "+44 07700 900123" (GB) → "+44 7700900123".
  */
 export function normalizePhone(raw: string, countryCode: string): NormalizedPhone {
   const text = raw.trim();
@@ -55,17 +60,18 @@ export function normalizePhone(raw: string, countryCode: string): NormalizedPhon
 
   const own = CALLING_CODES[countryCode];
   if (international) {
-    if (own && digits.startsWith(own)) return { value: `+${own} ${digits.slice(own.length)}`, mismatch: false };
+    if (own && digits.startsWith(own)) {
+      return { value: `+${own} ${withoutTrunkZero(digits.slice(own.length), own)}`, mismatch: false };
+    }
     const other = ALL_CODES.find((c) => digits.startsWith(c));
-    if (other) return { value: `+${other} ${digits.slice(other.length)}`, mismatch: !!own };
+    if (other) return { value: `+${other} ${withoutTrunkZero(digits.slice(other.length), other)}`, mismatch: !!own };
     return { value: `+${digits}`, mismatch: !!own };
   }
   if (!own) return { value: digits, mismatch: false };
   // Calling code typed without "+" ("6591596654"): only when enough digits remain for a number.
   if (digits.startsWith(own) && digits.length - own.length >= 7) {
-    return { value: `+${own} ${digits.slice(own.length)}`, mismatch: false };
+    return { value: `+${own} ${withoutTrunkZero(digits.slice(own.length), own)}`, mismatch: false };
   }
-  // National format: drop the domestic trunk 0 ("0813..." → "813...") except where it is kept.
-  const national = !KEEPS_TRUNK_ZERO.has(countryCode) && digits.startsWith('0') ? digits.slice(1) : digits;
-  return { value: `+${own} ${national}`, mismatch: false };
+  // National format: "0813..." → "+62 813...".
+  return { value: `+${own} ${withoutTrunkZero(digits, own)}`, mismatch: false };
 }

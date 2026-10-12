@@ -172,26 +172,54 @@ export function orderNumber(date: string, index: number, start = ORDER_START): s
   return `${orderDatePrefix(date)}-${start + index}`;
 }
 
+/** Card as written to the sheet: ALL-CAPS name, address and city in normal capitalisation. */
+function sheetRecipient(input: Recipient): Recipient {
+  return {
+    ...input,
+    name: titleCaseIfAllCaps(input.name.trim()),
+    address: titleCaseIfAllCaps(input.address, input.countryCode),
+    city: titleCaseIfAllCaps(input.city.trim(), input.countryCode),
+  };
+}
+
 /**
- * Order number per recipient: recipients with the same name share one number
- * (combined packing); each new name takes the next number.
+ * Address in W / AC. Seeding: the survey address in normalized form.
+ * Orders: Shopify address lines + city / state / zip / country, as the overseas team writes it.
+ */
+function sheetAddress(r: Recipient, country?: Country): string {
+  return r.order ? formatOrderAddress(r, r.order.hasAddress2, country) : formatShippingAddress(r, country);
+}
+
+/** Packing key: sheet address (W) + country, ignoring case and spacing. '' when either is missing. */
+function packingKey(r: Recipient, countries: Country[]): string {
+  if (!r.countryCode || !r.address.trim()) return '';
+  const address = sheetAddress(sheetRecipient(r), countries.find((c) => c.code === r.countryCode))
+    .toLowerCase().replace(/\s*,\s*/g, ',').replace(/\s+/g, ' ').trim();
+  return address && `${r.countryCode}|${address}`;
+}
+
+/**
+ * Order number per recipient: seeding recipients with the same sheet address and country share
+ * one number (combined packing); a name alone never joins two recipients. Each new address
+ * takes the next number.
  */
 export function assignOrderNumbers(
-  recipients: Pick<Recipient, 'id' | 'name' | 'order'>[],
+  recipients: Recipient[],
   date: string,
   start = ORDER_START,
+  countries: Country[] = [],
 ): Map<string, string> {
-  const byName = new Map<string, string>();
+  const byAddress = new Map<string, string>();
   const result = new Map<string, string>();
   let next = 0;
   for (const r of recipients) {
     // Shopify orders keep their own number (#1648) and don't use up a seeding number.
     if (r.order) { result.set(r.id, r.order.number); continue; }
-    const key = r.name.trim().toLowerCase();
-    let order = key ? byName.get(key) : undefined;
+    const key = packingKey(r, countries);
+    let order = key ? byAddress.get(key) : undefined;
     if (!order) {
       order = orderNumber(date, next++, start);
-      if (key) byName.set(key, order);
+      if (key) byAddress.set(key, order);
     }
     result.set(r.id, order);
   }
@@ -302,22 +330,14 @@ export function buildRows(
   countries: Country[] = [],
   start = ORDER_START,
 ): SheetRow[] {
-  const orders = assignOrderNumbers(recipients, date, start);
+  const orders = assignOrderNumbers(recipients, date, start, countries);
   return recipients.flatMap((input) => {
     const order = orders.get(input.id) ?? '';
     const country = countries.find((c) => c.code === input.countryCode);
-    // The card keeps what was typed / imported; the sheet gets ALL-CAPS name, address and city
-    // in normal capitalisation.
-    const r: Recipient = {
-      ...input,
-      name: titleCaseIfAllCaps(input.name.trim()),
-      address: titleCaseIfAllCaps(input.address, input.countryCode),
-      city: titleCaseIfAllCaps(input.city.trim(), input.countryCode),
-    };
+    // The card keeps what was typed / imported; the sheet gets the normalized form.
+    const r = sheetRecipient(input);
     const o = r.order;
-    // Seeding: the address is pasted as written in the survey, W / AC get the normalized form.
-    // Orders: Shopify address lines + city / state / zip / country, as the overseas team writes it.
-    const address = o ? formatOrderAddress(r, o.hasAddress2, country) : formatShippingAddress(r, country);
+    const address = sheetAddress(r, country);
     const lines = r.products.map((p, i) => ({ name: p.trim(), i })).filter((x) => x.name);
     // 구매자전체결제금 per unit: order total spread over the lines (Σ unit × qty = total).
     const units = o
@@ -373,8 +393,10 @@ const POSTAL_RULES: Record<string, { re: RegExp; join?: string }> = {
   PT: { re: /\b(\d{4})-(\d{3})\b/g, join: '-' },
   PL: { re: /\b(\d{2})-(\d{3})\b/g, join: '-' },
   SE: { re: /\b(\d{3})\s?(\d{2})\b/g, join: ' ' },
-  ...Object.fromEntries(['KR', 'DE', 'FR', 'ES', 'IT', 'MX', 'FI', 'ID', 'MY', 'TH', 'VN', 'TR', 'SA', 'UA']
+  ...Object.fromEntries(['KR', 'DE', 'FR', 'ES', 'IT', 'MX', 'FI', 'ID', 'MY', 'TH', 'TR', 'SA', 'UA']
     .map((c) => [c, { re: /\b(\d{5})\b/g }])),
+  // Vietnam: 5 digits since 2018, the older 6-digit codes ("700000") still in use.
+  VN: { re: /\b(\d{6}|\d{5})\b/g },
   ...Object.fromEntries(['AU', 'NZ', 'PH', 'ZA', 'CH', 'AT', 'BE', 'DK', 'NO', 'HU', 'LU']
     .map((c) => [c, { re: /\b(\d{4})\b/g }])),
   ...Object.fromEntries(['CN', 'IN', 'RU', 'KZ'].map((c) => [c, { re: /\b(\d{6})\b/g }])),
@@ -424,33 +446,6 @@ export function extractPostal(address: string, countryCode?: string): { zip: str
 
 // Unit details: "#14-59", "Apt 4", "Flat 2", Spanish/Latin floors like "3º B", "piso 2", "dpto 5", floors like "1F".
 const UNIT_RE = /#\s?[\w-]+|\b(?:unit|apt|apartment|suite|ste|room|rm|flat|floor|fl|level|lvl|piso|planta|puerta|depto|dpto|bloque|escalera|esc)\b\.?\s*[\w-]+|\b\d+\s?[ºª°]\s?[A-Z]?\b|\b\d{1,3}F\b/gi;
-
-/**
- * Address prepared for a map search: unit / apartment details, "Blk", the postal code
- * and the country segment removed ("Blk 816A Keat hong link #14-59 S681816" → "816A Keat hong link").
- */
-export function searchableAddress(address: string, countryCode?: string): { full: string; road: string } {
-  const postal = extractPostal(address, countryCode);
-  let s = postal ? removePostal(address, postal.raw) : address;
-  s = s.replace(UNIT_RE, ' ').replace(/\b(?:blk|block)\b\.?/gi, ' ').replace(/\bno\.?\s*(?=\d)/gi, '');
-  const raw = s.split(',').map((p) => p.replace(/\s{2,}/g, ' ').trim()).filter(Boolean);
-  // "No. 122, Section 1, Chongqing South Road" → "122 Section 1 Chongqing South Road":
-  // house-number / section-only segments belong to the road that follows them.
-  const isNumberPart = (p: string) => /^(?:\d+[A-Z]?|(?:section|sec\.?|lane|alley)\s*\d+)$/i.test(p);
-  const parts: string[] = [];
-  let carry = '';
-  for (const p of raw) {
-    if (isNumberPart(p)) { carry = `${carry} ${p}`.trim(); continue; }
-    parts.push(`${carry} ${p}`.trim());
-    carry = '';
-  }
-  const full = parts.join(', ');
-  // Road only: first segment with its leading house number / section removed.
-  const road = (parts[0] ?? '')
-    .replace(/^(?:\d+[A-Z]?\b\s*)?(?:(?:section|sec\.?|lane|alley)\s*\d+\s*)?/i, '')
-    .trim();
-  return { full, road };
-}
 
 /**
  * Names shown in the country picker, replacing the long / official (or misspelled) names of
@@ -547,6 +542,8 @@ export function findCountry(value: string, countries: Country[]): Country | unde
 
 // Country names that are also common US state names: never auto-detected.
 const AMBIGUOUS_COUNTRIES = new Set(['GE']);
+/** Georgia (GE) is also a US state: a survey answer naming it is shown for review. */
+export const isAmbiguousCountry = (code: string) => AMBIGUOUS_COUNTRIES.has(code);
 
 /**
  * Country named at the end of the address, if any: the last comma segment, or — for
@@ -586,11 +583,25 @@ const CITY_AFTER_STREET_RE = new RegExp(
   'i',
 );
 
+// A street direction ("... Ave NW") is never the city.
+const DIRECTION_RE = /^(?:n|s|e|w|ne|nw|se|sw)$/i;
+
+/**
+ * Cities named like their state, written with no separate city part ("5 Park Ave, New York 10001"):
+ * taken as the city only when the zip is that city's; otherwise the city stays blank for the user.
+ */
+const SAME_NAME_CITIES: Record<string, Record<string, { city: string; state?: string; zip: RegExp }>> = {
+  US: {
+    'new york': { city: 'New York', zip: /^10[0-2]\d{2}\b/ }, // Manhattan
+    washington: { city: 'Washington', state: 'DC', zip: /^20[0-5]\d{2}\b/ }, // Washington, D.C.
+  },
+};
+
 /**
  * US / Canada / Australia style tail: "<street> <City>, <ST> <zip>" or "<street>, <City>, <ST> <zip>"
  * (zip already removed from parts). Returns null when there is no 2–3 letter state code at the end.
  */
-function parseStateCodeTail(parts: string[], countryCode: string): { city: string; state: string } | null {
+function parseStateCodeTail(parts: string[], countryCode: string, zip: string): { city: string; state: string } | null {
   if (!parts.length) return null;
   const segs = [...parts];
   const last = segs[segs.length - 1];
@@ -606,13 +617,19 @@ function parseStateCodeTail(parts: string[], countryCode: string): { city: strin
   const before = last.slice(0, last.length - written.length).trim();
   if (before) segs[segs.length - 1] = before;
   else segs.pop();
-  if (!segs.length) return { city: '', state };
-  const cityPart = segs[segs.length - 1];
-  // City in its own comma segment: "..., Springfield, IL 62704"
-  if (segs.length >= 2) return { city: cityPart.replace(UNIT_RE, '').trim(), state };
-  // City glued to the street line: "21103 Gary Drive #208 Castro Valley, CA 94546"
-  const m = cityPart.match(CITY_AFTER_STREET_RE);
-  return { city: m ? m[1].trim() : '', state };
+  let city = '';
+  if (segs.length >= 2) {
+    // City in its own comma segment: "..., Springfield, IL 62704"
+    city = segs[segs.length - 1].replace(UNIT_RE, '').trim();
+  } else if (segs.length === 1) {
+    // City glued to the street line: "21103 Gary Drive #208 Castro Valley, CA 94546"
+    const glued = segs[0].match(CITY_AFTER_STREET_RE)?.[1].trim() ?? '';
+    city = DIRECTION_RE.test(glued) ? '' : glued;
+  }
+  // Only a state name with no city before it ("5 Park Ave, New York 10001"): the city of the same name.
+  const same = !city && name ? SAME_NAME_CITIES[countryCode]?.[name] : undefined;
+  if (same && same.zip.test(zip)) return { city: same.city, state: same.state ?? state };
+  return { city, state };
 }
 
 /** "petaling jaya" / "PETALING JAYA" → "Petaling Jaya"; mixed case is kept as written. */
@@ -640,7 +657,7 @@ const malaysiaCity = (s: string) => (s && !MALAYSIA_NOT_CITY_RE.test(s) && !mala
  * before it when nothing follows; a known state name after the city is the state.
  * When the zip is followed by the state ("George Town, 10200, Penang", "Ipoh, 30000 Perak"),
  * the city is the segment before the zip. Road / area names are never the city: it is left
- * for the address search. A missing state is left for the search too.
+ * blank for the user to type. A missing state is left blank too.
  */
 function parseMalaysiaTail(parts: string[], zipAt: number, zipRest: string): { city: string; state: string } {
   const afterZip = zipAt >= 0 ? zipRest || parts[zipAt] || '' : '';
@@ -685,7 +702,7 @@ const PHILIPPINE_CITIES: { name: string; re: RegExp }[] = [
 
 /**
  * Philippine addresses are often one run-on line ("63A dalisay st ... q c 1104 Philippines").
- * Returns the known city written last in it, or '' (then the address search fills it).
+ * Returns the known city written last in it, or '' (left for the user to type).
  */
 function findPhilippineCity(text: string): string {
   const t = text.replace(/\bphilippines\b/gi, ' ');
@@ -726,10 +743,14 @@ export function parseAddress(address: string, country?: Country): { city: string
     }
   }
   // Country written after the state in the same part ("Banten 15334 Indonesia" → "Banten").
+  // A state name ending in the country's name ("Western Australia") is left whole.
   if (country && parts.length > 1) {
     const last = parts[parts.length - 1];
-    const name = [country.en, ...aliasesOf(country)].sort((a, b) => b.length - a.length)
-      .find((n) => n.length > 2 && last.toLowerCase().endsWith(` ${n.toLowerCase()}`));
+    const lowerLast = last.toLowerCase();
+    const endsWithState = Object.keys(STATE_NAME_CODES[country.code] ?? {})
+      .some((n) => lowerLast === n || lowerLast.endsWith(` ${n}`));
+    const name = endsWithState ? undefined : [country.en, ...aliasesOf(country)].sort((a, b) => b.length - a.length)
+      .find((n) => n.length > 2 && lowerLast.endsWith(` ${n.toLowerCase()}`));
     if (name) parts[parts.length - 1] = last.slice(0, last.length - name.length).trim();
   }
 
@@ -742,14 +763,14 @@ export function parseAddress(address: string, country?: Country): { city: string
   let state = '';
   let city = '';
   if (country && ['US', 'CA', 'AU'].includes(country.code)) {
-    const us = parseStateCodeTail(parts, country.code);
+    const us = parseStateCodeTail(parts, country.code, zip);
     if (us) return { ...us, zip };
   }
   if (parts.length >= 3) {
     state = parts[parts.length - 1];
     city = parts[parts.length - 2];
   } else if (parts.length === 2) {
-    // "street, city": the state is unknown here and is left for the address search.
+    // "street, city": the state is unknown here and is left blank for the user.
     city = parts[1];
   }
   // Indonesia writes the district before the regency / city in one part: the city is

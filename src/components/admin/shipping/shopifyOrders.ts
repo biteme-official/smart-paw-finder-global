@@ -54,6 +54,8 @@ export function parseShopifyOrders(rows: Row[]): ShopifyOrder[] {
   }
   const orders = new Map<string, ShopifyOrder>();
   const firstRow = new Map<string, Row>();
+  // Orders that had lines left out because they don't ship.
+  const skippedLines = new Set<string>();
   for (const row of rows) {
     const number = cell(row, 'Name');
     if (!number) continue;
@@ -84,40 +86,42 @@ export function parseShopifyOrders(rows: Row[]): ShopifyOrder[] {
       orders.set(number, order);
     }
     const name = cell(row, 'Lineitem name');
+    // Shipping protection, gift cards, ...: not packed, so not a product line and no share of the amount.
+    if (name && cell(row, 'Lineitem requires shipping').toLowerCase() === 'false') {
+      skippedLines.add(number);
+      continue;
+    }
     if (name) {
       const qty = Number.parseInt(cell(row, 'Lineitem quantity'), 10);
       order.lines.push({ name, qty: Number.isFinite(qty) && qty > 0 ? qty : 1, price: cell(row, 'Lineitem price') });
     }
   }
   // Cancelled orders are not shipped; fulfilment status doesn't matter (every line goes out).
-  return [...orders.values()].filter((o) => !o.cancelled);
+  // An order with nothing left to ship (only a gift card, ...) has no shipment either.
+  return [...orders.values()].filter((o) => !o.cancelled && !(o.lines.length === 0 && skippedLines.has(o.number)));
 }
 
 // Name prefixes written with an inner capital (LeBron, McDonald) that are not a name boundary.
 const NAME_PARTICLES = /^(?:Le|La|De|Da|Di|Du|Del|Della|Des|Mc|Mac|Van|Von)$/;
 
 /**
- * Shopify exports the shipping name as surname+given name glued together ("NgDesmond",
- * "NagaishiUn Hui"). Split at the lower→upper case boundary and put the given name first:
- * "Desmond Ng", "Un Hui Nagaishi". `ambiguous` when there is no single clear boundary.
+ * Shopify exports the shipping name as surname+given name glued together ("NgDesmond").
+ * Only a single word with one lower→upper case boundary is reordered ("Desmond Ng").
+ * A name with spaces is never reordered ("JoAnn Smith", "NagaishiUn Hui"): when it has a
+ * glued part it is flagged `ambiguous` for the user to check, otherwise kept as written.
  */
 export function reorderShopifyName(raw: string): { name: string; ambiguous: boolean } {
   const name = raw.replace(/\s+/g, ' ').trim();
   if (!name) return { name, ambiguous: false };
   const boundaries = [...name.matchAll(/(?<=[a-z])(?=[A-Z])/g)].map((m) => m.index ?? 0);
+  if (/\s/.test(name)) return { name, ambiguous: boundaries.length > 0 };
   if (boundaries.length === 1) {
     const at = boundaries[0];
     // LeBron, DeAndre, McDonald, MacKenzie: the capital is inside one word, not a
     // surname / given-name boundary. Keep the name as typed and flag it.
-    const word = name.slice(0, at).split(' ').pop() ?? '';
-    if (NAME_PARTICLES.test(word)) return { name, ambiguous: true };
-    const surname = name.slice(0, at).trim();
-    const given = name.slice(at).trim();
-    // The surname part is a single word; anything else (spaces before the boundary) is unclear.
-    return { name: `${given} ${surname}`, ambiguous: /\s/.test(surname) };
+    if (NAME_PARTICLES.test(name.slice(0, at))) return { name, ambiguous: true };
+    return { name: `${name.slice(at)} ${name.slice(0, at)}`, ambiguous: false };
   }
-  // Already written with a space and no glued part ("Desmond Ng"): kept as is, nothing to check.
-  if (boundaries.length === 0 && /\s/.test(name)) return { name, ambiguous: false };
   return { name, ambiguous: true };
 }
 

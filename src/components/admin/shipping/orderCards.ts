@@ -28,7 +28,7 @@ export function orderToCardFields(o: ShopifyOrder, countries: Country[]): { fiel
       city: titleCaseIfAllCaps(o.city, countryCode),
       // 수취인주: state / province code; countries without states get the country name.
       state: country && NO_STATE_COUNTRIES.has(country.code) ? country.en : o.province || country?.en || '',
-      // 수취인우편번호: blank for countries without postal codes; a missing one is searched for.
+      // 수취인우편번호: blank for countries without postal codes; a missing one is typed by hand.
       zip: hasNoPostalCode(countryCode) ? '' : o.zip,
       products: o.lines.length ? o.lines.map((l) => l.name) : [''],
       order: {

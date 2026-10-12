@@ -6,26 +6,46 @@ export interface SurveyRow {
   phone: string;
   country: string;
   address: string;
-  /** "Fill in your email" answer as written (header paste only; '' otherwise). */
+  /** Answer from the column whose answers are email addresses ('' when there is none). */
   email: string;
   /** Product option answers (e.g. BANANA), in sheet order; see seeding-options.json. */
   options: string[];
+  /** Phone column value that isn't a phone number (an email, text): `phone` is left blank. */
+  phoneRejected?: string;
 }
 
 export type SurveyPasteMode = 'header' | 'content' | 'four';
 
 type Field = 'name' | 'phone' | 'country' | 'address';
-type HeaderField = Field | 'email';
 
 // Header text match for each field (lower-cased, ’ read as ', partial match). Survey columns may
 // move as questions are added, so a pasted header row always wins over fixed positions.
+// `survey` = the survey's own header (always enough to take the row as a header); `common` = short
+// headers of other sheets ("Name", "Address", "Country"), used when the survey header isn't there.
 // "Recipient's" alone is in both the name and the phone header: it is never enough on its own.
-const HEADER_MATCHERS: { field: HeaderField; label: string; test: (h: string) => boolean }[] = [
-  { field: 'name', label: '수취인', test: (h) => h.includes('recipient') && h.includes('name') && !h.includes('phone') },
-  { field: 'phone', label: '전화번호', test: (h) => h.includes('phone number') },
-  { field: 'country', label: '국가', test: (h) => h.includes('country / region') },
-  { field: 'address', label: '주소', test: (h) => h.includes('shipping address') },
-  { field: 'email', label: '이메일', test: (h) => h.includes('email') },
+// The email column is found by its answers instead (emailColumn): a consent question that
+// mentions "email" would otherwise be taken for it.
+const HEADER_MATCHERS: { field: Field; label: string; survey: (h: string) => boolean; common: (h: string) => boolean }[] = [
+  {
+    field: 'name', label: '수취인',
+    survey: (h) => h.includes('recipient') && h.includes('name') && !h.includes('phone'),
+    common: (h) => /\bname\b|이름|성함/.test(h) && !/phone|e-?mail|user ?name|instagram|company|product/.test(h),
+  },
+  {
+    field: 'phone', label: '전화번호',
+    survey: (h) => h.includes('phone number'),
+    common: (h) => /phone|mobile|\btel\b|telephone|whatsapp|전화|휴대폰/.test(h),
+  },
+  {
+    field: 'country', label: '국가',
+    survey: (h) => h.includes('country / region'),
+    common: (h) => /country|nation|국가/.test(h),
+  },
+  {
+    field: 'address', label: '주소',
+    survey: (h) => h.includes('shipping address'),
+    common: (h) => /address|주소/.test(h) && !/e-?mail|이메일/.test(h),
+  },
 ];
 const normalizeHeader = (h: string) => h.toLowerCase().replace(/[’‘`´]/g, "'").replace(/\s*\/\s*/g, ' / ').replace(/\s+/g, ' ').trim();
 
@@ -67,6 +87,17 @@ export function parseTsv(text: string): string[][] {
 
 const clean = (s: string | undefined) => (s ?? '').replace(/^'/, '').replace(/\s+/g, ' ').trim();
 
+const isEmailCell = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+/** Column holding email-shaped answers (name@domain.tld) in the most rows, or -1. */
+function emailColumn(rows: string[][]): number {
+  const counts: number[] = [];
+  for (const r of rows) r.forEach((c, i) => { if (isEmailCell(clean(c))) counts[i] = (counts[i] ?? 0) + 1; });
+  let best = -1;
+  counts.forEach((n, i) => { if (n && (best < 0 || n > counts[best])) best = i; });
+  return best;
+}
+
 /** "+6592768179", "0917 813 3000", "+65 9023-3190": digits with optional +, spaces, dashes, brackets. */
 const isPhoneCell = (v: string) => /^\+?[\d\s().-]+$/.test(v) && v.replace(/\D/g, '').length >= 7;
 
@@ -105,6 +136,51 @@ function contentColumns(row: string[], isCountry: (v: string) => boolean): Recor
   return { name: phone > 0 ? phone - 1 : -1, phone, country, address: country + 1 };
 }
 
+const headerFields = (header: string[]) => ({
+  survey: HEADER_MATCHERS.filter((m) => header.some(m.survey)).length,
+  common: HEADER_MATCHERS.filter((m) => header.some((h) => m.survey(h) || m.common(h))).length,
+});
+
+/**
+ * First row is a header: a survey header, or two or more common ones ("Name", "Address"),
+ * and no answer-shaped cell (email / phone number) that only a recipient row has.
+ */
+function isHeaderRow(row: string[], header: string[]): boolean {
+  if (row.some((c) => isEmailCell(clean(c)) || isPhoneCell(clean(c)))) return false;
+  const { survey, common } = headerFields(header);
+  return survey > 0 || common >= 2;
+}
+
+/** Most rows of `col` pass `test` (blank answers aside). */
+const columnIs = (rows: string[][], col: number, test: (v: string) => boolean) => {
+  const values = rows.map((r) => clean(r[col])).filter(Boolean);
+  return values.length > 0 && values.filter(test).length * 2 > values.length;
+};
+
+/**
+ * Columns from the header, checked against the answers: the survey header first, then a common
+ * one, never the email column or a column already taken. A phone / country column with no
+ * matching header is taken from its answers (phone numbers / country names); name and address
+ * are never guessed.
+ */
+function headerColumns(
+  header: string[], body: string[][], emailAt: number, isCountry: (v: string) => boolean,
+): Record<Field, number> {
+  const taken = new Set<number>();
+  // The phone header may sit on the email column (answers mixing both): each cell is sorted by its shape.
+  const pick = (test: (h: string, i: number) => boolean, field?: Field) => {
+    const i = header.findIndex((h, at) => !taken.has(at) && (at !== emailAt || field === 'phone') && test(h, at));
+    if (i >= 0) taken.add(i);
+    return i;
+  };
+  const out = {} as Record<Field, number>;
+  for (const m of HEADER_MATCHERS) out[m.field] = pick(m.survey, m.field);
+  for (const m of HEADER_MATCHERS) if (out[m.field] < 0) out[m.field] = pick(m.common, m.field);
+  if (out.phone < 0) out.phone = pick((_h, i) => columnIs(body, i, isPhoneCell));
+  if (out.country < 0) out.country = pick((_h, i) => columnIs(body, i, isCountry));
+  return out;
+}
+
 /**
  * @param isCountry  whether a cell is a country name (trimmed, case-insensitive match)
  * @param optionKeys product option answers to pick up (upper-case), e.g. BANANA / PINK
@@ -124,19 +200,20 @@ export function parseSurveyPaste(
   const missing: string[] = [];
 
   const header = table[0].map(normalizeHeader);
-  const found = new Map(HEADER_MATCHERS.map((m) => [m.field, header.findIndex(m.test)]));
-  if ([...found.values()].some((i) => i >= 0)) {
-    // Header row present: a column that isn't found stays empty (never guessed) and is reported.
-    for (const m of HEADER_MATCHERS) if (found.get(m.field)! < 0) missing.push(m.label);
-    fixed = {
-      name: found.get('name')!, phone: found.get('phone')!, country: found.get('country')!, address: found.get('address')!,
-    };
-    emailAt = found.get('email')!;
+  if (isHeaderRow(table[0], header)) {
     mode = 'header';
     body = table.slice(1);
-  } else if (table.every((r) => r.length === 4)) {
-    fixed = FOUR_COLUMNS;
-    mode = 'four';
+    emailAt = emailColumn(body);
+    fixed = headerColumns(header, body, emailAt, isCountry);
+    // A column that isn't found stays empty and is reported.
+    for (const m of HEADER_MATCHERS) if (fixed[m.field] < 0) missing.push(m.label);
+    if (emailAt < 0) missing.push('이메일');
+  } else {
+    if (table.every((r) => r.length === 4)) {
+      fixed = FOUR_COLUMNS;
+      mode = 'four';
+    }
+    emailAt = emailColumn(body);
   }
 
   const rows = body
@@ -148,9 +225,17 @@ export function parseSurveyPaste(
       const options = (columns.address >= 0 ? r.slice(columns.address + 1) : r).map(clean)
         .filter((c) => optionKeys.has(c.toUpperCase()))
         .map((c) => c.toUpperCase());
+      // An email-shaped answer only goes into 이메일, and only a phone-shaped one into 전화번호:
+      // anything else in the phone column (text) is left out and reported.
+      const phoneCell = cell(columns.phone);
+      const phoneIsEmail = isEmailCell(phoneCell);
+      const email = columns.phone === emailAt ? (phoneIsEmail ? phoneCell : '') : cell(emailAt) || (phoneIsEmail ? phoneCell : '');
+      const phone = phoneIsEmail ? '' : phoneCell;
+      const phoneOk = !phone || isPhoneCell(phone);
       return {
-        name: cell(columns.name), phone: cell(columns.phone),
-        country: cell(columns.country), address: cell(columns.address), email: cell(emailAt), options,
+        name: cell(columns.name), phone: phoneOk ? phone : '',
+        country: cell(columns.country), address: cell(columns.address), email, options,
+        ...(phoneOk ? {} : { phoneRejected: phone }),
       };
     })
     .filter((r): r is SurveyRow => !!r && !!(r.name || r.phone || r.country || r.address));
