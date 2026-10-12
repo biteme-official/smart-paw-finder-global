@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -25,7 +25,6 @@ import Checkout from "./pages/Checkout";
 import AuthCallback from "./pages/AuthCallback";
 import GuestOrderLookup from "./pages/GuestOrderLookup";
 import B2BApply from "./pages/B2BApply";
-import B2BAdmin from "./pages/B2BAdmin";
 import AdminDashboard from "./pages/AdminDashboard";
 import DiscountRedirect from "./pages/DiscountRedirect";
 import PopupOffline from "./pages/PopupOffline";
@@ -37,6 +36,12 @@ import About from "./pages/About";
 import { WhatsAppButton } from "./components/layout/WhatsAppButton";
 import { AnnouncementBar } from "./components/layout/AnnouncementBar";
 import { PetProfilePrompt } from "./components/account/PetProfile";
+
+// Admin screens load on demand so their code (and fixed sender details) stays out of the store bundle.
+const ManageLayout = lazy(() => import("./components/admin/ManageLayout"));
+const B2BAdmin = lazy(() => import("./pages/B2BAdmin"));
+const AffiliateAdmin = lazy(() => import("./pages/AffiliateAdmin"));
+const InternationalShippingAdmin = lazy(() => import("./pages/InternationalShippingAdmin"));
 
 const queryClient = new QueryClient();
 
@@ -128,7 +133,12 @@ const App = () => (
           <Route path="/guest-order" element={<GuestOrderLookup />} />
           <Route path="/wishlist" element={<WishlistPage />} />
           <Route path="/mypage/b2b-apply" element={<B2BApply />} />
-          <Route path="/manage/b2b" element={<B2BAdmin />} />
+          <Route path="/manage" element={<Suspense fallback={null}><ManageLayout /></Suspense>}>
+            <Route index element={<Navigate to="b2b" replace />} />
+            <Route path="b2b" element={<B2BAdmin />} />
+            <Route path="affiliate" element={<AffiliateAdmin />} />
+            <Route path="international-shipping" element={<InternationalShippingAdmin />} />
+          </Route>
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/popup-offline-stores" element={<PopupOffline />} />
           <Route path="/blog" element={<BlogList />} />
