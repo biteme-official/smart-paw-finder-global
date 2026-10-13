@@ -75,3 +75,32 @@ export function normalizePhone(raw: string, countryCode: string): NormalizedPhon
   // National format: "0813..." → "+62 813...".
   return { value: `+${own} ${withoutTrunkZero(digits, own)}`, mismatch: false };
 }
+
+/** Typed with a calling code ("+65 ...", "0065 ..."), as opposed to one added from the selected country. */
+export const hasCallingCode = (raw: string) => /^(?:\+|00[1-9])/.test(raw.trim());
+
+// Digits after the calling code for the countries shipped to most; others use the E.164-ish 6–12 range.
+const NATIONAL_LENGTHS: Record<string, [number, number]> = {
+  SG: [8, 8], HK: [8, 8], MO: [8, 8], US: [10, 10], CA: [10, 10], MY: [9, 10], PH: [10, 10], ID: [9, 12],
+  // KR / TH: Seoul / Bangkok landlines (02-123-4567) have 8 digits after the code.
+  TH: [8, 9], VN: [9, 10], TW: [9, 9], JP: [9, 10], KR: [8, 10], AU: [9, 9], NZ: [8, 10], GB: [10, 10],
+  CN: [11, 11], IN: [10, 10], AE: [9, 9],
+};
+
+/**
+ * Why a phone number needs a look before shipping ('' when it looks fine). Nothing is changed:
+ * empty, letters or symbols mixed in, no calling code typed (`codeAdded`: the screen added the
+ * selected country's), a calling code that isn't the country's, or too few / too many digits.
+ */
+export function phoneIssue(raw: string, countryCode: string, codeAdded = false): string {
+  const text = raw.trim();
+  if (!text) return '전화번호 없음';
+  if (!/^[+\d\s().-]+$/.test(text)) return '숫자 외 글자 포함';
+  const { value, mismatch } = normalizePhone(text, countryCode);
+  if (codeAdded || !value.startsWith('+')) return '국가 코드 없음';
+  if (mismatch) return '국가 코드가 선택한 국가와 다름';
+  const national = value.split(' ')[1] ?? '';
+  const [min, max] = NATIONAL_LENGTHS[countryCode] ?? [6, 12];
+  if (national.length < min || national.length > max) return '자릿수 확인';
+  return '';
+}
