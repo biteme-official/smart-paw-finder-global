@@ -82,7 +82,8 @@ export const hasCallingCode = (raw: string) => /^(?:\+|00[1-9])/.test(raw.trim()
 // Digits after the calling code for the countries shipped to most; others use the E.164-ish 6–12 range.
 const NATIONAL_LENGTHS: Record<string, [number, number]> = {
   SG: [8, 8], HK: [8, 8], MO: [8, 8], US: [10, 10], CA: [10, 10], MY: [9, 10], PH: [10, 10], ID: [9, 12],
-  TH: [9, 9], VN: [9, 10], TW: [9, 9], JP: [9, 10], KR: [9, 10], AU: [9, 9], NZ: [8, 10], GB: [10, 10],
+  // KR / TH: Seoul / Bangkok landlines (02-123-4567) have 8 digits after the code.
+  TH: [8, 9], VN: [9, 10], TW: [9, 9], JP: [9, 10], KR: [8, 10], AU: [9, 9], NZ: [8, 10], GB: [10, 10],
   CN: [11, 11], IN: [10, 10], AE: [9, 9],
 };
 

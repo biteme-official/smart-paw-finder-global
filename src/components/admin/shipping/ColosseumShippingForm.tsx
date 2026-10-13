@@ -32,7 +32,7 @@ import { hasCallingCode, normalizePhone, phoneIssue } from './phone';
 import { parseShopifyOrders, readShopifyRows, reorderShopifyName } from './shopifyOrders';
 import { orderToCardFields } from './orderCards';
 import {
-  formatTracking, matchTracking, parseTrackingPaste, readTrackingFile, type TrackingMatch, type TrackingSheet,
+  formatTracking, matchTracking, parseTrackingPaste, readTrackingFile, trackingNameKey, type TrackingMatch, type TrackingSheet,
 } from './trackingPaste';
 
 const SEEDING_OPTIONS = new Map(Object.entries(seedingOptions).map(([k, v]) => [k.trim().toUpperCase(), v]));
@@ -68,9 +68,21 @@ interface RecipientState extends Recipient {
   phoneCodeAdded?: boolean;
 }
 
+/** A 송장번호 등록 waiting to be applied: the card matches and the sheet's 형식 오류 rows. */
+interface PendingTracking { match: TrackingMatch; invalid: TrackingSheet['invalid'] }
+
 /** Warnings that can be marked as checked, one per field. */
-type AckKey = 'country' | 'email';
+type AckKey = 'country' | 'email' | 'phone';
 const ACK_KEY: Partial<Record<keyof Recipient, AckKey>> = { countryCode: 'country', email: 'email' };
+
+/**
+ * Phone problem shown under the number on the card and in the preview ('' when fine or checked).
+ * An empty phone is left to the 미입력 badge.
+ */
+function phoneNote(r: RecipientState): string {
+  if (!r.phone.trim() || r.acked?.phone) return '';
+  return phoneIssue(r.phone, r.countryCode, r.phoneCodeAdded);
+}
 
 /** "이름/성 순서 확인 필요": shown while the name is still what the rule left, until edited or checked. */
 const nameNeedsCheck = (r: RecipientState) => !!r.nameCheck?.warn && r.name === r.nameCheck.value;
@@ -382,7 +394,7 @@ export default function ColosseumShippingForm() {
   const trackingFileInput = useRef<HTMLInputElement>(null);
   // Upload that would replace numbers already on cards: waits for 덮어쓰기 / 건너뛰기.
   // Kept after closing so the dialog's text doesn't empty while it fades out.
-  const [pendingTracking, setPendingTracking] = useState<TrackingMatch | null>(null);
+  const [pendingTracking, setPendingTracking] = useState<PendingTracking | null>(null);
   const [pendingTrackingOpen, setPendingTrackingOpen] = useState(false);
   // One-line result of the last 송장번호 등록 ("7건 매칭 완료 · 3건 미매칭 ...").
   const [trackingNotice, setTrackingNotice] = useState('');
@@ -436,7 +448,10 @@ export default function ColosseumShippingForm() {
       const ack = ACK_KEY[field];
       if (ack) next.acked = { ...r.acked, [ack]: true };
       // A retyped phone is checked again from what's typed now.
-      if (field === 'phone') next.phoneCodeAdded = undefined;
+      if (field === 'phone') {
+        next.phoneCodeAdded = undefined;
+        next.acked = { ...r.acked, phone: undefined };
+      }
       if ((AUTO_FIELDS as string[]).includes(field)) {
         next.sources = { ...r.sources, [field]: value.trim() ? 'manual' : undefined };
       }
@@ -480,6 +495,20 @@ export default function ColosseumShippingForm() {
       && r.products.some((p) => p.trim()) && !sameProductList(r.products, source.products)).length;
     if (replaced) setConfirmShare({ open: true, count: replaced });
     else startSharing();
+  };
+
+  /**
+   * Deleting the first seeding card while "동일 적용" is on: the next one becomes the source and takes
+   * the shared products, so a card with its own products doesn't pass them on to everyone.
+   */
+  const removeRecipient = (id: string) => {
+    setRecipients((prev) => {
+      const rest = prev.filter((r) => r.id !== id);
+      const removed = prev.find((r) => r.id === id);
+      if (!sameProducts || !removed || sharedSource(prev)?.id !== id) return rest;
+      const nextSource = sharedSource(rest);
+      return rest.map((r) => (r === nextSource ? { ...r, products: [...removed.products], ownProducts: undefined } : r));
+    });
   };
 
   const rejoinShared = (id: string) => patch(id, (r) => ({ ...r, ownProducts: undefined }));
@@ -643,27 +672,41 @@ export default function ColosseumShippingForm() {
     });
     pendingResolve.current.push(...added.filter((r) => r.address).map((r) => r.id));
     // Replace the untouched starter card instead of leaving it empty at the top.
+    const next = [...recipients.filter((r) => !isBlankRecipient(r)), ...added];
     setRecipients((prev) => [...prev.filter((r) => !isBlankRecipient(r)), ...added]);
     setPasteText('');
     toast.success(`수취인 ${added.length}명을 추가했습니다.`, { position: 'top-center' });
+    // "동일 적용" is on: survey products on the new cards are replaced by the first card's (effect above).
+    const source = sameProducts ? sharedSource(next) : undefined;
+    const replaced = source ? added.filter((r) => followsShared(r, source.id)
+      && r.products.some((p) => p.trim()) && !sameProductList(r.products, source.products)).length : 0;
+    if (replaced) {
+      toast.info(`"모든 수취인에게 동일 적용"이 켜져 있어 ${replaced}명의 설문 상품을 첫 수취인 상품으로 바꿨습니다.`,
+        { position: 'top-center', duration: 8000 });
+    }
   };
 
   /**
    * Fills tracking numbers from the matched sheet. With `overwrite` false, cards that already
    * hold a different number keep it. Cards the sheet didn't match (no such name, same-name cards,
-   * a name listed with different numbers) stay blank and are counted as 미매칭.
+   * a name listed with different numbers) stay blank and are counted as 미매칭; sheet rows whose
+   * number isn't 12 digits are counted as 형식 오류 instead (their cards aren't 미매칭 too).
    */
-  const applyTracking = (match: TrackingMatch, overwrite: boolean) => {
+  const applyTracking = ({ match, invalid }: PendingTracking, overwrite: boolean) => {
     const set = new Map(match.apply.map((a) => [a.id, a.tracking]));
     if (overwrite) for (const o of match.overwrite) set.set(o.id, o.to);
-    const unmatched = recipients.filter((r) => !isBlankRecipient(r) && !set.has(r.id) && !r.tracking.trim()).length;
+    const invalidNames = new Set(invalid.map((i) => trackingNameKey(i.name)));
+    const unmatched = recipients.filter((r) => !isBlankRecipient(r) && !set.has(r.id) && !r.tracking.trim()
+      && !invalidNames.has(trackingNameKey(r.name))).length;
     setRecipients((prev) => prev.map((r) => {
       const tracking = set.get(r.id);
       return tracking === undefined ? r : { ...r, tracking };
     }));
-    setTrackingNotice(unmatched
-      ? `${set.size}건 매칭 완료 · ${unmatched}건 미매칭 (시트에서 수취인을 찾지 못함)`
-      : `${set.size}건 매칭 완료`);
+    setTrackingNotice([
+      `${set.size}건 매칭 완료`,
+      invalid.length && `${invalid.length}건 송장번호 형식 오류 (12자리 아님)`,
+      unmatched && `${unmatched}건 미매칭 (시트에서 수취인을 찾지 못함)`,
+    ].filter(Boolean).join(' · '));
     setPendingTrackingOpen(false);
     setTrackingOpen(false);
     setTrackingText('');
@@ -675,9 +718,9 @@ export default function ColosseumShippingForm() {
       return;
     }
     const cards = recipients.filter((r) => !isBlankRecipient(r)).map((r) => ({ id: r.id, name: r.name, tracking: r.tracking }));
-    const match = matchTracking(cards, sheet.entries);
-    if (match.overwrite.length) { setPendingTracking(match); setPendingTrackingOpen(true); }
-    else applyTracking(match, false);
+    const pending = { match: matchTracking(cards, sheet.entries), invalid: sheet.invalid };
+    if (pending.match.overwrite.length) { setPendingTracking(pending); setPendingTrackingOpen(true); }
+    else applyTracking(pending, false);
   };
 
   const handleTrackingFile = async (file: File | undefined) => {
@@ -873,7 +916,7 @@ export default function ColosseumShippingForm() {
         const productCount = r.products.filter((p) => p.trim()).length;
         const countryName = countries.find((c) => c.code === r.countryCode)?.en;
         // Calling code that doesn't belong to the selected country (e.g. +62 number, Singapore selected).
-        const phoneMismatch = normalizePhone(r.phone, r.countryCode).mismatch;
+        const phoneWarn = phoneNote(r);
         // Σ G × K ≠ order total after rounding: the sheet total is off by a cent or so.
         const totalGap = orderTotalGap(r);
         return (
@@ -922,7 +965,7 @@ export default function ColosseumShippingForm() {
                 )}
               </div>
               <Button variant="ghost" size="sm" disabled={recipients.length === 1}
-                onClick={(e) => { e.stopPropagation(); setRecipients((prev) => prev.filter((x) => x.id !== r.id)); }}>
+                onClick={(e) => { e.stopPropagation(); removeRecipient(r.id); }}>
                 <Trash2 className="h-4 w-4 mr-1" /> 삭제
               </Button>
             </CardHeader>
@@ -940,8 +983,8 @@ export default function ColosseumShippingForm() {
                   <Label>전화번호</Label>
                   <Input value={r.phone} onChange={(e) => setField(r.id, 'phone', e.target.value)}
                     onBlur={() => patch(r.id, withPhone)}
-                    className={cn(phoneMismatch && 'border-yellow-500 focus-visible:ring-yellow-500')} />
-                  {phoneMismatch && <p className="text-[11px] text-yellow-700 mt-1">국가번호 확인 필요</p>}
+                    className={cn(phoneWarn && 'border-yellow-500 focus-visible:ring-yellow-500')} />
+                  {phoneWarn && <AckHint text={`${phoneWarn} - 확인 필요`} onAck={() => ack(r.id, 'phone')} />}
                   {!r.phone.trim() && r.surveyPhone && (
                     <p className="text-[11px] text-red-600 mt-1">설문 전화번호 칸 "{r.surveyPhone}"은 번호가 아닙니다 - 직접 입력</p>
                   )}
@@ -1103,20 +1146,21 @@ export default function ColosseumShippingForm() {
                   const notes = r ? addressNotes(r) : [];
                   const mailNote = r ? emailNote(r) : '';
                   // Display only: the sheet still gets row.U as it is.
-                  const phoneNote = r ? phoneIssue(r.phone, r.countryCode, r.phoneCodeAdded) : '';
+                  const phoneWarn = r ? phoneNote(r) : '';
                   return (
                     <TableRow key={i}>
                       <TableCell className="font-mono text-xs whitespace-nowrap">{row.D}</TableCell>
                       <TableCell className="text-xs">{row.J}</TableCell>
-                      <TableCell className={cn('text-xs', r && nameNeedsCheck(r) && 'bg-yellow-50')}>
+                      <TableCell className="text-xs">
                         {row.R}
                         {r && nameNeedsCheck(r) && <p className="text-[11px] text-yellow-700 mt-0.5">이름/성 순서 확인 필요</p>}
                       </TableCell>
-                      <TableCell className="text-xs font-mono">
-                        {phoneNote ? <span className="font-sans text-yellow-700" title={phoneNote}>확인 필요</span> : row.U}
+                      <TableCell className="text-xs font-mono whitespace-nowrap">
+                        {row.U}
+                        {phoneWarn && <p className="font-sans text-[11px] text-yellow-700 mt-0.5">{phoneWarn}</p>}
                       </TableCell>
-                      {/* Exactly what goes into column W. Yellow = check by eye. */}
-                      <TableCell className={cn('text-xs', notes.length && 'bg-yellow-50')}>
+                      {/* Exactly what goes into column W. Yellow note = check by eye. */}
+                      <TableCell className="text-xs">
                         {row.W}
                         {notes.length > 0 && <p className="text-[11px] text-yellow-700 mt-0.5">확인: {notes.join(' · ')}</p>}
                       </TableCell>
@@ -1178,13 +1222,13 @@ export default function ColosseumShippingForm() {
       <AlertDialog open={pendingTrackingOpen} onOpenChange={setPendingTrackingOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>이미 송장번호가 있는 수취인 {pendingTracking?.overwrite.length}명</AlertDialogTitle>
+            <AlertDialogTitle>이미 송장번호가 있는 수취인 {pendingTracking?.match.overwrite.length}명</AlertDialogTitle>
             <AlertDialogDescription>
               시트의 송장번호로 덮어쓸까요? 건너뛰면 기존 값을 그대로 둡니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <ul className="max-h-40 overflow-y-auto text-xs space-y-0.5">
-            {pendingTracking?.overwrite.map((o) => (
+            {pendingTracking?.match.overwrite.map((o) => (
               <li key={o.id} className="font-mono break-all">{o.name}: {o.from} → {o.to}</li>
             ))}
           </ul>

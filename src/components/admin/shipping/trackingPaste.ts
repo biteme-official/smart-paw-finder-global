@@ -20,7 +20,7 @@ export interface TrackingEntry { name: string; tracking: string }
 
 export interface TrackingSheet {
   entries: TrackingEntry[];
-  /** Rows whose tracking number isn't 12 digits: shown for review, never applied. */
+  /** Rows with a name whose tracking number isn't 12 digits: counted as 형식 오류, never applied. */
   invalid: { name: string; value: string }[];
 }
 
@@ -30,17 +30,19 @@ const isTrackingCell = (v: string) => /^[\d\s-]+$/.test(v) && v.replace(/\D/g, '
 const hasLetter = (v: string) => /\p{L}/u.test(v);
 
 /**
- * Rows of cells → name / tracking pairs. The tracking column is the one holding tracking-shaped
- * values in the most rows, the name column the other one with letters; a first row without a
- * tracking-shaped value there (송장번호 / Tracking) is a header and skipped.
+ * Rows of cells → name / tracking pairs. The tracking column is the one holding 12-digit numbers
+ * in the most rows (so a phone column like 010-1234-5678 isn't taken), else number-shaped values;
+ * the name column is the other one with letters. A first row without a number-shaped value
+ * there (송장번호 / Tracking) is a header and skipped.
  */
 export function parseTrackingRows(cells: unknown[][]): TrackingSheet {
   const rows = cells.map((r) => r.map(clean)).filter((r) => r.some(Boolean));
   const width = Math.max(0, ...rows.map((r) => r.length));
   const count = (col: number, test: (v: string) => boolean) => rows.filter((r) => test(r[col] ?? '')).length;
+  const score = (col: number) => count(col, (v) => !!formatTracking(v)) * (rows.length + 1) + count(col, isTrackingCell);
   let trackCol = -1;
   for (let c = 0; c < width; c++) {
-    if (count(c, isTrackingCell) > (trackCol < 0 ? 0 : count(trackCol, isTrackingCell))) trackCol = c;
+    if (count(c, isTrackingCell) && score(c) > (trackCol < 0 ? 0 : score(trackCol))) trackCol = c;
   }
   if (trackCol < 0) return { entries: [], invalid: [] };
   let nameCol = -1;
@@ -57,7 +59,7 @@ export function parseTrackingRows(cells: unknown[][]): TrackingSheet {
     if (!name && !value) continue;
     const tracking = formatTracking(value);
     if (name && tracking) sheet.entries.push({ name, tracking });
-    else sheet.invalid.push({ name, value });
+    else if (name && value && !tracking) sheet.invalid.push({ name, value });
   }
   return sheet;
 }
