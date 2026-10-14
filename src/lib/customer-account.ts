@@ -144,6 +144,14 @@ const GET_CUSTOMER_QUERY = `
   }
 `;
 
+// B2B 리테일가 표시용 — 기본 배송지 국가만 가볍게 조회 (없으면 null)
+export async function fetchCustomerCountry(): Promise<string | null> {
+  const data = await customerAccountRequest<{ customer: { defaultAddress: { territoryCode: string | null } | null } | null }>(
+    `query { customer { defaultAddress { territoryCode } } }`,
+  );
+  return data?.customer?.defaultAddress?.territoryCode ?? null;
+}
+
 export async function fetchCustomerAccount(): Promise<CustomerAccountProfile | null> {
   const data = await customerAccountRequest<any>(GET_CUSTOMER_QUERY);
   if (!data?.customer) return null;

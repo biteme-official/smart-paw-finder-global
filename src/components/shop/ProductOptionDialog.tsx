@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ShopifyProduct, formatPrice } from '@/lib/shopify';
-import { PriceTag, getB2BPrice } from '@/components/ui/PriceTag';
+import { PriceTag, getB2BPrice, getIntlRetail } from '@/components/ui/PriceTag';
 import { useAuthStore } from '@/stores/authStore';
 import { useCartStore } from '@/stores/cartStore';
 import { Button } from '@/components/ui/button';
@@ -74,6 +74,7 @@ export const ProductOptionDialog = ({ product, open, onOpenChange }: ProductOpti
 
   const selectedVariant = getSelectedVariant();
   const price = selectedVariant?.price || productNode.priceRange.minVariantPrice;
+  const intlRetail = selectedVariant ? selectedVariant.intlRetailPrice?.value ?? undefined : getIntlRetail(productNode);
   const displayPrice = parseFloat(price.amount);
   const totalPrice = displayPrice * quantity;
   const maxQuantity = selectedVariant?.quantityAvailable ?? 99;
@@ -121,7 +122,7 @@ export const ProductOptionDialog = ({ product, open, onOpenChange }: ProductOpti
           )}
           <div className="flex-1 min-w-0">
             <h3 className="font-medium text-sm line-clamp-2 mb-1">{productNode.title}</h3>
-            <PriceTag amount={price.amount} currencyCode={price.currencyCode} className="font-bold text-primary" originalClassName="text-sm" />
+            <PriceTag amount={price.amount} currencyCode={price.currencyCode} intlAmount={intlRetail} className="font-bold text-primary" originalClassName="text-sm" />
           </div>
         </div>
 

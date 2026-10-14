@@ -42,6 +42,8 @@ export interface ShopifyProduct {
             amount: string;
             currencyCode: string;
           };
+          // 해외 리테일가 (B2B 화면에서 미국 외 도매처에게 취소선 가격으로 표시, 결제가 아님)
+          intlRetailPrice?: { value: string } | null;
           availableForSale: boolean;
           quantityAvailable: number | null;
           image?: {
@@ -154,6 +156,7 @@ const GET_PRODUCTS_QUERY = `
                   amount
                   currencyCode
                 }
+                intlRetailPrice: metafield(namespace: "custom", key: "intl_retail_price") { value }
                 availableForSale
                 image {
                   url
@@ -238,6 +241,7 @@ const GET_PRODUCT_BY_HANDLE_QUERY = `
               amount
               currencyCode
             }
+            intlRetailPrice: metafield(namespace: "custom", key: "intl_retail_price") { value }
             availableForSale
             image {
               url
@@ -432,6 +436,7 @@ const GET_COLLECTION_PRODUCTS_QUERY = `
                     amount
                     currencyCode
                   }
+                  intlRetailPrice: metafield(namespace: "custom", key: "intl_retail_price") { value }
                   availableForSale
                   image {
                     url
@@ -822,6 +827,7 @@ const GET_BEST_SELLING_PRODUCTS_QUERY = `
                 id
                 title
                 price { amount currencyCode }
+                intlRetailPrice: metafield(namespace: "custom", key: "intl_retail_price") { value }
                 availableForSale
                 image { url altText }
                 selectedOptions { name value }
@@ -870,6 +876,7 @@ const GET_BEST_SELLING_PRODUCTS_PAGINATED_QUERY = `
                 id
                 title
                 price { amount currencyCode }
+                intlRetailPrice: metafield(namespace: "custom", key: "intl_retail_price") { value }
                 availableForSale
                 quantityAvailable
                 image { url altText }
@@ -919,6 +926,7 @@ const GET_NEW_PRODUCTS_QUERY = `
                 title
                 price { amount currencyCode }
                 compareAtPrice { amount currencyCode }
+                intlRetailPrice: metafield(namespace: "custom", key: "intl_retail_price") { value }
                 availableForSale
                 quantityAvailable
                 image { url altText }
@@ -976,6 +984,7 @@ const GET_LATEST_PRODUCTS_QUERY = `
                 title
                 price { amount currencyCode }
                 compareAtPrice { amount currencyCode }
+                intlRetailPrice: metafield(namespace: "custom", key: "intl_retail_price") { value }
                 availableForSale
                 image { url altText }
                 selectedOptions { name value }
@@ -1013,6 +1022,7 @@ const GET_PRODUCT_RECOMMENDATIONS_QUERY = `
             id
             title
             price { amount currencyCode }
+            intlRetailPrice: metafield(namespace: "custom", key: "intl_retail_price") { value }
             availableForSale
             image { url altText }
             selectedOptions { name value }
@@ -1101,6 +1111,7 @@ const PRODUCT_BY_HANDLE_FRAGMENT = `
       node {
         id title
         price { amount currencyCode }
+        intlRetailPrice: metafield(namespace: "custom", key: "intl_retail_price") { value }
         availableForSale
         image { url altText }
         selectedOptions { name value }

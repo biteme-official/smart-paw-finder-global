@@ -8,6 +8,7 @@ import { trackPageView } from "@/lib/ga4-pageview";
 import { saveUtmParams, saveFbclid } from "@/lib/browser-utils";
 import { useAuthStore, fetchB2BDiscountRate } from "@/stores/authStore";
 import { isLoggedIn as isCustomerSessionValid } from "@/lib/customer-auth";
+import { fetchCustomerCountry } from "@/lib/customer-account";
 import Index from "./pages/Index";
 import ProductDetail from "./pages/ProductDetail";
 import CheckoutReturn from "./pages/CheckoutReturn";
@@ -93,7 +94,10 @@ function B2BDiscountSync() {
         const tags: string[] = data.tags || [];
         const b2b = tags.some(t => t.toUpperCase() === 'B2B');
         useAuthStore.getState().setB2B(b2b);
-        if (b2b) fetchB2BDiscountRate();
+        if (b2b) {
+          fetchB2BDiscountRate();
+          fetchCustomerCountry().then(c => useAuthStore.getState().setB2BCountry(c)).catch(() => {});
+        }
       })
       .catch(() => {});
   }, [isLoggedIn, user]);

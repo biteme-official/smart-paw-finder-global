@@ -17,9 +17,12 @@ interface AuthStore {
   isLoggedIn: boolean;
   isB2B: boolean;
   b2bDiscountRate: number;
+  // B2B 고객 기본 배송지 국가 (ISO 2자리). 미국 외면 해외 리테일가 표시, 없으면 미국 기준
+  b2bCountry: string | null;
   login: (user: UserProfile) => void;
   setB2B: (isB2B: boolean) => void;
   setB2BDiscountRate: (rate: number) => void;
+  setB2BCountry: (country: string | null) => void;
   logout: () => void;
 }
 
@@ -32,13 +35,15 @@ export const useAuthStore = create<AuthStore>()(
       isLoggedIn: false,
       isB2B: false,
       b2bDiscountRate: DEFAULT_B2B_DISCOUNT_RATE,
+      b2bCountry: null,
       login: (user) => {
         set({ user, isLoggedIn: true });
         useFavoritesStore.getState().mergeGuestToUser(user.userId);
       },
       setB2B: (isB2B) => set({ isB2B }),
       setB2BDiscountRate: (rate) => set({ b2bDiscountRate: rate }),
-      logout: () => set({ user: null, isLoggedIn: false, isB2B: false }),
+      setB2BCountry: (country) => set({ b2bCountry: country }),
+      logout: () => set({ user: null, isLoggedIn: false, isB2B: false, b2bCountry: null }),
     }),
     {
       name: 'auth',
@@ -54,6 +59,7 @@ export const useAuthStore = create<AuthStore>()(
           ...(persisted as Partial<AuthStore>),
           isB2B: false,
           b2bDiscountRate: DEFAULT_B2B_DISCOUNT_RATE,
+          b2bCountry: null,
           ...(sessionActive ? {} : { isLoggedIn: false, user: null }),
         };
       },
