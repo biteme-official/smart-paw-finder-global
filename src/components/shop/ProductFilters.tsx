@@ -20,6 +20,11 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "price-desc", label: "Price: High to Low" },
 ];
 
+export const DEFAULT_SORT_OPTION: SortOption = "best-selling";
+
+export const isSortOption = (value: string | null): value is SortOption =>
+  SORT_OPTIONS.some((option) => option.value === value);
+
 export function ProductFilters({ sortOption, onSortChange }: ProductFiltersProps) {
   return (
     <Select value={sortOption} onValueChange={(value) => onSortChange(value as SortOption)}>
