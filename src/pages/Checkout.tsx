@@ -4,6 +4,7 @@ import { ChevronLeft, Loader2, Truck, CreditCard, AlertTriangle, PartyPopper } f
 import { Button } from '@/components/ui/button';
 import { useCartStore } from '@/stores/cartStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useCartPreviewStore, usePreviewFor } from '@/stores/cartPreviewStore';
 import { formatPrice } from '@/lib/shopify';
 import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
 import { fetchCustomerAccount } from '@/lib/customer-account';
@@ -51,9 +52,25 @@ export default function Checkout() {
   const subtotal = items.reduce((sum, item) => sum + parseFloat(item.price.amount) * item.quantity, 0);
   const currencyCode = items[0]?.price.currencyCode || 'USD';
 
+  // 자동 할인은 카트에서만 계산된다. 결제할 항목 그대로 Shopify 에 물어 실제 금액을 받아 둔다.
+  const lines = useMemo(
+    () => items.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
+    [items]
+  );
+  const refreshPreview = useCartPreviewStore((s) => s.refresh);
+  useEffect(() => {
+    refreshPreview(lines);
+  }, [lines, refreshPreview]);
+  const preview = usePreviewFor(lines);
+
   const isKorean = customerCountry === 'KR';
+  // 무료배송 임계값은 기존대로 정가 기준으로 판정한다. 할인 후 기준으로 바꾸는 것은
+  // Shopify 배송 설정과 함께 맞춰야 하는 운영 결정이라 이번 범위에 넣지 않았다.
   const shipping = isKorean ? 0 : (subtotal >= SHIPPING_THRESHOLD ? SHIPPING_OVER : SHIPPING_UNDER);
-  const total = subtotal + shipping;
+  /** 할인까지 반영된 상품 금액. 미리보기를 못 받으면 정가로 떨어진다. */
+  const payableSubtotal = preview ? preview.total : subtotal;
+  const discount = preview ? preview.savings : 0;
+  const total = payableSubtotal + shipping;
 
   const b2bEligible = subtotal >= B2B_MIN_ORDER;
 
@@ -157,6 +174,12 @@ export default function Checkout() {
               <span className="text-muted-foreground">Subtotal</span>
               <span translate="no">{formatPrice(subtotal.toFixed(2), currencyCode)}</span>
             </div>
+            {discount > 0 && (
+              <div className="flex justify-between text-sm text-green-600">
+                <span>Discount</span>
+                <span translate="no">−{formatPrice(discount.toFixed(2), currencyCode)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground flex items-center gap-1">
                 <Truck className="h-3.5 w-3.5" />Shipping
