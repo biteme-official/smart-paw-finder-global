@@ -9,6 +9,7 @@ import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
 import { fetchCustomerAccount } from '@/lib/customer-account';
 import { toast } from 'sonner';
 import { decorateWithGaLinker, appendUtmToUrl } from '@/lib/browser-utils';
+import { B2BSiteNotice } from '@/components/account/B2BSiteNotice';
 
 const B2B_MIN_ORDER = 300;
 const SHIPPING_THRESHOLD = 75;
@@ -110,6 +111,7 @@ export default function Checkout() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
+        <B2BSiteNotice />
         {isB2B && !b2bEligible && (
           <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />

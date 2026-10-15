@@ -17,6 +17,7 @@ import { formatPrice } from '@/lib/shopify';
 import { useAuthStore } from '@/stores/authStore';
 import { fetchB2BStatus, type B2BStatus } from '@/lib/b2b-status';
 import { IS_B2C_SITE } from '@/lib/site';
+import { B2BSiteNotice } from '@/components/account/B2BSiteNotice';
 import { toast } from 'sonner';
 import { useFavoritesStore, GUEST_FAVORITES_KEY } from '@/stores/favoritesStore';
 import {
@@ -275,6 +276,7 @@ export default function MyPage() {
           </div>
         ) : (
           <>
+            <B2BSiteNotice />
             <div className="bg-card rounded-xl border border-border p-5">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center ring-2 ring-border">
