@@ -1,6 +1,7 @@
 import { toast } from "sonner";
 import { useAuthStore } from '@/stores/authStore';
 import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
+import { IS_B2C_SITE } from '@/lib/site';
 import { getCachedStorefrontCustomerToken, fetchCustomerAccount } from '@/lib/customer-account';
 
 // Shopify API - requests go through the server proxy which handles authentication
@@ -1230,8 +1231,9 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
      input.discountCodes = [discountCode];
    }
 
+   // B2C 사이트는 고객 정보를 넘기지 않는다 — 넘기면 B2B 태그 고객에게 Shopify 자동 도매 할인이 붙는다.
    try {
-     if (isCustomerLoggedIn()) {
+     if (isCustomerLoggedIn() && !IS_B2C_SITE) {
        const storefrontToken = getCachedStorefrontCustomerToken();
        if (storefrontToken) {
          input.buyerIdentity = {

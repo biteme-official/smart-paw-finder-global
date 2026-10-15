@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { useFavoritesStore } from './favoritesStore';
 import { isLoggedIn as isSessionValid } from '@/lib/customer-auth';
+import { IS_B2C_SITE } from '@/lib/site';
 
 export interface UserProfile {
   userId: string;
@@ -36,7 +37,8 @@ export const useAuthStore = create<AuthStore>()(
         set({ user, isLoggedIn: true });
         useFavoritesStore.getState().mergeGuestToUser(user.userId);
       },
-      setB2B: (isB2B) => set({ isB2B }),
+      // B2C 사이트에서는 B2B 태그가 있어도 일반 고객과 같은 가격을 보여준다
+      setB2B: (isB2B) => set({ isB2B: isB2B && !IS_B2C_SITE }),
       setB2BDiscountRate: (rate) => set({ b2bDiscountRate: rate }),
       logout: () => set({ user: null, isLoggedIn: false, isB2B: false }),
     }),
