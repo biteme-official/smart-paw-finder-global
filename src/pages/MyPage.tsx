@@ -16,6 +16,8 @@ import {
 import { formatPrice } from '@/lib/shopify';
 import { useAuthStore } from '@/stores/authStore';
 import { fetchB2BStatus, type B2BStatus } from '@/lib/b2b-status';
+import { IS_B2C_SITE } from '@/lib/site';
+import { B2BSiteNotice } from '@/components/account/B2BSiteNotice';
 import { toast } from 'sonner';
 import { useFavoritesStore, GUEST_FAVORITES_KEY } from '@/stores/favoritesStore';
 import {
@@ -158,10 +160,12 @@ function AuthScreen() {
             Sign in or create account
           </Button>
           {/* Same landing as GNB > WHOLESALE for signed-out visitors. */}
-          <Button onClick={() => navigate('/mypage/b2b-apply')} variant="outline" className="w-full h-12 text-base">
-            <Building2 className="h-4 w-4 mr-2" />
-            B2B Application
-          </Button>
+          {!IS_B2C_SITE && (
+            <Button onClick={() => navigate('/mypage/b2b-apply')} variant="outline" className="w-full h-12 text-base">
+              <Building2 className="h-4 w-4 mr-2" />
+              B2B Application
+            </Button>
+          )}
         </div>
         <div className="w-full flex items-center gap-3 my-5" role="separator">
           <span className="flex-1 h-px bg-border" />
@@ -212,7 +216,7 @@ export default function MyPage() {
           setCustomerData(data);
           if (data.emailAddress) {
             fetchStoreCredit(data.emailAddress).then(setCreditData);
-            fetchB2BStatus(data.emailAddress).then((r) => setB2bStatus(r.status)).catch(() => {});
+            if (!IS_B2C_SITE) fetchB2BStatus(data.emailAddress).then((r) => setB2bStatus(r.status)).catch(() => {});
           }
         }
       })
@@ -272,6 +276,7 @@ export default function MyPage() {
           </div>
         ) : (
           <>
+            <B2BSiteNotice />
             <div className="bg-card rounded-xl border border-border p-5">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center ring-2 ring-border">
@@ -340,7 +345,7 @@ export default function MyPage() {
                 badge={favCount > 0 ? favCount : undefined}
                 onClick={() => navigate('/mypage/favorites')}
               />
-              {(() => {
+              {!IS_B2C_SITE && (() => {
                 // Until the status loads, fall back to the pricing flag so verified accounts don't flicker.
                 const menu = b2bStatus ? B2B_MENU[b2bStatus] : isB2B ? B2B_MENU.approved : null;
                 return (

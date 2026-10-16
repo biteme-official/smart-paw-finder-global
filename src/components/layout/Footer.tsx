@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { IS_B2C_SITE } from "@/lib/site";
 
 const WHATSAPP_URL = "https://wa.me/15559433437";
 
 const SUPPORT_LINKS = [
   { label: "Shipping & Returns", to: "/refund-policy" },
-  { label: "B2B Inquiry", to: "/mypage/b2b-apply" },
+  ...(IS_B2C_SITE ? [] : [{ label: "B2B Inquiry", to: "/mypage/b2b-apply" }]),
 ];
 
 const COMPANY_LINKS = [

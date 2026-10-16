@@ -43,6 +43,10 @@ export default defineConfig(({ mode }) => {
         },
       },
     ].filter(Boolean),
+    // 서버와 같은 SITE_MODE 값을 화면 코드에서도 읽도록 노출 (src/lib/site.ts)
+    define: {
+      'import.meta.env.VITE_SITE_MODE': JSON.stringify(env.SITE_MODE || ''),
+    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

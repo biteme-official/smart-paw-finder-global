@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { useFavoritesStore } from './favoritesStore';
 import { isLoggedIn as isSessionValid } from '@/lib/customer-auth';
+import { IS_B2C_SITE } from '@/lib/site';
 
 export interface UserProfile {
   userId: string;
@@ -16,6 +17,8 @@ interface AuthStore {
   user: UserProfile | null;
   isLoggedIn: boolean;
   isB2B: boolean;
+  // B2C 사이트에서 B2B 태그 계정으로 로그인한 경우 — 가격은 소매가, biteme.one 안내만 띄운다
+  isB2BAccountOnB2CSite: boolean;
   b2bDiscountRate: number;
   login: (user: UserProfile) => void;
   setB2B: (isB2B: boolean) => void;
@@ -31,14 +34,16 @@ export const useAuthStore = create<AuthStore>()(
       user: null,
       isLoggedIn: false,
       isB2B: false,
+      isB2BAccountOnB2CSite: false,
       b2bDiscountRate: DEFAULT_B2B_DISCOUNT_RATE,
       login: (user) => {
         set({ user, isLoggedIn: true });
         useFavoritesStore.getState().mergeGuestToUser(user.userId);
       },
-      setB2B: (isB2B) => set({ isB2B }),
+      // B2C 사이트에서는 B2B 태그가 있어도 일반 고객과 같은 가격을 보여준다
+      setB2B: (isB2B) => set({ isB2B: isB2B && !IS_B2C_SITE, isB2BAccountOnB2CSite: isB2B && IS_B2C_SITE }),
       setB2BDiscountRate: (rate) => set({ b2bDiscountRate: rate }),
-      logout: () => set({ user: null, isLoggedIn: false, isB2B: false }),
+      logout: () => set({ user: null, isLoggedIn: false, isB2B: false, isB2BAccountOnB2CSite: false }),
     }),
     {
       name: 'auth',
@@ -53,6 +58,7 @@ export const useAuthStore = create<AuthStore>()(
           ...current,
           ...(persisted as Partial<AuthStore>),
           isB2B: false,
+          isB2BAccountOnB2CSite: false,
           b2bDiscountRate: DEFAULT_B2B_DISCOUNT_RATE,
           ...(sessionActive ? {} : { isLoggedIn: false, user: null }),
         };
