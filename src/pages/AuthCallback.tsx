@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import { handleCallback } from '@/lib/customer-auth';
+import { handleCallback, getAccessToken } from '@/lib/customer-auth';
+import { IS_B2C_SITE } from '@/lib/site';
 import { fetchCustomerAccount, createStorefrontCustomerToken } from '@/lib/customer-account';
 import { useAuthStore, fetchB2BDiscountRate } from '@/stores/authStore';
 import { toast } from 'sonner';
@@ -45,6 +46,11 @@ export default function AuthCallback() {
           fetchCustomerAccount(),
           createStorefrontCustomerToken().catch(() => null),
         ]);
+        // B2C 사이트 이용 고객 구분용 태그 (CRM). 실패해도 로그인에는 영향 없음
+        const accessToken = getAccessToken();
+        if (IS_B2C_SITE && accessToken) {
+          fetch('/api/customer-site-tag', { method: 'POST', headers: { Authorization: accessToken } }).catch(() => {});
+        }
         if (profile) {
           useAuthStore.getState().login({
             userId: profile.emailAddress || profile.id,
