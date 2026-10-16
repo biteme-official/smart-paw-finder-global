@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // ─── OG Tag Generation ────────────────────────────────────────────────────────
-const OG_SITE_URL = 'https://www.biteme.one';
+// B2C 사이트는 Vercel 환경변수 VITE_SITE_URL로 자기 도메인 지정 (없으면 B2B 사이트 biteme.one)
+const OG_SITE_URL = process.env.VITE_SITE_URL || 'https://www.biteme.one';
 const OG_DEFAULT_IMAGE = `${OG_SITE_URL}/og-image.jpg`;
 const OG_BRAND = 'BITE ME';
 const OG_PRODUCT_CACHE_TTL_MS = 60 * 60 * 1000; // 1시간

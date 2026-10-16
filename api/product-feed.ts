@@ -6,7 +6,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 // URL과 불일치하는 문제를 해결하기 위해 자체 피드를 생성한다.
 // RSS 2.0 + g: 네임스페이스 포맷 — Meta 커머스 매니저 / Google Merchant Center 공통 지원.
 
-const SITE_URL = 'https://www.biteme.one';
+// B2C 사이트는 Vercel 환경변수 VITE_SITE_URL로 자기 도메인 지정 (없으면 B2B 사이트 biteme.one)
+const SITE_URL = process.env.VITE_SITE_URL || 'https://www.biteme.one';
 const DEFAULT_BRAND = 'BITE ME';
 const PRODUCTS_PER_PAGE = 100;
 const MAX_PAGES = 30; // 안전장치 — 최대 3,000개 상품까지 수집

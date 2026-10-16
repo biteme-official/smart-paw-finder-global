@@ -305,7 +305,7 @@ async function sendToSlack(message: { blocks: unknown[] }) {
 }
 
 // ─── Health Check ────────────────────────────────────────────────────────────
-const SITE_URL = 'https://www.biteme.one';
+const SITE_URL = process.env.VITE_SITE_URL || 'https://www.biteme.one';
 const KV_KEY = 'health-check:history';
 const KV_DAILY_SENT_KEY = 'health-check:daily-sent';
 
@@ -546,6 +546,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!req.headers['x-vercel-cron']) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
+  }
+
+  // B2C 사이트는 같은 레포의 vercel.json cron을 공유하므로 자동 실행을 건너뛴다 (Slack 중복 발송 방지)
+  if (process.env.SITE_MODE === 'b2c' && req.headers['x-vercel-cron']) {
+    return res.status(200).json({ skipped: 'cron disabled on b2c site' });
   }
 
   // action=health → health check, default → daily sales report
