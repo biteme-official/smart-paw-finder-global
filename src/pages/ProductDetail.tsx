@@ -23,6 +23,7 @@ import { Footer } from "@/components/layout/Footer";
 import { RecommendedProducts } from "@/components/product/RecommendedProducts";
 import { ReviewWidget } from "@/components/product/ReviewWidget";
 import { ScrollToTop } from "@/components/ui/ScrollToTop";
+import { SITE_URL } from "@/lib/site";
 
 // Product detail skeleton component
 function ProductDetailSkeleton() {
@@ -217,7 +218,7 @@ export default function ProductDetail() {
       itemCondition: 'https://schema.org/NewCondition',
       offers: {
         '@type': 'Offer',
-        url: `https://biteme.one/product/${id}`,
+        url: `${SITE_URL}/product/${id}`,
         priceCurrency: price.currencyCode,
         price: price.amount,
         availability,
@@ -225,7 +226,7 @@ export default function ProductDetail() {
         seller: {
           '@type': 'Organization',
           name: 'BITE ME',
-          url: 'https://biteme.one',
+          url: SITE_URL,
         },
         hasMerchantReturnPolicy: {
           '@type': 'MerchantReturnPolicy',

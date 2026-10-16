@@ -42,7 +42,6 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
   const { avgRating, count } = useProductReviewSummary(numericId);
   const isB2B = useAuthStore((s) => s.isB2B);
   const b2bDiscountRate = useAuthStore((s) => s.b2bDiscountRate);
-  const b2bCountry = useAuthStore((s) => s.b2bCountry);
 
   const image = product.node.images.edges[0]?.node;
   const price = product.node.priceRange.minVariantPrice;
@@ -52,8 +51,8 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
   // 일반 고객에게는 원가만 표시 — 클라이언트 계산 할인가는 체크아웃가와 어긋날 수 있음.
   const showDiscount = isB2B && !isSoldOut;
   const saleAmt = (originalAmt * (1 - b2bDiscountRate)).toFixed(2);
-  // 미국 외 B2B 고객은 해외 리테일가를 취소선으로, 할인율도 그 기준으로 표시
-  const retailAmt = getB2BRetailAmount(price.amount, getIntlRetail(product.node), b2bCountry, saleAmt);
+  // B2B 고객에게는 해외 리테일가를 취소선으로, 할인율도 그 기준으로 표시
+  const retailAmt = getB2BRetailAmount(price.amount, getIntlRetail(product.node), saleAmt);
   const discountLabel = `${Math.round((1 - parseFloat(saleAmt) / parseFloat(retailAmt)) * 100)}% OFF`;
 
   return (

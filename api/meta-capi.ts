@@ -10,6 +10,9 @@ const PIXEL_ID = process.env.META_PIXEL_ID;
 const ACCESS_TOKEN = process.env.META_CAPI_ACCESS_TOKEN;
 const GRAPH_API_VERSION = 'v21.0';
 
+// 이벤트 발생 페이지 주소 검증용. B2C 사이트는 VITE_SITE_URL로 자기 도메인 지정
+const SITE_URL = process.env.VITE_SITE_URL || 'https://www.biteme.one';
+
 const ALLOWED_EVENTS = new Set(['ViewContent', 'AddToCart']);
 
 const ALLOWED_ORIGINS = [
@@ -83,7 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!body.content_ids.every((id) => typeof id === 'string' && id.length > 0 && id.length < 50)) {
     return res.status(400).json({ error: 'Invalid content_ids' });
   }
-  if (body.event_source_url && !body.event_source_url.startsWith('https://www.biteme.one')) {
+  if (body.event_source_url && !body.event_source_url.startsWith(SITE_URL)) {
     return res.status(400).json({ error: 'Invalid event_source_url' });
   }
 

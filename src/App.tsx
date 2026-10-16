@@ -8,7 +8,7 @@ import { trackPageView } from "@/lib/ga4-pageview";
 import { saveUtmParams, saveFbclid } from "@/lib/browser-utils";
 import { useAuthStore, fetchB2BDiscountRate } from "@/stores/authStore";
 import { isLoggedIn as isCustomerSessionValid } from "@/lib/customer-auth";
-import { fetchCustomerCountry } from "@/lib/customer-account";
+import { IS_B2C_SITE } from "@/lib/site";
 import Index from "./pages/Index";
 import ProductDetail from "./pages/ProductDetail";
 import CheckoutReturn from "./pages/CheckoutReturn";
@@ -94,10 +94,7 @@ function B2BDiscountSync() {
         const tags: string[] = data.tags || [];
         const b2b = tags.some(t => t.toUpperCase() === 'B2B');
         useAuthStore.getState().setB2B(b2b);
-        if (b2b) {
-          fetchB2BDiscountRate();
-          fetchCustomerCountry().then(c => useAuthStore.getState().setB2BCountry(c)).catch(() => {});
-        }
+        if (b2b) fetchB2BDiscountRate();
       })
       .catch(() => {});
   }, [isLoggedIn, user]);
@@ -136,7 +133,8 @@ const App = () => (
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/guest-order" element={<GuestOrderLookup />} />
           <Route path="/wishlist" element={<WishlistPage />} />
-          <Route path="/mypage/b2b-apply" element={<B2BApply />} />
+          {/* B2C 사이트에는 도매 신청 페이지가 없다 (없는 주소로 처리) */}
+          {!IS_B2C_SITE && <Route path="/mypage/b2b-apply" element={<B2BApply />} />}
           <Route path="/manage" element={<Suspense fallback={null}><ManageLayout /></Suspense>}>
             <Route index element={<Navigate to="b2b" replace />} />
             <Route path="b2b" element={<B2BAdmin />} />

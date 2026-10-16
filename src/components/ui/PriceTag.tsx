@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/authStore';
 interface PriceTagProps {
   amount: string;
   currencyCode: string;
-  // 해외 리테일가. 미국 외 B2B 고객에게 취소선 가격으로 표시 (도매가는 amount 기준 그대로)
+  // 해외 리테일가. B2B 고객에게 취소선 가격으로 표시 (도매가는 amount 기준 그대로)
   intlAmount?: string;
   className?: string;
   originalClassName?: string;
@@ -13,14 +13,13 @@ interface PriceTagProps {
 export function PriceTag({ amount, currencyCode, intlAmount, className = '', originalClassName = '' }: PriceTagProps) {
   const isB2B = useAuthStore((s) => s.isB2B);
   const discountRate = useAuthStore((s) => s.b2bDiscountRate);
-  const b2bCountry = useAuthStore((s) => s.b2bCountry);
 
   if (!isB2B) {
     return <span className={className} translate="no">{formatPrice(amount, currencyCode)}</span>;
   }
 
   const discounted = (parseFloat(amount) * (1 - discountRate)).toFixed(2);
-  const retail = getB2BRetailAmount(amount, intlAmount, b2bCountry, discounted);
+  const retail = getB2BRetailAmount(amount, intlAmount, discounted);
   const discountPercent = Math.round((1 - parseFloat(discounted) / parseFloat(retail)) * 100);
 
   return (
@@ -44,12 +43,11 @@ export function getB2BPrice(amount: string): string {
 }
 
 /**
- * B2B 화면의 취소선 리테일가.
- * 미국 외 국가 B2B 고객이고 해외 리테일가가 도매가보다 높을 때만 해외가, 그 외(미국·국가 미상·값 없음)는 기본가(미국가).
+ * B2B 화면의 취소선 리테일가. 도매처는 국가와 관계없이 해외 리테일가 공통.
+ * 해외 리테일가가 없거나 도매가보다 낮으면 기본가(미국가).
  */
-export function getB2BRetailAmount(amount: string, intlAmount: string | undefined, country: string | null, discounted: string): string {
-  const isIntl = !!country && country !== 'US';
-  if (isIntl && intlAmount && parseFloat(intlAmount) > parseFloat(discounted)) return intlAmount;
+export function getB2BRetailAmount(amount: string, intlAmount: string | undefined, discounted: string): string {
+  if (intlAmount && parseFloat(intlAmount) > parseFloat(discounted)) return intlAmount;
   return amount;
 }
 

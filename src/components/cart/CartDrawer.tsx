@@ -266,7 +266,7 @@ export const CartDrawer = ({ open: controlledOpen, onOpenChange, showTrigger = t
                             if (isB2B) {
                               const discUnit = (unitPrice * (1 - b2bRate)).toFixed(2);
                               const discTotal = (lineTotal * (1 - b2bRate)).toFixed(2);
-                              const retailUnit = getB2BRetailAmount(item.price.amount, getIntlRetail(item.product.node, item.variantId), useAuthStore.getState().b2bCountry, discUnit);
+                              const retailUnit = getB2BRetailAmount(item.price.amount, getIntlRetail(item.product.node, item.variantId), discUnit);
                               return (
                                 <>
                                   <p className="text-xs text-muted-foreground">
