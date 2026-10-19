@@ -46,6 +46,12 @@
   ],
   "redirects": [
     {
+      "source": "/",
+      "has": [{ "type": "query", "key": "collection", "value": "ssfw" }],
+      "destination": "https://www.biteme-us.com/mypage",
+      "permanent": false
+    },
+    {
       "source": "/products/:handle",
       "destination": "/product/:handle",
       "permanent": true
