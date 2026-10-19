@@ -46,6 +46,12 @@
   ],
   "redirects": [
     {
+      "source": "/",
+      "has": [{ "type": "query", "key": "collection", "value": "ssfw" }],
+      "destination": "https://www.biteme-us.com/mypage?utm_source=qr&utm_medium=offline&utm_campaign=ssfw",
+      "permanent": false
+    },
+    {
       "source": "/products/:handle",
       "destination": "/product/:handle",
       "permanent": true
