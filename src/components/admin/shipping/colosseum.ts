@@ -77,6 +77,10 @@ export interface ShopifyOrderInfo {
   droppedAddress2?: string;
   /** The surname / given-name split of the Shopify name was unclear (shown for review). */
   nameAmbiguous?: boolean;
+  /** Units of refunded (sold-out) lines left out of the order (shown on the card). */
+  cancelledQty?: number;
+  /** Order exported before fulfilment: refunded lines may still be listed (shown for review). */
+  preShipment?: boolean;
 }
 
 /** Countries without states / provinces: 수취인주 gets the country name. */

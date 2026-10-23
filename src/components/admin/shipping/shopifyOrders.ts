@@ -22,9 +22,14 @@ export interface ShopifyOrder {
   zip: string;
   country: string;
   currency: string;
+  /** Total minus Refunded Amount: what the shipped lines are worth (구매자전체결제금 base). */
   total: string;
   shippingMethod: string;
   cancelled: boolean;
+  /** Units of pending lines left out of a fulfilled order (refunded / sold out). */
+  cancelledQty: number;
+  /** Order not fulfilled yet: pending lines can't be told apart from refunded ones. */
+  preShipment: boolean;
   lines: ShopifyOrderLine[];
 }
 
@@ -34,9 +39,18 @@ type Row = Record<string, string>;
 const ORDER_COLUMNS = [
   'Email', 'Shipping Name', 'Shipping Phone', 'Shipping Address1', 'Shipping Address2', 'Shipping City',
   'Shipping Province', 'Shipping Zip', 'Shipping Country', 'Currency', 'Total', 'Shipping Method', 'Cancelled at',
+  'Fulfillment Status', 'Refunded Amount',
 ] as const;
 
 const cell = (row: Row, col: string) => String(row[col] ?? '').trim();
+
+/** "79.01" - "16.00" → "63.01"; the total as exported when nothing was refunded. */
+function netTotal(total: string, refunded: string): string {
+  const t = Number.parseFloat(total);
+  const r = Number.parseFloat(refunded);
+  if (!Number.isFinite(t) || !Number.isFinite(r) || r <= 0) return total;
+  return (Math.round(t * 100 - r * 100) / 100).toFixed(2);
+}
 
 export function readShopifyRows(XLSX: XLSXModule, file: { name: string; data: ArrayBuffer }): Row[] {
   const isCsv = file.name.toLowerCase().endsWith('.csv');
@@ -54,7 +68,7 @@ export function parseShopifyOrders(rows: Row[]): ShopifyOrder[] {
   }
   const orders = new Map<string, ShopifyOrder>();
   const firstRow = new Map<string, Row>();
-  // Orders that had lines left out because they don't ship.
+  // Orders that had lines left out because they don't ship or were refunded.
   const skippedLines = new Set<string>();
   for (const row of rows) {
     const number = cell(row, 'Name');
@@ -78,9 +92,11 @@ export function parseShopifyOrders(rows: Row[]): ShopifyOrder[] {
         zip: pick('Shipping Zip').replace(/^'/, ''),
         country: pick('Shipping Country'),
         currency: pick('Currency'),
-        total: pick('Total'),
+        total: netTotal(pick('Total'), pick('Refunded Amount')),
         shippingMethod: pick('Shipping Method'),
         cancelled: !!pick('Cancelled at'),
+        cancelledQty: 0,
+        preShipment: pick('Fulfillment Status').toLowerCase() !== 'fulfilled',
         lines: [],
       };
       orders.set(number, order);
@@ -92,12 +108,20 @@ export function parseShopifyOrders(rows: Row[]): ShopifyOrder[] {
       continue;
     }
     if (name) {
-      const qty = Number.parseInt(cell(row, 'Lineitem quantity'), 10);
-      order.lines.push({ name, qty: Number.isFinite(qty) && qty > 0 ? qty : 1, price: cell(row, 'Lineitem price') });
+      const parsed = Number.parseInt(cell(row, 'Lineitem quantity'), 10);
+      const qty = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+      // Orders are exported after fulfilment: a line still pending in a fulfilled order was
+      // refunded (sold out), so it isn't packed and gets no share of the amount.
+      if (!order.preShipment && cell(row, 'Lineitem fulfillment status').toLowerCase() === 'pending') {
+        order.cancelledQty += qty;
+        skippedLines.add(number);
+        continue;
+      }
+      order.lines.push({ name, qty, price: cell(row, 'Lineitem price') });
     }
   }
   // Cancelled orders are not shipped; fulfilment status doesn't matter (every line goes out).
-  // An order with nothing left to ship (only a gift card, ...) has no shipment either.
+  // An order with nothing left to ship (only a gift card, every line refunded, ...) has no shipment either.
   return [...orders.values()].filter((o) => !o.cancelled && !(o.lines.length === 0 && skippedLines.has(o.number)));
 }
 

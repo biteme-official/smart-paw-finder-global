@@ -963,6 +963,12 @@ export default function ColosseumShippingForm() {
                     Total differs by {totalGap < 0 ? '-' : ''}${Math.abs(totalGap).toFixed(2)}
                   </span>
                 )}
+                {r.order?.cancelledQty ? (
+                  <span className="text-xs text-muted-foreground">품절 취소 {r.order.cancelledQty}개 제외됨</span>
+                ) : null}
+                {r.order?.preShipment && (
+                  <span className="text-xs text-yellow-700">출고 전 주문 — 취소 상품 확인 필요</span>
+                )}
               </div>
               <Button variant="ghost" size="sm" disabled={recipients.length === 1}
                 onClick={(e) => { e.stopPropagation(); removeRecipient(r.id); }}>
