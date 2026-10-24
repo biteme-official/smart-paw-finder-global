@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useProductReviewSummary } from "@/hooks/useProductReview";
 import { useFavoriteAction } from "@/hooks/useFavoriteAction";
 import { useAuthStore } from "@/stores/authStore";
+import { getB2BRetailAmount, getIntlRetail } from "@/components/ui/PriceTag";
 
 export interface ProductCardBadge {
   label: string;
@@ -50,7 +51,9 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
   // 일반 고객에게는 원가만 표시 — 클라이언트 계산 할인가는 체크아웃가와 어긋날 수 있음.
   const showDiscount = isB2B && !isSoldOut;
   const saleAmt = (originalAmt * (1 - b2bDiscountRate)).toFixed(2);
-  const discountLabel = `${Math.round(b2bDiscountRate * 100)}% OFF`;
+  // B2B 고객에게는 해외 리테일가를 취소선으로, 할인율도 그 기준으로 표시
+  const retailAmt = getB2BRetailAmount(price.amount, getIntlRetail(product.node), saleAmt);
+  const discountLabel = `${Math.round((1 - parseFloat(saleAmt) / parseFloat(retailAmt)) * 100)}% OFF`;
 
   return (
     <div
@@ -110,7 +113,7 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
             {showDiscount ? (
               <>
                 <span className="text-[11px] text-muted-foreground line-through leading-none" translate="no">
-                  {formatPrice(price.amount, price.currencyCode)}
+                  {formatPrice(retailAmt, price.currencyCode)}
                 </span>
                 <span className="text-sm font-bold text-orange-500 leading-none" translate="no">
                   {formatPrice(saleAmt, price.currencyCode)}

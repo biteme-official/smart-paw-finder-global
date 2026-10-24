@@ -73,9 +73,16 @@ async function handleStorefrontProxy(req: Connect.IncomingMessage, res: any, use
     if (useAdmin) {
       headers['X-Shopify-Access-Token'] = await getAccessToken();
     } else {
-      const isMutation = /^\s*mutation\b/i.test(body.replace(/.*"query"\s*:\s*"/, ''));
-      if (isMutation) {
-        headers['Shopify-Storefront-Private-Token'] = await getAccessToken();
+      // 운영(api/shopify.ts)과 동일하게 Headless Private 토큰 사용 — 메타필드 조회에 필요
+      const storefrontToken = process.env.SHOPIFY_STOREFRONT_PRIVATE_TOKEN || '';
+      if (storefrontToken) {
+        headers['Shopify-Storefront-Private-Token'] = storefrontToken;
+      } else {
+        console.warn('[Shopify Proxy] SHOPIFY_STOREFRONT_PRIVATE_TOKEN 없음 — .env.local에 추가하지 않으면 메타필드 포함 조회가 실패합니다');
+        const isMutation = /^\s*mutation\b/i.test(body.replace(/.*"query"\s*:\s*"/, ''));
+        if (isMutation) {
+          headers['Shopify-Storefront-Private-Token'] = await getAccessToken();
+        }
       }
     }
 
