@@ -21,7 +21,7 @@ interface ProductCardProps {
 function StarRow({ avgRating, count }: { avgRating: number; count: number }) {
   const rounded = Math.round(avgRating);
   return (
-    <div className="flex items-center gap-1 mb-1">
+    <div className="flex items-center gap-1 h-4 mb-1">
       <div className="flex gap-0.5">
         {[1, 2, 3, 4, 5].map((s) => (
           <Star
@@ -55,7 +55,7 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
   return (
     <div
       onClick={onClick}
-      className="bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group"
+      className="h-full flex flex-col bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer group"
     >
       {/* Image */}
       <div className="aspect-square bg-secondary relative overflow-hidden">
@@ -98,14 +98,15 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
       </div>
 
       {/* Body */}
-      <div className="p-3">
-        {count > 0 && <StarRow avgRating={avgRating} count={count} />}
+      {/* Fixed-height star row + 2-line title keep every card the same height; price row is pinned to the bottom. */}
+      <div className="p-3 flex flex-col flex-1">
+        {count > 0 ? <StarRow avgRating={avgRating} count={count} /> : <div className="h-4 mb-1" aria-hidden />}
 
-        <h3 className="text-xs font-medium text-foreground line-clamp-2 mb-2 min-h-[32px]">
+        <h3 className="text-xs leading-4 font-medium text-foreground line-clamp-2 mb-2 h-8">
           {product.node.title}
         </h3>
 
-        <div className="flex items-center justify-between gap-1">
+        <div className="mt-auto flex items-center justify-between gap-1">
           <div className={`flex flex-wrap items-baseline gap-x-1 gap-y-0.5 min-w-0 ${isSoldOut ? "opacity-40" : ""}`}>
             {showDiscount ? (
               <>
