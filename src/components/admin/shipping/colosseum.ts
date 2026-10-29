@@ -81,6 +81,8 @@ export interface ShopifyOrderInfo {
   cancelledQty?: number;
   /** Order exported before fulfilment: refunded lines may still be listed (shown for review). */
   preShipment?: boolean;
+  /** Partially refunded order with a 2+ unit line: the quantity may include refunded units (shown for review). */
+  refundQtyCheck?: boolean;
 }
 
 /** Countries without states / provinces: 수취인주 gets the country name. */

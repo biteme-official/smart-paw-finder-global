@@ -44,6 +44,7 @@ export function orderToCardFields(o: ShopifyOrder, countries: Country[]): { fiel
         nameAmbiguous: ambiguous,
         cancelledQty: o.cancelledQty || undefined,
         preShipment: o.preShipment || undefined,
+        refundQtyCheck: o.refundQtyCheck || undefined,
       },
     },
   };

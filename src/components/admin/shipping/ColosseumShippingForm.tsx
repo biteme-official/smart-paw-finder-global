@@ -594,9 +594,27 @@ export default function ColosseumShippingForm() {
     setImportingOrders(true);
     try {
       const XLSX = await import('xlsx');
-      const orders = parseShopifyOrders(readShopifyRows(XLSX, { name: file.name, data: await file.arrayBuffer() }));
+      const { orders, lineStatusMissing, orderStatusMissing, zeroTotal } = parseShopifyOrders(
+        readShopifyRows(XLSX, { name: file.name, data: await file.arrayBuffer() }));
+      const notices: string[] = [];
+      if (lineStatusMissing) notices.push('Lineitem fulfillment status 열이 없어 환불 상품을 제외하지 않았습니다.');
+      if (orderStatusMissing) notices.push('Fulfillment Status 열이 없어 출고 전 여부를 확인하지 않았습니다.');
+      if (zeroTotal.length) {
+        notices.push(`결제금액이 $0인 주문은 등록하지 않았습니다: ${zeroTotal.join(', ')} — 환불·취소 여부를 확인해 주세요.`);
+      }
+      // Sonner stacks toasts with the newest in front: the notices go last, in one toast, so none is hidden.
+      const showNotices = () => {
+        if (!notices.length) return;
+        toast.warning(notices[0], {
+          position: 'top-center',
+          duration: 8000,
+          description: notices.length > 1 ? notices.slice(1).map((n) => <div key={n}>{n}</div>) : undefined,
+        });
+      };
       if (!orders.length) {
-        toast.error('파일에서 주문을 찾지 못했습니다.', { position: 'top-center' });
+        // Only $0 orders: their notice already says why nothing was added.
+        if (!zeroTotal.length) toast.error('파일에서 주문을 찾지 못했습니다.', { position: 'top-center' });
+        showNotices();
         return;
       }
       const unmatched: string[] = [];
@@ -626,9 +644,8 @@ export default function ColosseumShippingForm() {
       });
       setRecipients((prev) => [...prev.filter((r) => !isBlankRecipient(r)), ...added]);
       toast.success(`주문 ${added.length}건을 등록했습니다.`, { position: 'top-center' });
-      if (unmatched.length) {
-        toast.error(`국가를 찾지 못했습니다: ${unmatched.join(', ')} — 직접 선택해 주세요.`, { position: 'top-center' });
-      }
+      if (unmatched.length) notices.push(`국가를 찾지 못했습니다: ${unmatched.join(', ')} — 직접 선택해 주세요.`);
+      showNotices();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '주문서를 읽지 못했습니다.', { position: 'top-center' });
     } finally {
@@ -968,6 +985,9 @@ export default function ColosseumShippingForm() {
                 ) : null}
                 {r.order?.preShipment && (
                   <span className="text-xs text-yellow-700">출고 전 주문 — 취소 상품 확인 필요</span>
+                )}
+                {r.order?.refundQtyCheck && (
+                  <span className="text-xs text-yellow-700">환불 있음 — 수량 확인 필요</span>
                 )}
               </div>
               <Button variant="ghost" size="sm" disabled={recipients.length === 1}
