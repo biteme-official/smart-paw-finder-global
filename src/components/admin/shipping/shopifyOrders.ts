@@ -22,10 +22,27 @@ export interface ShopifyOrder {
   zip: string;
   country: string;
   currency: string;
+  /** Total minus Refunded Amount: what the shipped lines are worth (구매자전체결제금 base). */
   total: string;
   shippingMethod: string;
   cancelled: boolean;
+  /** Units of pending lines left out of a fulfilled order (refunded / sold out). */
+  cancelledQty: number;
+  /** Order not fulfilled yet: pending lines can't be told apart from refunded ones. */
+  preShipment: boolean;
+  /** Partially refunded with a multi-unit line kept: part of that line may have been refunded. */
+  refundQtyCheck: boolean;
   lines: ShopifyOrderLine[];
+}
+
+export interface ShopifyOrdersResult {
+  orders: ShopifyOrder[];
+  /** No Lineitem fulfillment status column: refunded lines could not be left out. */
+  lineStatusMissing: boolean;
+  /** No order-level Fulfillment Status column: only orders with every line pending were treated as pre-shipment. */
+  orderStatusMissing: boolean;
+  /** Orders left out because a refund brought their total to 0. */
+  zeroTotal: string[];
 }
 
 type Row = Record<string, string>;
@@ -34,9 +51,18 @@ type Row = Record<string, string>;
 const ORDER_COLUMNS = [
   'Email', 'Shipping Name', 'Shipping Phone', 'Shipping Address1', 'Shipping Address2', 'Shipping City',
   'Shipping Province', 'Shipping Zip', 'Shipping Country', 'Currency', 'Total', 'Shipping Method', 'Cancelled at',
+  'Fulfillment Status', 'Financial Status', 'Refunded Amount',
 ] as const;
 
 const cell = (row: Row, col: string) => String(row[col] ?? '').trim();
+
+/** "79.01" - "16.00" → "63.01"; the total as exported when nothing was refunded. */
+function netTotal(total: string, refunded: string): string {
+  const t = Number.parseFloat(total);
+  const r = Number.parseFloat(refunded);
+  if (!Number.isFinite(t) || !Number.isFinite(r) || r <= 0) return total;
+  return (Math.round(t * 100 - r * 100) / 100).toFixed(2);
+}
 
 export function readShopifyRows(XLSX: XLSXModule, file: { name: string; data: ArrayBuffer }): Row[] {
   const isCsv = file.name.toLowerCase().endsWith('.csv');
@@ -48,14 +74,21 @@ export function readShopifyRows(XLSX: XLSXModule, file: { name: string; data: Ar
   return XLSX.utils.sheet_to_json<Row>(ws, { defval: '', raw: false });
 }
 
-export function parseShopifyOrders(rows: Row[]): ShopifyOrder[] {
+export function parseShopifyOrders(rows: Row[]): ShopifyOrdersResult {
   if (rows.length && !('Name' in rows[0] && 'Lineitem name' in rows[0])) {
     throw new Error('Shopify 주문 내보내기 파일이 아닙니다 (Name / Lineitem name 열 없음).');
   }
+  // Without the line status every line is kept, and the import shows one notice instead of per-card warnings.
+  const lineStatusMissing = rows.length > 0 && !('Lineitem fulfillment status' in rows[0]);
+  // Without the order status, pending lines are left out unless every line of the order is pending.
+  const orderStatusMissing = rows.length > 0 && !('Fulfillment Status' in rows[0]);
   const orders = new Map<string, ShopifyOrder>();
+  const refundedOrders = new Set<string>();
   const firstRow = new Map<string, Row>();
-  // Orders that had lines left out because they don't ship.
+  // Orders that had lines left out because they don't ship or were refunded.
   const skippedLines = new Set<string>();
+  // Pending lines left out, kept to put back when the order turns out to be pre-shipment.
+  const pendingLines = new Map<string, ShopifyOrderLine[]>();
   for (const row of rows) {
     const number = cell(row, 'Name');
     if (!number) continue;
@@ -78,12 +111,16 @@ export function parseShopifyOrders(rows: Row[]): ShopifyOrder[] {
         zip: pick('Shipping Zip').replace(/^'/, ''),
         country: pick('Shipping Country'),
         currency: pick('Currency'),
-        total: pick('Total'),
+        total: netTotal(pick('Total'), pick('Refunded Amount')),
         shippingMethod: pick('Shipping Method'),
         cancelled: !!pick('Cancelled at'),
+        cancelledQty: 0,
+        preShipment: !lineStatusMissing && !orderStatusMissing && pick('Fulfillment Status').toLowerCase() !== 'fulfilled',
+        refundQtyCheck: pick('Financial Status').toLowerCase() === 'partially_refunded',
         lines: [],
       };
       orders.set(number, order);
+      if (Number.parseFloat(pick('Refunded Amount')) > 0) refundedOrders.add(number);
     }
     const name = cell(row, 'Lineitem name');
     // Shipping protection, gift cards, ...: not packed, so not a product line and no share of the amount.
@@ -92,13 +129,43 @@ export function parseShopifyOrders(rows: Row[]): ShopifyOrder[] {
       continue;
     }
     if (name) {
-      const qty = Number.parseInt(cell(row, 'Lineitem quantity'), 10);
-      order.lines.push({ name, qty: Number.isFinite(qty) && qty > 0 ? qty : 1, price: cell(row, 'Lineitem price') });
+      const parsed = Number.parseInt(cell(row, 'Lineitem quantity'), 10);
+      const qty = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+      // Orders are exported after fulfilment: a line still pending in a fulfilled order was
+      // refunded (sold out), so it isn't packed and gets no share of the amount.
+      const line = { name, qty, price: cell(row, 'Lineitem price') };
+      if (!order.preShipment && cell(row, 'Lineitem fulfillment status').toLowerCase() === 'pending') {
+        order.cancelledQty += qty;
+        skippedLines.add(number);
+        pendingLines.set(number, [...(pendingLines.get(number) ?? []), line]);
+        continue;
+      }
+      order.lines.push(line);
+    }
+  }
+  // Without the order status, an order with every line pending hasn't shipped yet: its lines are put back.
+  if (orderStatusMissing && !lineStatusMissing) {
+    for (const o of orders.values()) {
+      const pending = pendingLines.get(o.number);
+      if (o.lines.length || !pending) continue;
+      o.lines = pending;
+      o.cancelledQty = 0;
+      o.preShipment = true;
     }
   }
   // Cancelled orders are not shipped; fulfilment status doesn't matter (every line goes out).
-  // An order with nothing left to ship (only a gift card, ...) has no shipment either.
-  return [...orders.values()].filter((o) => !o.cancelled && !(o.lines.length === 0 && skippedLines.has(o.number)));
+  // An order with nothing left to ship (only a gift card, every line refunded, ...) has no shipment either.
+  const shipped = [...orders.values()].filter((o) => !o.cancelled && !(o.lines.length === 0 && skippedLines.has(o.number)));
+  // A partial refund can't be traced to a line: only a kept line of 2+ units may hide one.
+  for (const o of shipped) o.refundQtyCheck = o.refundQtyCheck && o.lines.some((l) => l.qty >= 2);
+  // Pending lines only need checking when something was refunded.
+  for (const o of shipped) o.preShipment = o.preShipment && refundedOrders.has(o.number);
+  // Refunded down to 0 or below (fully refunded but not cancelled): no card, the order is only reported.
+  // A $0 order without a refund (100% discount seeding, ...) still ships and gets a card.
+  const zeroTotal = shipped
+    .filter((o) => refundedOrders.has(o.number) && Math.round(Number.parseFloat(o.total) * 100) <= 0)
+    .map((o) => o.number);
+  return { orders: shipped.filter((o) => !zeroTotal.includes(o.number)), lineStatusMissing, orderStatusMissing, zeroTotal };
 }
 
 // Name prefixes written with an inner capital (LeBron, McDonald) that are not a name boundary.

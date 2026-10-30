@@ -1,6 +1,6 @@
 // Shopify order → recipient card fields, following the overseas team's sheet rules.
 import {
-  NO_STATE_COUNTRIES, findCountry, hasNoPostalCode, titleCaseIfAllCaps, type Country, type Recipient,
+  NO_STATE_COUNTRIES, findCountry, hasNoPostalCode, orderFullAddress, titleCaseIfAllCaps, type Country, type Recipient,
 } from './colosseum';
 import { normalizePhone } from './phone';
 import { isB2BShipping, reorderShopifyName, type ShopifyOrder } from './shopifyOrders';
@@ -16,6 +16,12 @@ export function orderToCardFields(o: ShopifyOrder, countries: Country[]): { fiel
   const address2 = dropAddress2 ? '' : o.address2;
   const { name, ambiguous } = reorderShopifyName(o.shippingName);
   const countryCode = country?.code ?? '';
+  const city = titleCaseIfAllCaps(o.city, countryCode);
+  // 수취인주: state / province code; countries without states get the country name.
+  const state = country && NO_STATE_COUNTRIES.has(country.code) ? country.en : o.province || country?.en || '';
+  // 수취인우편번호: blank for countries without postal codes; a missing one is typed by hand.
+  const zip = hasNoPostalCode(countryCode) ? '' : o.zip;
+  const lines = titleCaseIfAllCaps([o.address1, address2].filter(Boolean).join(', '), countryCode);
   return {
     country,
     fields: {
@@ -24,12 +30,11 @@ export function orderToCardFields(o: ShopifyOrder, countries: Country[]): { fiel
       // Same "+<calling code> <digits>" format as seeding shipments.
       phone: countryCode ? normalizePhone(o.phone, countryCode).value : o.phone,
       countryCode,
-      address: titleCaseIfAllCaps([o.address1, address2].filter(Boolean).join(', '), countryCode),
-      city: titleCaseIfAllCaps(o.city, countryCode),
-      // 수취인주: state / province code; countries without states get the country name.
-      state: country && NO_STATE_COUNTRIES.has(country.code) ? country.en : o.province || country?.en || '',
-      // 수취인우편번호: blank for countries without postal codes; a missing one is typed by hand.
-      zip: hasNoPostalCode(countryCode) ? '' : o.zip,
+      // 전체 주소: the whole address in one line; city / state / zip below are filled on their own too.
+      address: orderFullAddress(lines, { city, state, zip, countryCode }, country),
+      city,
+      state,
+      zip,
       products: o.lines.length ? o.lines.map((l) => l.name) : [''],
       order: {
         number: o.number,
@@ -42,6 +47,9 @@ export function orderToCardFields(o: ShopifyOrder, countries: Country[]): { fiel
         hasAddress2: !!address2,
         droppedAddress2: dropAddress2 ? o.address2 : undefined,
         nameAmbiguous: ambiguous,
+        cancelledQty: o.cancelledQty || undefined,
+        preShipment: o.preShipment || undefined,
+        refundQtyCheck: o.refundQtyCheck || undefined,
       },
     },
   };

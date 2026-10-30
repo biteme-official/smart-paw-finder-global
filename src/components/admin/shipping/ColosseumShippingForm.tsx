@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
   ORDER_START, TEMPLATE_URL, assignOrderNumbers, orderDatePrefix, orderNumber, buildRows, buildWorkbook, detectCountry, downloadFileName, findCountry,
-  hasBattery, hasNoPostalCode, isAmbiguousCountry, orderTotalGap, parseAddress, titleCaseIfAllCaps, readCountries, type Country, type Recipient,
+  hasBattery, hasNoPostalCode, isAmbiguousCountry, orderAddressTail, orderTotalGap, parseAddress, titleCaseIfAllCaps, readCountries, type Country, type Recipient,
   SEEDING_EMAIL, countryFromRegion, isValidEmail, normalizeEmail,
 } from './colosseum';
 import { parseSurveyPaste } from './surveyPaste';
@@ -255,6 +255,14 @@ function AckHint({ text, onAck }: { text: string; onAck: () => void }) {
   );
 }
 
+/** One warning per order card: pre-shipment (cancelled lines kept) and / or a refund that may cover part of a line. */
+function orderWarning(order: Recipient['order']): string {
+  if (order?.preShipment && order.refundQtyCheck) return '취소·환불 건 있음 — 상품·수량 확인 필요';
+  if (order?.preShipment) return '취소·환불 건 있음 — 상품 확인 필요';
+  if (order?.refundQtyCheck) return '환불 건 있음 — 수량 확인 필요';
+  return '';
+}
+
 function FieldHint({ source }: { source: Source | undefined }) {
   if (source === 'notfound') return <p className="text-[11px] text-red-600 mt-1">주소에서 찾지 못함 - 직접 입력</p>;
   return null;
@@ -454,10 +462,23 @@ export default function ColosseumShippingForm() {
       }
       if ((AUTO_FIELDS as string[]).includes(field)) {
         next.sources = { ...r.sources, [field]: value.trim() ? 'manual' : undefined };
+        // Order cards' 전체 주소 ends with city / state / zip / country: it follows their edits.
+        if (r.order) next.address = withOrderTail(r, next);
       }
       // A newly chosen country completes a phone typed without its calling code.
       return field === 'countryCode' ? withPhone(next) : next;
     });
+  };
+
+  /** Order card's address with its city / state / zip / country tail rewritten from `next` (kept when edited by hand). */
+  const withOrderTail = (prev: Recipient, next: Recipient) => {
+    const country = (code: string) => countries.find((c) => c.code === code);
+    const before = orderAddressTail(prev, country(prev.countryCode));
+    const after = orderAddressTail(next, country(next.countryCode));
+    if (!before) return [prev.address.replace(/,\s*$/, ''), after].filter(Boolean).join(', ');
+    if (!prev.address.endsWith(before)) return next.address;
+    const lines = prev.address.slice(0, prev.address.length - before.length).replace(/,\s*$/, '');
+    return [lines, after].filter(Boolean).join(', ');
   };
 
   const ack = (id: string, key: AckKey) => patch(id, (r) => ({ ...r, acked: { ...r.acked, [key]: true } }));
@@ -538,6 +559,7 @@ export default function ColosseumShippingForm() {
    * Fills country / city / state / zip from the address line, in the browser only (nothing is
    * looked up). Manual values are never overwritten; what the line doesn't give is marked
    * "주소에서 찾지 못함" for the user to type.
+   * Order cards keep Shopify's city / state / zip (Shipping City / Province / Zip), even with the button.
    */
   const resolveAddress = useCallback((id: string, force = false) => {
     const current = recipientsRef.current.find((r) => r.id === id);
@@ -559,7 +581,7 @@ export default function ColosseumShippingForm() {
       const found = detectCountry(address, countries);
       if (found) { next.countryCode = found.code; next.sources.countryCode = 'parsed'; }
     }
-    // Order cards already have Shopify's city / state / zip; their address line holds no postal code.
+    // Order cards keep Shopify's city / state / zip: they are never read back from 전체 주소.
     if (!current.order) {
       const parsed = parseAddress(address, countries.find((c) => c.code === next.countryCode));
       for (const f of ['city', 'state', 'zip'] as const) {
@@ -594,9 +616,29 @@ export default function ColosseumShippingForm() {
     setImportingOrders(true);
     try {
       const XLSX = await import('xlsx');
-      const orders = parseShopifyOrders(readShopifyRows(XLSX, { name: file.name, data: await file.arrayBuffer() }));
+      const { orders, lineStatusMissing, orderStatusMissing, zeroTotal } = parseShopifyOrders(
+        readShopifyRows(XLSX, { name: file.name, data: await file.arrayBuffer() }));
+      const notices: string[] = [];
+      if (lineStatusMissing) notices.push('Lineitem fulfillment status 열이 없어 환불 상품을 제외하지 않았습니다.');
+      if (orderStatusMissing && !lineStatusMissing) {
+        notices.push('Fulfillment Status 열이 없어, 모든 상품이 미출고인 주문은 출고 전 주문으로 처리했습니다.');
+      }
+      if (zeroTotal.length) {
+        notices.push(`결제금액이 $0인 주문은 등록하지 않았습니다: ${zeroTotal.join(', ')} — 환불·취소 여부를 확인해 주세요.`);
+      }
+      // Sonner stacks toasts with the newest in front: the notices go last, in one toast, so none is hidden.
+      const showNotices = () => {
+        if (!notices.length) return;
+        toast.warning(notices[0], {
+          position: 'top-center',
+          duration: 8000,
+          description: notices.length > 1 ? notices.slice(1).map((n) => <div key={n}>{n}</div>) : undefined,
+        });
+      };
       if (!orders.length) {
-        toast.error('파일에서 주문을 찾지 못했습니다.', { position: 'top-center' });
+        // Only $0 orders: their notice already says why nothing was added.
+        if (!zeroTotal.length) toast.error('파일에서 주문을 찾지 못했습니다.', { position: 'top-center' });
+        showNotices();
         return;
       }
       const unmatched: string[] = [];
@@ -626,9 +668,8 @@ export default function ColosseumShippingForm() {
       });
       setRecipients((prev) => [...prev.filter((r) => !isBlankRecipient(r)), ...added]);
       toast.success(`주문 ${added.length}건을 등록했습니다.`, { position: 'top-center' });
-      if (unmatched.length) {
-        toast.error(`국가를 찾지 못했습니다: ${unmatched.join(', ')} — 직접 선택해 주세요.`, { position: 'top-center' });
-      }
+      if (unmatched.length) notices.push(`국가를 찾지 못했습니다: ${unmatched.join(', ')} — 직접 선택해 주세요.`);
+      showNotices();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '주문서를 읽지 못했습니다.', { position: 'top-center' });
     } finally {
@@ -962,6 +1003,12 @@ export default function ColosseumShippingForm() {
                   <span className="text-xs text-yellow-700">
                     Total differs by {totalGap < 0 ? '-' : ''}${Math.abs(totalGap).toFixed(2)}
                   </span>
+                )}
+                {r.order?.cancelledQty ? (
+                  <span className="text-xs text-muted-foreground">품절 취소 {r.order.cancelledQty}개 제외됨</span>
+                ) : null}
+                {orderWarning(r.order) && (
+                  <span className="text-xs text-yellow-700">{orderWarning(r.order)}</span>
                 )}
               </div>
               <Button variant="ghost" size="sm" disabled={recipients.length === 1}
