@@ -559,8 +559,7 @@ export default function ColosseumShippingForm() {
    * Fills country / city / state / zip from the address line, in the browser only (nothing is
    * looked up). Manual values are never overwritten; what the line doesn't give is marked
    * "주소에서 찾지 못함" for the user to type.
-   * Order cards keep Shopify's city / state / zip unless the button is pressed or the address's
-   * city / state / zip / country tail was changed by hand.
+   * Order cards keep Shopify's city / state / zip (Shipping City / Province / Zip), even with the button.
    */
   const resolveAddress = useCallback((id: string, force = false) => {
     const current = recipientsRef.current.find((r) => r.id === id);
@@ -570,10 +569,8 @@ export default function ColosseumShippingForm() {
     if (!address || (!force && address === current.resolvedAddress)) return;
 
     const next: RecipientState = { ...current, sources: { ...current.sources }, resolvedAddress: address };
-    const tail = current.order ? orderAddressTail(current, countries.find((c) => c.code === current.countryCode)) : '';
-    const reparse = force || !current.order || !address.toLowerCase().endsWith(tail.toLowerCase());
     // Clear earlier automatic values so a changed address doesn't keep stale data.
-    for (const f of reparse ? AUTO_FIELDS : []) {
+    for (const f of AUTO_FIELDS) {
       if (next.sources[f] && next.sources[f] !== 'manual') {
         next[f] = '';
         next.sources[f] = undefined;
@@ -584,11 +581,9 @@ export default function ColosseumShippingForm() {
       const found = detectCountry(address, countries);
       if (found) { next.countryCode = found.code; next.sources.countryCode = 'parsed'; }
     }
-    if (reparse) {
-      const country = countries.find((c) => c.code === next.countryCode);
-      const parsed = parseAddress(address, country);
-      // Order cards, as on import: an order without a state gets the country name as 수취인주.
-      if (current.order && !parsed.state && country) parsed.state = country.en;
+    // Order cards keep Shopify's city / state / zip: they are never read back from 전체 주소.
+    if (!current.order) {
+      const parsed = parseAddress(address, countries.find((c) => c.code === next.countryCode));
       for (const f of ['city', 'state', 'zip'] as const) {
         if (!next[f] && parsed[f]) { next[f] = parsed[f]; next.sources[f] = 'parsed'; }
       }
@@ -652,9 +647,8 @@ export default function ColosseumShippingForm() {
         if (!country) unmatched.push(`${o.number} (${o.country || '국가 없음'})`);
         // Shopify already split the address: whatever it left empty is typed by hand.
         const missing = new Set<string>(missingAddressParts(fields));
-        // Shopify's values count as read from the address: "주소로 다시 채우기" may replace them.
         const source = (f: 'city' | 'state' | 'zip', v: string) =>
-          (v ? 'parsed' as const : missing.has(f) ? 'notfound' as const : undefined);
+          (v ? 'manual' as const : missing.has(f) ? 'notfound' as const : undefined);
         return {
           ...newRecipient(),
           ...fields,
