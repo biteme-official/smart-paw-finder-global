@@ -15,19 +15,17 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   AlertCircle, BatteryCharging, CheckCircle2, ChevronDown, ChevronsUpDown, ClipboardPaste, Download, FileSpreadsheet, Loader2,
-  Plus, RefreshCw, Save, Truck,
+  Plus, RefreshCw, Truck,
   Trash2, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
   ORDER_START, TEMPLATE_URL, assignOrderNumbers, orderDatePrefix, orderNumber, buildRows, buildWorkbook, detectCountry, downloadFileName, findCountry,
-  hasBattery, hasNoPostalCode, isAmbiguousCountry, orderAddressTail, orderTotalGap, parseAddress, titleCaseIfAllCaps, readCountries, type Country, type Recipient, type SheetRow,
+  hasBattery, hasNoPostalCode, isAmbiguousCountry, orderAddressTail, orderTotalGap, parseAddress, titleCaseIfAllCaps, readCountries, type Country, type Recipient,
   SEEDING_EMAIL, countryFromRegion, isValidEmail, normalizeEmail,
 } from './colosseum';
 import { parseSurveyPaste } from './surveyPaste';
-import { useManageAuth } from '@/components/admin/ManageLayout';
-import { SHEET_RETENTION_DAYS, SheetApiError, downloadBytes, recipientKinds, saveSheet, sheetRecipients } from './shippingSheets';
 // Survey product option answer (BANANA, ...) → product name; edit the JSON for other seedings.
 import seedingOptions from './seeding-options.json';
 import { hasCallingCode, normalizePhone, phoneIssue } from './phone';
@@ -415,10 +413,6 @@ export default function ColosseumShippingForm() {
   // Recipients added by bulk paste whose address still has to be resolved (after render).
   const pendingResolve = useRef<string[]>([]);
   const [downloading, setDownloading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  // Cards, date and start number of the last 엑셀 다운로드 (저장하기 right after it saves that sheet).
-  const lastDownload = useRef<{ recipients: RecipientState[]; shipDate: string; start: number } | null>(null);
-  const { adminKey, logout } = useManageAuth();
 
   // Latest state for async address resolution.
   const recipientsRef = useRef(recipients);
@@ -828,42 +822,28 @@ export default function ColosseumShippingForm() {
     });
   };
 
-  /** Same checks for 엑셀 다운로드 and 저장하기: a sheet is only made once every card is complete. */
-  const readyToBuild = () => {
+  const handleDownload = async () => {
     if (!shipDate) {
       toast.error('출고일자를 입력해 주세요.', { position: 'top-center' });
-      return false;
+      return;
     }
     if (incomplete.length) {
       setShowMissingNotice(true);
       toast.error(`${incomplete.length}명 미입력 — 아래 목록에서 눌러 이동하세요.`, { position: 'top-center' });
-      return false;
+      return;
     }
-    return !!template;
-  };
-
-  /** Rows and numbers of the sheet when seeding numbers start at `sheetStart`. */
-  const sheetFor = (sheetStart: number) => {
-    if (sheetStart === start) return { rows, orders, seeding: seedingOrders };
-    const numbers = assignOrderNumbers(recipients, shipDate, sheetStart, countries);
-    return {
-      rows: buildRows(recipients, shipDate, countries, sheetStart),
-      orders: numbers,
-      seeding: [...new Set(recipients.filter((r) => !r.order).map((r) => numbers.get(r.id) ?? ''))].filter(Boolean),
-    };
-  };
-
-  const buildSheet = async (sheetRows: SheetRow[] = rows) => {
-    const XLSX = await import('xlsx');
-    return buildWorkbook(XLSX, template!, sheetRows);
-  };
-
-  const handleDownload = async () => {
-    if (!readyToBuild()) return;
+    if (!template) return;
     setDownloading(true);
     try {
-      downloadBytes(await buildSheet(), downloadFileName(shipDate));
-      lastDownload.current = { recipients, shipDate, start };
+      const XLSX = await import('xlsx');
+      const bytes = buildWorkbook(XLSX, template, rows);
+      const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = downloadFileName(shipDate);
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
       if (seedingOrders.length) {
         saveLastOrder(shipDate, start + seedingOrders.length - 1);
         // The next batch on this screen continues after the saved number instead of reusing it.
@@ -873,44 +853,6 @@ export default function ColosseumShippingForm() {
       toast.error('엑셀 생성에 실패했습니다.', { position: 'top-center' });
     } finally {
       setDownloading(false);
-    }
-  };
-
-  /**
-   * Stores the sheet (출고시트 tab). Right after 엑셀 다운로드, with the cards unchanged, it is the
-   * downloaded sheet (its numbers, though the screen has moved on to the next ones); otherwise the
-   * sheet as 엑셀 다운로드 would make it now.
-   */
-  const handleSave = async () => {
-    if (!readyToBuild()) return;
-    setSaving(true);
-    try {
-      const last = lastDownload.current;
-      const sheetStart = last && last.recipients === recipients && last.shipDate === shipDate ? last.start : start;
-      const sheet = sheetFor(sheetStart);
-      const bytes = await buildSheet(sheet.rows);
-      const { duplicate } = await saveSheet(adminKey, {
-        shipDate,
-        startNo: sheetStart,
-        firstOrder: sheet.seeding[0] ?? '',
-        lastOrder: sheet.seeding[sheet.seeding.length - 1] ?? '',
-        orderNumbers: recipients.flatMap((r) => (r.order ? [r.order.number] : [])),
-        kinds: recipientKinds(recipients),
-        recipients: recipients.length,
-        lines: sheet.rows.length,
-      }, sheetRecipients(recipients, sheet.rows, sheet.orders), bytes);
-      // The numbers are taken, but this screen keeps them: a download after saving matches the saved sheet.
-      if (sheet.seeding.length) saveLastOrder(shipDate, sheetStart + sheet.seeding.length - 1);
-      toast.success('출고시트를 저장했습니다. 출고시트 탭에서 다시 받을 수 있습니다.', { position: 'top-center' });
-      if (duplicate) {
-        toast.warning(`이미 저장된 시트가 있음 — 출고일자 ${shipDate}, 시작 번호 ${sheetStart}로 저장한 시트가 있어 새 항목으로 저장했습니다.`,
-          { position: 'top-center', duration: 8000 });
-      }
-    } catch (e) {
-      if (e instanceof SheetApiError && e.status === 401) { logout(); return; }
-      toast.error('출고시트를 저장하지 못했습니다.', { position: 'top-center' });
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -1370,13 +1312,7 @@ export default function ColosseumShippingForm() {
       </AlertDialog>
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-2">
-        <p className="text-xs text-muted-foreground">
-          입력 중인 정보는 새로고침하면 사라집니다. '저장하기'를 누른 출고시트만 관리자 전용 저장소에 보관되며, {SHEET_RETENTION_DAYS}일 후 자동 삭제됩니다.
-        </p>
-        <Button variant="outline" className="w-full md:w-auto" disabled={!template || saving || recipients.length === 0} onClick={handleSave}>
-          {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-          저장하기
-        </Button>
+        <p className="text-xs text-muted-foreground">입력한 정보는 서버에 저장되지 않으며 새로고침하면 사라집니다.</p>
         <Button className="w-full md:w-auto" disabled={!template || downloading || recipients.length === 0} onClick={handleDownload}>
           {downloading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
           엑셀 다운로드

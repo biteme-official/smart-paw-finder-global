@@ -1,8 +1,7 @@
 // Colosseum (overseas fulfilment partner) shipment sheet: fixed values, product list,
 // address parsing and in-browser .xlsx generation from the empty template in public/.
 // Everything here runs in the browser only: city / state / zip are read from the address text
-// (no map or address lookup) and recipient data is never sent anywhere. Only a sheet saved with
-// 저장하기 is stored, admin only, for 90 days (shippingSheets.ts → api/shipping-sheets.ts).
+// (no map or address lookup), recipient data is never sent anywhere and nothing is stored on a server.
 // The fixed sender details (FIXED, SEEDING_EMAIL) ship only in the /manage/international-shipping
 // chunk, which App.tsx loads on demand, not in the store bundle.
 import type * as XLSXNS from 'xlsx';
