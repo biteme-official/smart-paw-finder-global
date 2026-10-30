@@ -193,6 +193,8 @@ async function handleDelete(req: VercelRequest, res: VercelResponse) {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // The same api/ is deployed to the B2C project too: sheets (recipients' personal data) are B2B admin only.
+  if (process.env.SITE_MODE === 'b2c') return res.status(404).json({ error: 'Not found' });
   // Same-origin admin page only: no CORS headers.
   if (!checkAdmin(req)) return res.status(401).json({ error: 'Unauthorized' });
   const action = req.query.action as string;

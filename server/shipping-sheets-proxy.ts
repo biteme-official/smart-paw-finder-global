@@ -37,6 +37,8 @@ export function shippingSheetsProxyMiddleware(): Connect.NextHandleFunction {
   return async (req, res, next) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
     if (url.pathname !== '/api/shipping-sheets') return next();
+    // Same as api/shipping-sheets.ts: B2B site only.
+    if (process.env.SITE_MODE === 'b2c') return json(res, 404, { error: 'Not found' });
     if (!checkAdminAuth(req)) return json(res, 401, { error: 'Unauthorized' });
     const action = url.searchParams.get('action');
     const id = url.searchParams.get('id');
