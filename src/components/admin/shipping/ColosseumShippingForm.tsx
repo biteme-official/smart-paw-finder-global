@@ -15,17 +15,19 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   AlertCircle, BatteryCharging, CheckCircle2, ChevronDown, ChevronsUpDown, ClipboardPaste, Download, FileSpreadsheet, Loader2,
-  Plus, RefreshCw, Truck,
+  Plus, RefreshCw, Save, Truck,
   Trash2, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
   ORDER_START, TEMPLATE_URL, assignOrderNumbers, orderDatePrefix, orderNumber, buildRows, buildWorkbook, detectCountry, downloadFileName, findCountry,
-  hasBattery, hasNoPostalCode, isAmbiguousCountry, orderTotalGap, parseAddress, titleCaseIfAllCaps, readCountries, type Country, type Recipient,
+  hasBattery, hasNoPostalCode, isAmbiguousCountry, orderAddressTail, orderTotalGap, parseAddress, titleCaseIfAllCaps, readCountries, type Country, type Recipient, type SheetRow,
   SEEDING_EMAIL, countryFromRegion, isValidEmail, normalizeEmail,
 } from './colosseum';
 import { parseSurveyPaste } from './surveyPaste';
+import { useManageAuth } from '@/components/admin/ManageLayout';
+import { SHEET_RETENTION_DAYS, SheetApiError, downloadBytes, recipientKinds, saveSheet, sheetRecipients } from './shippingSheets';
 // Survey product option answer (BANANA, ...) → product name; edit the JSON for other seedings.
 import seedingOptions from './seeding-options.json';
 import { hasCallingCode, normalizePhone, phoneIssue } from './phone';
@@ -255,6 +257,14 @@ function AckHint({ text, onAck }: { text: string; onAck: () => void }) {
   );
 }
 
+/** One warning per order card: pre-shipment (cancelled lines kept) and / or a refund that may cover part of a line. */
+function orderWarning(order: Recipient['order']): string {
+  if (order?.preShipment && order.refundQtyCheck) return '취소·환불 건 있음 — 상품·수량 확인 필요';
+  if (order?.preShipment) return '취소·환불 건 있음 — 상품 확인 필요';
+  if (order?.refundQtyCheck) return '환불 건 있음 — 수량 확인 필요';
+  return '';
+}
+
 function FieldHint({ source }: { source: Source | undefined }) {
   if (source === 'notfound') return <p className="text-[11px] text-red-600 mt-1">주소에서 찾지 못함 - 직접 입력</p>;
   return null;
@@ -405,6 +415,10 @@ export default function ColosseumShippingForm() {
   // Recipients added by bulk paste whose address still has to be resolved (after render).
   const pendingResolve = useRef<string[]>([]);
   const [downloading, setDownloading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  // Cards, date and start number of the last 엑셀 다운로드 (저장하기 right after it saves that sheet).
+  const lastDownload = useRef<{ recipients: RecipientState[]; shipDate: string; start: number } | null>(null);
+  const { adminKey, logout } = useManageAuth();
 
   // Latest state for async address resolution.
   const recipientsRef = useRef(recipients);
@@ -454,10 +468,23 @@ export default function ColosseumShippingForm() {
       }
       if ((AUTO_FIELDS as string[]).includes(field)) {
         next.sources = { ...r.sources, [field]: value.trim() ? 'manual' : undefined };
+        // Order cards' 전체 주소 ends with city / state / zip / country: it follows their edits.
+        if (r.order) next.address = withOrderTail(r, next);
       }
       // A newly chosen country completes a phone typed without its calling code.
       return field === 'countryCode' ? withPhone(next) : next;
     });
+  };
+
+  /** Order card's address with its city / state / zip / country tail rewritten from `next` (kept when edited by hand). */
+  const withOrderTail = (prev: Recipient, next: Recipient) => {
+    const country = (code: string) => countries.find((c) => c.code === code);
+    const before = orderAddressTail(prev, country(prev.countryCode));
+    const after = orderAddressTail(next, country(next.countryCode));
+    if (!before) return [prev.address.replace(/,\s*$/, ''), after].filter(Boolean).join(', ');
+    if (!prev.address.endsWith(before)) return next.address;
+    const lines = prev.address.slice(0, prev.address.length - before.length).replace(/,\s*$/, '');
+    return [lines, after].filter(Boolean).join(', ');
   };
 
   const ack = (id: string, key: AckKey) => patch(id, (r) => ({ ...r, acked: { ...r.acked, [key]: true } }));
@@ -538,6 +565,8 @@ export default function ColosseumShippingForm() {
    * Fills country / city / state / zip from the address line, in the browser only (nothing is
    * looked up). Manual values are never overwritten; what the line doesn't give is marked
    * "주소에서 찾지 못함" for the user to type.
+   * Order cards keep Shopify's city / state / zip unless the button is pressed or the address's
+   * city / state / zip / country tail was changed by hand.
    */
   const resolveAddress = useCallback((id: string, force = false) => {
     const current = recipientsRef.current.find((r) => r.id === id);
@@ -547,8 +576,10 @@ export default function ColosseumShippingForm() {
     if (!address || (!force && address === current.resolvedAddress)) return;
 
     const next: RecipientState = { ...current, sources: { ...current.sources }, resolvedAddress: address };
+    const tail = current.order ? orderAddressTail(current, countries.find((c) => c.code === current.countryCode)) : '';
+    const reparse = force || !current.order || !address.toLowerCase().endsWith(tail.toLowerCase());
     // Clear earlier automatic values so a changed address doesn't keep stale data.
-    for (const f of AUTO_FIELDS) {
+    for (const f of reparse ? AUTO_FIELDS : []) {
       if (next.sources[f] && next.sources[f] !== 'manual') {
         next[f] = '';
         next.sources[f] = undefined;
@@ -559,9 +590,11 @@ export default function ColosseumShippingForm() {
       const found = detectCountry(address, countries);
       if (found) { next.countryCode = found.code; next.sources.countryCode = 'parsed'; }
     }
-    // Order cards already have Shopify's city / state / zip; their address line holds no postal code.
-    if (!current.order) {
-      const parsed = parseAddress(address, countries.find((c) => c.code === next.countryCode));
+    if (reparse) {
+      const country = countries.find((c) => c.code === next.countryCode);
+      const parsed = parseAddress(address, country);
+      // Order cards, as on import: an order without a state gets the country name as 수취인주.
+      if (current.order && !parsed.state && country) parsed.state = country.en;
       for (const f of ['city', 'state', 'zip'] as const) {
         if (!next[f] && parsed[f]) { next[f] = parsed[f]; next.sources[f] = 'parsed'; }
       }
@@ -598,7 +631,9 @@ export default function ColosseumShippingForm() {
         readShopifyRows(XLSX, { name: file.name, data: await file.arrayBuffer() }));
       const notices: string[] = [];
       if (lineStatusMissing) notices.push('Lineitem fulfillment status 열이 없어 환불 상품을 제외하지 않았습니다.');
-      if (orderStatusMissing) notices.push('Fulfillment Status 열이 없어 출고 전 여부를 확인하지 않았습니다.');
+      if (orderStatusMissing && !lineStatusMissing) {
+        notices.push('Fulfillment Status 열이 없어, 모든 상품이 미출고인 주문은 출고 전 주문으로 처리했습니다.');
+      }
       if (zeroTotal.length) {
         notices.push(`결제금액이 $0인 주문은 등록하지 않았습니다: ${zeroTotal.join(', ')} — 환불·취소 여부를 확인해 주세요.`);
       }
@@ -623,8 +658,9 @@ export default function ColosseumShippingForm() {
         if (!country) unmatched.push(`${o.number} (${o.country || '국가 없음'})`);
         // Shopify already split the address: whatever it left empty is typed by hand.
         const missing = new Set<string>(missingAddressParts(fields));
+        // Shopify's values count as read from the address: "주소로 다시 채우기" may replace them.
         const source = (f: 'city' | 'state' | 'zip', v: string) =>
-          (v ? 'manual' as const : missing.has(f) ? 'notfound' as const : undefined);
+          (v ? 'parsed' as const : missing.has(f) ? 'notfound' as const : undefined);
         return {
           ...newRecipient(),
           ...fields,
@@ -792,28 +828,42 @@ export default function ColosseumShippingForm() {
     });
   };
 
-  const handleDownload = async () => {
+  /** Same checks for 엑셀 다운로드 and 저장하기: a sheet is only made once every card is complete. */
+  const readyToBuild = () => {
     if (!shipDate) {
       toast.error('출고일자를 입력해 주세요.', { position: 'top-center' });
-      return;
+      return false;
     }
     if (incomplete.length) {
       setShowMissingNotice(true);
       toast.error(`${incomplete.length}명 미입력 — 아래 목록에서 눌러 이동하세요.`, { position: 'top-center' });
-      return;
+      return false;
     }
-    if (!template) return;
+    return !!template;
+  };
+
+  /** Rows and numbers of the sheet when seeding numbers start at `sheetStart`. */
+  const sheetFor = (sheetStart: number) => {
+    if (sheetStart === start) return { rows, orders, seeding: seedingOrders };
+    const numbers = assignOrderNumbers(recipients, shipDate, sheetStart, countries);
+    return {
+      rows: buildRows(recipients, shipDate, countries, sheetStart),
+      orders: numbers,
+      seeding: [...new Set(recipients.filter((r) => !r.order).map((r) => numbers.get(r.id) ?? ''))].filter(Boolean),
+    };
+  };
+
+  const buildSheet = async (sheetRows: SheetRow[] = rows) => {
+    const XLSX = await import('xlsx');
+    return buildWorkbook(XLSX, template!, sheetRows);
+  };
+
+  const handleDownload = async () => {
+    if (!readyToBuild()) return;
     setDownloading(true);
     try {
-      const XLSX = await import('xlsx');
-      const bytes = buildWorkbook(XLSX, template, rows);
-      const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = downloadFileName(shipDate);
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadBytes(await buildSheet(), downloadFileName(shipDate));
+      lastDownload.current = { recipients, shipDate, start };
       if (seedingOrders.length) {
         saveLastOrder(shipDate, start + seedingOrders.length - 1);
         // The next batch on this screen continues after the saved number instead of reusing it.
@@ -823,6 +873,44 @@ export default function ColosseumShippingForm() {
       toast.error('엑셀 생성에 실패했습니다.', { position: 'top-center' });
     } finally {
       setDownloading(false);
+    }
+  };
+
+  /**
+   * Stores the sheet (출고시트 tab). Right after 엑셀 다운로드, with the cards unchanged, it is the
+   * downloaded sheet (its numbers, though the screen has moved on to the next ones); otherwise the
+   * sheet as 엑셀 다운로드 would make it now.
+   */
+  const handleSave = async () => {
+    if (!readyToBuild()) return;
+    setSaving(true);
+    try {
+      const last = lastDownload.current;
+      const sheetStart = last && last.recipients === recipients && last.shipDate === shipDate ? last.start : start;
+      const sheet = sheetFor(sheetStart);
+      const bytes = await buildSheet(sheet.rows);
+      const { duplicate } = await saveSheet(adminKey, {
+        shipDate,
+        startNo: sheetStart,
+        firstOrder: sheet.seeding[0] ?? '',
+        lastOrder: sheet.seeding[sheet.seeding.length - 1] ?? '',
+        orderNumbers: recipients.flatMap((r) => (r.order ? [r.order.number] : [])),
+        kinds: recipientKinds(recipients),
+        recipients: recipients.length,
+        lines: sheet.rows.length,
+      }, sheetRecipients(recipients, sheet.rows, sheet.orders), bytes);
+      // The numbers are taken, but this screen keeps them: a download after saving matches the saved sheet.
+      if (sheet.seeding.length) saveLastOrder(shipDate, sheetStart + sheet.seeding.length - 1);
+      toast.success('출고시트를 저장했습니다. 출고시트 탭에서 다시 받을 수 있습니다.', { position: 'top-center' });
+      if (duplicate) {
+        toast.warning(`이미 저장된 시트가 있음 — 출고일자 ${shipDate}, 시작 번호 ${sheetStart}로 저장한 시트가 있어 새 항목으로 저장했습니다.`,
+          { position: 'top-center', duration: 8000 });
+      }
+    } catch (e) {
+      if (e instanceof SheetApiError && e.status === 401) { logout(); return; }
+      toast.error('출고시트를 저장하지 못했습니다.', { position: 'top-center' });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -983,11 +1071,8 @@ export default function ColosseumShippingForm() {
                 {r.order?.cancelledQty ? (
                   <span className="text-xs text-muted-foreground">품절 취소 {r.order.cancelledQty}개 제외됨</span>
                 ) : null}
-                {r.order?.preShipment && (
-                  <span className="text-xs text-yellow-700">출고 전 주문 — 취소 상품 확인 필요</span>
-                )}
-                {r.order?.refundQtyCheck && (
-                  <span className="text-xs text-yellow-700">환불 있음 — 수량 확인 필요</span>
+                {orderWarning(r.order) && (
+                  <span className="text-xs text-yellow-700">{orderWarning(r.order)}</span>
                 )}
               </div>
               <Button variant="ghost" size="sm" disabled={recipients.length === 1}
@@ -1285,7 +1370,13 @@ export default function ColosseumShippingForm() {
       </AlertDialog>
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-2">
-        <p className="text-xs text-muted-foreground">입력한 정보는 서버에 저장되지 않으며 새로고침하면 사라집니다.</p>
+        <p className="text-xs text-muted-foreground">
+          입력 중인 정보는 새로고침하면 사라집니다. '저장하기'를 누른 출고시트만 관리자 전용 저장소에 보관되며, {SHEET_RETENTION_DAYS}일 후 자동 삭제됩니다.
+        </p>
+        <Button variant="outline" className="w-full md:w-auto" disabled={!template || saving || recipients.length === 0} onClick={handleSave}>
+          {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+          저장하기
+        </Button>
         <Button className="w-full md:w-auto" disabled={!template || downloading || recipients.length === 0} onClick={handleDownload}>
           {downloading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
           엑셀 다운로드

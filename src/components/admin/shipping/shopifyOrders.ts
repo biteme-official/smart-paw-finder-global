@@ -39,7 +39,7 @@ export interface ShopifyOrdersResult {
   orders: ShopifyOrder[];
   /** No Lineitem fulfillment status column: refunded lines could not be left out. */
   lineStatusMissing: boolean;
-  /** No order-level Fulfillment Status column: no order was treated as pre-shipment. */
+  /** No order-level Fulfillment Status column: only orders with every line pending were treated as pre-shipment. */
   orderStatusMissing: boolean;
   /** Orders left out because a refund brought their total to 0. */
   zeroTotal: string[];
@@ -80,13 +80,15 @@ export function parseShopifyOrders(rows: Row[]): ShopifyOrdersResult {
   }
   // Without the line status every line is kept, and the import shows one notice instead of per-card warnings.
   const lineStatusMissing = rows.length > 0 && !('Lineitem fulfillment status' in rows[0]);
-  // Without the order status no order counts as pre-shipment: pending lines are still left out.
+  // Without the order status, pending lines are left out unless every line of the order is pending.
   const orderStatusMissing = rows.length > 0 && !('Fulfillment Status' in rows[0]);
   const orders = new Map<string, ShopifyOrder>();
   const refundedOrders = new Set<string>();
   const firstRow = new Map<string, Row>();
   // Orders that had lines left out because they don't ship or were refunded.
   const skippedLines = new Set<string>();
+  // Pending lines left out, kept to put back when the order turns out to be pre-shipment.
+  const pendingLines = new Map<string, ShopifyOrderLine[]>();
   for (const row of rows) {
     const number = cell(row, 'Name');
     if (!number) continue;
@@ -131,12 +133,24 @@ export function parseShopifyOrders(rows: Row[]): ShopifyOrdersResult {
       const qty = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
       // Orders are exported after fulfilment: a line still pending in a fulfilled order was
       // refunded (sold out), so it isn't packed and gets no share of the amount.
+      const line = { name, qty, price: cell(row, 'Lineitem price') };
       if (!order.preShipment && cell(row, 'Lineitem fulfillment status').toLowerCase() === 'pending') {
         order.cancelledQty += qty;
         skippedLines.add(number);
+        pendingLines.set(number, [...(pendingLines.get(number) ?? []), line]);
         continue;
       }
-      order.lines.push({ name, qty, price: cell(row, 'Lineitem price') });
+      order.lines.push(line);
+    }
+  }
+  // Without the order status, an order with every line pending hasn't shipped yet: its lines are put back.
+  if (orderStatusMissing && !lineStatusMissing) {
+    for (const o of orders.values()) {
+      const pending = pendingLines.get(o.number);
+      if (o.lines.length || !pending) continue;
+      o.lines = pending;
+      o.cancelledQty = 0;
+      o.preShipment = true;
     }
   }
   // Cancelled orders are not shipped; fulfilment status doesn't matter (every line goes out).
@@ -144,10 +158,12 @@ export function parseShopifyOrders(rows: Row[]): ShopifyOrdersResult {
   const shipped = [...orders.values()].filter((o) => !o.cancelled && !(o.lines.length === 0 && skippedLines.has(o.number)));
   // A partial refund can't be traced to a line: only a kept line of 2+ units may hide one.
   for (const o of shipped) o.refundQtyCheck = o.refundQtyCheck && o.lines.some((l) => l.qty >= 2);
-  // Refunded down to 0 (fully refunded but not cancelled): no card, the order is only reported.
+  // Pending lines only need checking when something was refunded.
+  for (const o of shipped) o.preShipment = o.preShipment && refundedOrders.has(o.number);
+  // Refunded down to 0 or below (fully refunded but not cancelled): no card, the order is only reported.
   // A $0 order without a refund (100% discount seeding, ...) still ships and gets a card.
   const zeroTotal = shipped
-    .filter((o) => refundedOrders.has(o.number) && Math.round(Number.parseFloat(o.total) * 100) === 0)
+    .filter((o) => refundedOrders.has(o.number) && Math.round(Number.parseFloat(o.total) * 100) <= 0)
     .map((o) => o.number);
   return { orders: shipped.filter((o) => !zeroTotal.includes(o.number)), lineStatusMissing, orderStatusMissing, zeroTotal };
 }

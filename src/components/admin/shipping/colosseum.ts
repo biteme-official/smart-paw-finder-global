@@ -1,7 +1,8 @@
 // Colosseum (overseas fulfilment partner) shipment sheet: fixed values, product list,
 // address parsing and in-browser .xlsx generation from the empty template in public/.
 // Everything here runs in the browser only: city / state / zip are read from the address text
-// (no map or address lookup), recipient data is never sent anywhere and nothing is stored on a server.
+// (no map or address lookup) and recipient data is never sent anywhere. Only a sheet saved with
+// 저장하기 is stored, admin only, for 90 days (shippingSheets.ts → api/shipping-sheets.ts).
 // The fixed sender details (FIXED, SEEDING_EMAIL) ship only in the /manage/international-shipping
 // chunk, which App.tsx loads on demand, not in the store bundle.
 import type * as XLSXNS from 'xlsx';
@@ -162,6 +163,51 @@ export function formatOrderAddress(
   return hasAddress2 ? `${lines} ${tail}` : `${lines}, ${tail}`;
 }
 
+/**
+ * City / state / zip / country written after an order card's address lines:
+ *   "Brea, CA 92821, US". The state is left out where it only repeats the country (SG / HK / MO).
+ */
+export function orderAddressTail(
+  r: Pick<Recipient, 'city' | 'state' | 'zip' | 'countryCode'>,
+  country?: Country,
+): string {
+  const state = r.state.trim();
+  const stateShown = state && !(country && matchesCountry(state, country)) ? state : '';
+  return [r.city.trim(), [stateShown, r.zip.trim()].filter(Boolean).join(' '), r.countryCode]
+    .filter(Boolean).join(', ');
+}
+
+/** Order card's 전체 주소: Shopify address lines + city / state / zip / country. */
+export const orderFullAddress = (
+  lines: string,
+  r: Pick<Recipient, 'city' | 'state' | 'zip' | 'countryCode'>,
+  country?: Country,
+) => [lines, orderAddressTail(r, country)].filter(Boolean).join(', ');
+
+/**
+ * Address lines of an order card's 전체 주소: trailing comma parts that repeat the card's
+ * city / state / zip / country are taken off, so the sheet adds them once from their own fields.
+ */
+export function orderAddressLines(
+  r: Pick<Recipient, 'address' | 'city' | 'state' | 'zip' | 'countryCode'>,
+  country?: Country,
+): string {
+  const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+  const city = norm(r.city);
+  const state = norm(r.state);
+  const code = norm(stateCode(r.state, r.countryCode));
+  const zip = norm(r.zip);
+  const places = new Set([city, state, code, zip, `${state} ${zip}`, `${code} ${zip}`, `${zip} ${state}`].filter((p) => p.trim()));
+  let text = r.address;
+  for (let at = text.lastIndexOf(','); at >= 0; at = text.lastIndexOf(',')) {
+    const part = text.slice(at + 1);
+    const known = !!norm(part) && (places.has(norm(part)) || norm(part) === norm(r.countryCode) || (!!country && matchesCountry(part, country)));
+    if (!known) break;
+    text = text.slice(0, at);
+  }
+  return text;
+}
+
 export interface Country {
   code: string;
   /** Display names (common short form). The ISO code is what goes into the sheet. */
@@ -193,10 +239,13 @@ function sheetRecipient(input: Recipient): Recipient {
 
 /**
  * Address in W / AC. Seeding: the survey address in normalized form.
- * Orders: Shopify address lines + city / state / zip / country, as the overseas team writes it.
+ * Orders: Shopify address lines + city / state / zip / country, as the overseas team writes it
+ * (the card's 전체 주소 already ends with them: they are taken from their own fields once).
  */
 function sheetAddress(r: Recipient, country?: Country): string {
-  return r.order ? formatOrderAddress(r, r.order.hasAddress2, country) : formatShippingAddress(r, country);
+  return r.order
+    ? formatOrderAddress({ ...r, address: orderAddressLines(r, country) }, r.order.hasAddress2, country)
+    : formatShippingAddress(r, country);
 }
 
 /** Packing key: sheet address (W) + country, ignoring case and spacing. '' when either is missing. */
@@ -971,7 +1020,7 @@ export function fillSheetXml(xml: string, rows: SheetRow[]): string {
 /** Returns a new .xlsx (template + rows) without touching the template buffer. */
 export function buildWorkbook(XLSX: XLSXModule, template: ArrayBuffer, rows: SheetRow[]): Uint8Array {
   const zip = XLSX.CFB.read(new Uint8Array(template), { type: 'buffer' });
-  const i = zip.FullPaths.findIndex((p) => p.endsWith(DATA_SHEET));
+  const i = zip.FullPaths.findIndex((p: string) => p.endsWith(DATA_SHEET));
   if (i < 0) throw new Error('Template is missing the shipment sheet.');
   const entry = zip.FileIndex[i];
   const xml = new TextDecoder().decode(entry.content as Uint8Array);
