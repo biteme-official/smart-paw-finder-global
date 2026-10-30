@@ -3,18 +3,10 @@ import type { Connect } from 'vite';
 import {
   SHEET_TTL_SECONDS, isDuplicate, isSheetId, validateSheet, type SheetMeta, type SheetRecipientRow, type StoredSheet,
 } from '../api/shipping-sheets';
-// LOCAL DEV ONLY sample sheets (fake recipients); remove this import and the call below to drop them.
-import { buildSampleSheets } from './shipping-sheets-samples';
 
 // Local dev stand-in for api/shipping-sheets.ts: sheets are kept in memory (lost on restart),
 // so local tests never write recipients' data to the shared KV.
 const sheets = new Map<string, StoredSheet>();
-let samplesAdded = false;
-function addSamples() {
-  if (samplesAdded) return;
-  samplesAdded = true;
-  for (const s of buildSampleSheets()) sheets.set(s.meta.id, s);
-}
 
 function readBody(req: Connect.IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
@@ -49,7 +41,6 @@ export function shippingSheetsProxyMiddleware(): Connect.NextHandleFunction {
     const action = url.searchParams.get('action');
     const id = url.searchParams.get('id');
     try {
-      addSamples();
       if (action === 'list' && req.method === 'GET') return json(res, 200, { sheets: liveSheets() });
       if (action === 'recipients' && req.method === 'GET') {
         const rows: SheetRecipientRow[] = liveSheets().flatMap((m) =>

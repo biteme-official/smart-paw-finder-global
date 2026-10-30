@@ -1,5 +1,4 @@
-// Recipients of a saved 출고시트 for the 수취인 조회 tab. No browser APIs: also used by the local
-// dev sample sheets (server/shipping-sheets-samples.ts).
+// Recipients of a saved 출고시트 for the 수취인 조회 tab.
 import type { SheetRecipient } from '../../../../api/shipping-sheets';
 import type { Recipient, SheetRow } from './colosseum';
 
