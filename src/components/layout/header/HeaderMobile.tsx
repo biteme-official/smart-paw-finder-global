@@ -22,6 +22,8 @@ import { CartDrawer } from "@/components/cart/CartDrawer";
 import { SearchAutocomplete } from "@/components/layout/SearchAutocomplete";
 import { GNB_LINKS, GnbBrandLink } from "./gnbLinks";
 import biteMeLogo from "@/assets/bite-me-logo.png";
+import livAliveLogo from "@/assets/liv-alive-logo.png";
+import { IS_B2C_SITE } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 interface HeaderMobileProps {
@@ -194,9 +196,10 @@ export function HeaderMobile({ onSearch, onCollectionSelect }: HeaderMobileProps
                 navigate("/");
               }
             }}
-            className="hover:opacity-80 transition-opacity"
+            className="hover:opacity-80 transition-opacity flex items-center gap-3"
           >
             <img src={biteMeLogo} alt="BITE ME" className="h-[19px]" />
+            {IS_B2C_SITE && <img src={livAliveLogo} alt="LIV ALIVE" className="h-[27px]" />}
           </button>
         </div>
 
