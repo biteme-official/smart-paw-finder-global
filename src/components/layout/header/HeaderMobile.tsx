@@ -196,10 +196,10 @@ export function HeaderMobile({ onSearch, onCollectionSelect }: HeaderMobileProps
                 navigate("/");
               }
             }}
-            className="hover:opacity-80 transition-opacity flex items-center gap-3"
+            className="hover:opacity-80 transition-opacity flex items-center gap-1.5"
           >
-            <img src={biteMeLogo} alt="BITE ME" className="h-[19px]" />
-            {IS_B2C_SITE && <img src={livAliveLogo} alt="LIV ALIVE" className="h-[27px]" />}
+            <img src={biteMeLogo} alt="BITE ME" className={IS_B2C_SITE ? "w-[min(22vw,93px)] h-auto" : "h-[19px]"} />
+            {IS_B2C_SITE && <img src={livAliveLogo} alt="LIV ALIVE" className="w-[min(21vw,90px)] h-auto" />}
           </button>
         </div>
 
