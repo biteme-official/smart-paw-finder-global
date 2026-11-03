@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Share2, Minus, Plus, ShoppingCart, Check, Truck, Shield, Heart, X } from "lucide-react";
 import DOMPurify from "dompurify";
 
@@ -311,9 +311,23 @@ export default function ProductDetail() {
     set('meta[property="og:type"]', 'content', 'product', meta('property', 'og:type'));
     set('meta[property="og:image"]', 'content', image, meta('property', 'og:image'));
 
+    const breadcrumb = document.createElement('script');
+    breadcrumb.type = 'application/ld+json';
+    breadcrumb.id = 'product-breadcrumb-jsonld';
+    breadcrumb.textContent = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
+        { '@type': 'ListItem', position: 2, name: product.title, item: url },
+      ],
+    });
+    document.head.appendChild(breadcrumb);
+
     return () => {
       document.title = prevTitle;
       restores.forEach(r => r());
+      breadcrumb.remove();
     };
   }, [product, id]);
 
@@ -589,6 +603,13 @@ export default function ProductDetail() {
       <div className="px-4 pt-4">
         {/* Title & Price */}
         <div className="mb-4">
+          <nav aria-label="breadcrumb" className="mb-1 text-xs text-muted-foreground">
+            <ol className="flex items-center gap-1 min-w-0">
+              <li className="shrink-0"><Link to="/" className="hover:text-primary transition-colors">Home</Link></li>
+              <li aria-hidden="true" className="shrink-0">›</li>
+              <li aria-current="page" className="truncate">{product.title}</li>
+            </ol>
+          </nav>
           <h1 className="text-xl font-bold text-foreground mb-2">{product.title}</h1>
           <div className="flex items-baseline gap-2">
             <PriceTag amount={price.amount} currencyCode={price.currencyCode} className="text-2xl font-bold text-foreground" originalClassName="text-base" />
