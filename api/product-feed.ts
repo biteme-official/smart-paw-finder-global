@@ -225,9 +225,90 @@ ${items}
 </rss>`;
 }
 
+// ─── 사이트맵 / robots.txt — 검색엔진에 공개 페이지 주소 목록 제공 ─────────────────
+// /sitemap.xml, /robots.txt 가 vercel.json rewrite로 이 함수(type=sitemap|robots)에 연결된다.
+// SITE_URL 기준이라 B2B·B2C 사이트가 각자 자기 주소로 출력한다.
+
+// 블로그 글 목록 — src/data/blog/posts.ts 와 동일하게 유지 (api 함수는 src를 import하지 않는 구조)
+const BLOG_POSTS: { slug: string; publishedAt: string }[] = [
+  { slug: 'how-to-choose-nosework-toy-dog-skill-level', publishedAt: '2026-06-02' },
+  { slug: 'tug-toys-vs-fetch-toys-which-does-your-dog-need', publishedAt: '2026-06-09' },
+  { slug: 'summer-dog-toy-safety-materials-heat', publishedAt: '2026-06-16' },
+  { slug: 'why-korean-pet-toys-taking-over-instagram', publishedAt: '2026-06-23' },
+  { slug: 'dog-dental-health-toys-that-actually-clean-teeth', publishedAt: '2026-06-30' },
+  { slug: 'rainy-day-indoor-activities-keep-dog-busy', publishedAt: '2026-07-07' },
+  { slug: 'how-to-choose-right-dog-harness-size-guide', publishedAt: '2026-07-14' },
+  { slug: 'traveling-with-your-dog-packing-essentials', publishedAt: '2026-07-21' },
+  { slug: 'understanding-dog-play-styles-toy-matching', publishedAt: '2026-07-28' },
+  { slug: 'first-time-dog-owner-toy-starter-kit', publishedAt: '2026-08-04' },
+];
+
+const STATIC_PATHS = ['/', '/about', '/blog', '/new-products', '/popup-offline-stores', '/contact', '/refund-policy', '/privacy', '/terms'];
+
+const SITEMAP_QUERY = `
+  query SitemapProducts($cursor: String) {
+    products(first: 250, after: $cursor, query: "status:active") {
+      pageInfo { hasNextPage endCursor }
+      edges { node { handle updatedAt } }
+    }
+  }
+`;
+
+async function fetchSitemapProducts(token: string): Promise<{ handle: string; updatedAt: string }[]> {
+  const items: { handle: string; updatedAt: string }[] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const json = await adminGraphQL(token, SITEMAP_QUERY, { cursor });
+    const connection = json.data?.products;
+    for (const edge of connection?.edges ?? []) items.push(edge.node);
+    if (!connection?.pageInfo?.hasNextPage) break;
+    cursor = connection.pageInfo.endCursor;
+  }
+  return items;
+}
+
+function buildSitemapXml(products: { handle: string; updatedAt: string }[]): string {
+  const url = (loc: string, lastmod?: string) =>
+    `  <url><loc>${xmlEscape(loc)}</loc>${lastmod ? `<lastmod>${lastmod.slice(0, 10)}</lastmod>` : ''}</url>`;
+  const lines = [
+    ...STATIC_PATHS.map((p) => url(`${SITE_URL}${p === '/' ? '/' : p}`)),
+    ...BLOG_POSTS.map((post) => url(`${SITE_URL}/blog/${post.slug}`, post.publishedAt)),
+    ...products.map((p) => url(`${SITE_URL}/product/${p.handle}`, p.updatedAt)),
+  ];
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${lines.join('\n')}
+</urlset>`;
+}
+
+function buildRobotsTxt(): string {
+  return ['Googlebot', 'Bingbot', 'Twitterbot', 'facebookexternalhit', '*']
+    .map((agent) => `User-agent: ${agent}\nAllow: /`)
+    .join('\n\n') + `\n\nSitemap: ${SITE_URL}/sitemap.xml\n`;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  if (req.query.type === 'robots') {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.status(200).send(buildRobotsTxt());
+  }
+
+  if (req.query.type === 'sitemap') {
+    try {
+      const token = await getAccessToken();
+      const xml = buildSitemapXml(await fetchSitemapProducts(token));
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
+      return res.status(200).send(xml);
+    } catch (error) {
+      console.error('[Sitemap] Error:', error);
+      return res.status(500).json({ error: 'Failed to generate sitemap' });
+    }
   }
 
   try {
