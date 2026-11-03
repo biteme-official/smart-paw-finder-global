@@ -94,7 +94,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": "Slackbot|facebookexternalhit|Twitterbot|LinkedInBot|WhatsApp|TelegramBot|kakaotalk-scrap|Line/|Pinterest|Googlebot|Bingbot|Applebot|ia_archiver|Yandex|DuckDuckBot"
+          "value": "Slackbot|facebookexternalhit|Twitterbot|LinkedInBot|WhatsApp|TelegramBot|kakaotalk-scrap|Line/|Pinterest|Applebot|ia_archiver|Yandex|DuckDuckBot"
         }
       ],
       "destination": "/api/shopify?action=og&path=/:path*"
