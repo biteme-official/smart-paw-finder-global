@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Share2, Minus, Plus, ShoppingCart, Check, Truck, Shield, Heart, X } from "lucide-react";
 import DOMPurify from "dompurify";
 
@@ -271,6 +271,64 @@ export default function ProductDetail() {
     script.textContent = JSON.stringify(jsonLd);
     document.head.appendChild(script);
     return () => { document.getElementById('product-jsonld')?.remove(); };
+  }, [product, id]);
+
+  // SEO: 상품마다 제목·설명·대표 주소(canonical)·공유 태그를 상품 기준으로 설정. 페이지를 떠나면 원래 값(홈)으로 되돌린다.
+  useEffect(() => {
+    if (!product || !id) return;
+    const url = `${SITE_URL}/product/${id}`;
+    const title = `${product.title} | BITE ME`;
+    const plain = (product.description || product.title).replace(/\s+/g, ' ').trim();
+    const description = plain.length > 155 ? `${plain.slice(0, 155).replace(/\s+\S*$/, '')}…` : plain;
+    const image = product.images.edges[0]?.node.url;
+
+    const prevTitle = document.title;
+    const restores: Array<() => void> = [];
+    const set = (selector: string, attr: string, value: string | undefined, create: () => HTMLElement) => {
+      if (!value) return;
+      let el = document.head.querySelector(selector);
+      const existed = !!el;
+      const prev = el?.getAttribute(attr) ?? null;
+      if (!el) { el = create(); document.head.appendChild(el); }
+      el.setAttribute(attr, value);
+      restores.push(() => {
+        if (!existed) el!.remove();
+        else if (prev !== null) el!.setAttribute(attr, prev);
+      });
+    };
+    const meta = (key: 'name' | 'property', name: string) => () => {
+      const m = document.createElement('meta');
+      m.setAttribute(key, name);
+      return m;
+    };
+
+    document.title = title;
+    set('link[rel="canonical"]', 'href', url, () => { const l = document.createElement('link'); l.rel = 'canonical'; return l; });
+    set('meta[name="description"]', 'content', description, meta('name', 'description'));
+    set('meta[property="og:title"]', 'content', title, meta('property', 'og:title'));
+    set('meta[property="og:description"]', 'content', description, meta('property', 'og:description'));
+    set('meta[property="og:url"]', 'content', url, meta('property', 'og:url'));
+    set('meta[property="og:type"]', 'content', 'product', meta('property', 'og:type'));
+    set('meta[property="og:image"]', 'content', image, meta('property', 'og:image'));
+
+    const breadcrumb = document.createElement('script');
+    breadcrumb.type = 'application/ld+json';
+    breadcrumb.id = 'product-breadcrumb-jsonld';
+    breadcrumb.textContent = JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
+        { '@type': 'ListItem', position: 2, name: product.title, item: url },
+      ],
+    });
+    document.head.appendChild(breadcrumb);
+
+    return () => {
+      document.title = prevTitle;
+      restores.forEach(r => r());
+      breadcrumb.remove();
+    };
   }, [product, id]);
 
   const checkScrollability = () => {
@@ -545,6 +603,13 @@ export default function ProductDetail() {
       <div className="px-4 pt-4">
         {/* Title & Price */}
         <div className="mb-4">
+          <nav aria-label="breadcrumb" className="mb-1 text-xs text-muted-foreground">
+            <ol className="flex items-center gap-1 min-w-0">
+              <li className="shrink-0"><Link to="/" className="hover:text-primary transition-colors">Home</Link></li>
+              <li aria-hidden="true" className="shrink-0">›</li>
+              <li aria-current="page" className="truncate">{product.title}</li>
+            </ol>
+          </nav>
           <h1 className="text-xl font-bold text-foreground mb-2">{product.title}</h1>
           <div className="flex items-baseline gap-2">
             <PriceTag amount={price.amount} currencyCode={price.currencyCode} className="text-2xl font-bold text-foreground" originalClassName="text-base" />
