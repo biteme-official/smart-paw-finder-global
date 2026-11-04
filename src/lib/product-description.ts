@@ -4,7 +4,7 @@
 // [템플릿 제목, 바꿀 제목($1 = 브랜드명 등)] — 바꿀 제목이 ''이면 제목을 지운다
 const HEADING_RULES: [RegExp, string][] = [
   [/^The Hero Hook$/i, ''],
-  [/^The "Why" Section$/i, 'Why It Matters'],
+  [/^The \\?"Why\\?" Section$/i, 'Why It Matters'],
   [/^The 3 Core Pillars(\s*\(Features\))?$/i, 'Key Features'],
   [/^\\?"Why ([^"\\]+?)\?\\?"\s*\(The Brand Story\)$/i, 'Why $1?'],
   [/^Scannable Product Specs$/i, 'Specifications'],
@@ -26,7 +26,7 @@ export function cleanDescriptionHtml(html: string): string {
 // 검색 설명·구조화 데이터용(줄바꿈 없는 글): 템플릿 제목을 바꾸거나 지운다
 const TEXT_RULES: [RegExp, string][] = [
   [/(\b\d+\.\s*)?The Hero Hook\s*/g, ''],
-  [/(\b\d+\.\s*)?The "Why" Section/g, 'Why It Matters'],
+  [/(\b\d+\.\s*)?The \\?"Why\\?" Section/g, 'Why It Matters'],
   [/(\b\d+\.\s*)?The 3 Core Pillars(\s*\(Features\))?/g, 'Key Features'],
   [/(\b\d+\.\s*)?\\?"Why ([^"\\]+?)\?\\?"\s*\(The Brand Story\)/g, 'Why $2?'],
   [/(\b\d+\.\s*)?Scannable Product Specs/g, 'Specifications'],

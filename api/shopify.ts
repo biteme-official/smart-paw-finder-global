@@ -123,7 +123,7 @@ function resizeShopifyImage(url: string, size = 800): string {
 // 상품 설명의 카피 템플릿 제목 정리 — src/lib/product-description.ts 의 cleanDescriptionText 와 같은 규칙
 const DESC_TEXT_RULES: [RegExp, string][] = [
   [/(\b\d+\.\s*)?The Hero Hook\s*/g, ''],
-  [/(\b\d+\.\s*)?The "Why" Section/g, 'Why It Matters'],
+  [/(\b\d+\.\s*)?The \\?"Why\\?" Section/g, 'Why It Matters'],
   [/(\b\d+\.\s*)?The 3 Core Pillars(\s*\(Features\))?/g, 'Key Features'],
   [/(\b\d+\.\s*)?\\?"Why ([^"\\]+?)\?\\?"\s*\(The Brand Story\)/g, 'Why $2?'],
   [/(\b\d+\.\s*)?Scannable Product Specs/g, 'Specifications'],
