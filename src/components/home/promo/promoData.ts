@@ -30,7 +30,7 @@ export const PROMO_DEFS: PromoDef[] = [
   },
   {
     title: "Affiliate Program",
-    href: "https://www.biteme.one/affiliate",
+    href: "https://biteme.one/affiliate",
     pcImage: promo3Pc,
     mobileImage: promo3Mobile,
   },

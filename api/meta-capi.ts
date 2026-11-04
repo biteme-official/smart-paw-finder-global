@@ -11,7 +11,7 @@ const ACCESS_TOKEN = process.env.META_CAPI_ACCESS_TOKEN;
 const GRAPH_API_VERSION = 'v21.0';
 
 // 이벤트 발생 페이지 주소 검증용. B2C 사이트는 VITE_SITE_URL로 자기 도메인 지정
-const SITE_URL = process.env.VITE_SITE_URL || 'https://www.biteme.one';
+const SITE_URL = process.env.VITE_SITE_URL || 'https://biteme.one';
 
 const ALLOWED_EVENTS = new Set(['ViewContent', 'AddToCart']);
 

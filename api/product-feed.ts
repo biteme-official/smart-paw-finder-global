@@ -2,12 +2,12 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // ─── Meta/Google 상품 피드 — biteme.one 도메인 기준 ────────────────────────────
 // Shopify 스토어 기본 도메인(lovable-project-lbgum.myshopify.com)과 실제 서비스
-// 도메인(www.biteme.one)이 달라, Shopify 앱 연동 카탈로그의 상품 URL이 광고 소스
+// 도메인(biteme.one)이 달라, Shopify 앱 연동 카탈로그의 상품 URL이 광고 소스
 // URL과 불일치하는 문제를 해결하기 위해 자체 피드를 생성한다.
 // RSS 2.0 + g: 네임스페이스 포맷 — Meta 커머스 매니저 / Google Merchant Center 공통 지원.
 
 // B2C 사이트는 Vercel 환경변수 VITE_SITE_URL로 자기 도메인 지정 (없으면 B2B 사이트 biteme.one)
-const SITE_URL = process.env.VITE_SITE_URL || 'https://www.biteme.one';
+const SITE_URL = process.env.VITE_SITE_URL || 'https://biteme.one';
 const DEFAULT_BRAND = 'BITE ME';
 const PRODUCTS_PER_PAGE = 100;
 const MAX_PAGES = 30; // 안전장치 — 최대 3,000개 상품까지 수집

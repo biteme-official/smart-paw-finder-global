@@ -305,7 +305,7 @@ async function sendToSlack(message: { blocks: unknown[] }) {
 }
 
 // ─── Health Check ────────────────────────────────────────────────────────────
-const SITE_URL = process.env.VITE_SITE_URL || 'https://www.biteme.one';
+const SITE_URL = process.env.VITE_SITE_URL || 'https://biteme.one';
 const KV_KEY = 'health-check:history';
 const KV_DAILY_SENT_KEY = 'health-check:daily-sent';
 
