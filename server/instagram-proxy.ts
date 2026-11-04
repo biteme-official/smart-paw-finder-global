@@ -1,6 +1,6 @@
 import type { Connect } from 'vite';
 
-const PRODUCTION_URL = 'https://www.biteme.one/api/instagram-reels';
+const PRODUCTION_URL = 'https://biteme.one/api/instagram-reels';
 
 export function instagramProxyMiddleware(): Connect.NextHandleFunction {
   return async (req, res, next) => {

@@ -922,7 +922,7 @@ export default function ProductDetail() {
       {showShareModal && (() => {
         const isProduction = ['www.biteme.one', 'biteme.one'].includes(window.location.hostname);
         const shareUrl = isProduction
-          ? `https://www.biteme.one/product/${product.handle}`
+          ? `https://biteme.one/product/${product.handle}`
           : window.location.href;
         return (
           <div
