@@ -24,6 +24,7 @@ import { RecommendedProducts } from "@/components/product/RecommendedProducts";
 import { ReviewWidget } from "@/components/product/ReviewWidget";
 import { ScrollToTop } from "@/components/ui/ScrollToTop";
 import { SITE_URL } from "@/lib/site";
+import { cleanDescriptionHtml, cleanDescriptionText } from "@/lib/product-description";
 
 // Product detail skeleton component
 function ProductDetailSkeleton() {
@@ -210,7 +211,7 @@ export default function ProductDetail() {
       '@context': 'https://schema.org/',
       '@type': 'Product',
       name: product.title,
-      description: product.description || product.title,
+      description: cleanDescriptionText(product.description || product.title),
       image: product.images.edges.map(e => e.node.url),
       brand: { '@type': 'Brand', name: 'BITE ME' },
       sku: firstVariant?.id?.split('/').pop() || id,
@@ -278,7 +279,7 @@ export default function ProductDetail() {
     if (!product || !id) return;
     const url = `${SITE_URL}/product/${id}`;
     const title = `${product.title} | BITE ME`;
-    const plain = (product.description || product.title).replace(/\s+/g, ' ').trim();
+    const plain = cleanDescriptionText(product.description || product.title).replace(/\s+/g, ' ').trim();
     const description = plain.length > 155 ? `${plain.slice(0, 155).replace(/\s+\S*$/, '')}…` : plain;
     const image = product.images.edges[0]?.node.url;
 
@@ -853,7 +854,7 @@ export default function ProductDetail() {
                     [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:block
                     [&_pre]:max-w-full [&_pre]:overflow-x-auto
                     [&_iframe]:max-w-full [&_*]:max-w-full"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.descriptionHtml) }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(cleanDescriptionHtml(product.descriptionHtml)) }}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground leading-relaxed">{product.description}</p>
