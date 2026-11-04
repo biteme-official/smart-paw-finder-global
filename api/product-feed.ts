@@ -156,6 +156,20 @@ function stripHtml(html: string): string {
     .slice(0, 5000);
 }
 
+// 상품 설명의 카피 템플릿 제목 정리 — src/lib/product-description.ts 의 cleanDescriptionText 와 같은 규칙
+const DESC_TEXT_RULES: [RegExp, string][] = [
+  [/(\b\d+\.\s*)?The Hero Hook\s*/g, ''],
+  [/(\b\d+\.\s*)?The \\?"Why\\?" Section/g, 'Why It Matters'],
+  [/(\b\d+\.\s*)?The 3 Core Pillars(\s*\(Features\))?/g, 'Key Features'],
+  [/(\b\d+\.\s*)?\\?"Why ([^"\\]+?)\?\\?"\s*\(The Brand Story\)/g, 'Why $2?'],
+  [/(\b\d+\.\s*)?Scannable Product Specs/g, 'Specifications'],
+  [/\b\d+\.\s*(?=About This Product|Quality & Safety Evidence)/g, ''],
+];
+
+function cleanDescriptionText(text: string): string {
+  return DESC_TEXT_RULES.reduce((s, [re, to]) => s.replace(re, to), text);
+}
+
 function xmlEscape(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -176,7 +190,7 @@ function buildFeedItem(product: ShopifyProduct, variant: ShopifyVariant, currenc
   const link = `${SITE_URL}/product/${product.handle}`;
   const image = variant.image?.url || product.featuredImage?.url || '';
   const title = buildVariantTitle(product.title, variant.selectedOptions);
-  const description = stripHtml(product.descriptionHtml) || product.title;
+  const description = cleanDescriptionText(stripHtml(product.descriptionHtml)) || product.title;
   const availability = variant.availableForSale ? 'in stock' : 'out of stock';
   const brand = product.vendor || DEFAULT_BRAND;
 

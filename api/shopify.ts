@@ -120,6 +120,20 @@ function resizeShopifyImage(url: string, size = 800): string {
   }
 }
 
+// 상품 설명의 카피 템플릿 제목 정리 — src/lib/product-description.ts 의 cleanDescriptionText 와 같은 규칙
+const DESC_TEXT_RULES: [RegExp, string][] = [
+  [/(\b\d+\.\s*)?The Hero Hook\s*/g, ''],
+  [/(\b\d+\.\s*)?The \\?"Why\\?" Section/g, 'Why It Matters'],
+  [/(\b\d+\.\s*)?The 3 Core Pillars(\s*\(Features\))?/g, 'Key Features'],
+  [/(\b\d+\.\s*)?\\?"Why ([^"\\]+?)\?\\?"\s*\(The Brand Story\)/g, 'Why $2?'],
+  [/(\b\d+\.\s*)?Scannable Product Specs/g, 'Specifications'],
+  [/\b\d+\.\s*(?=About This Product|Quality & Safety Evidence)/g, ''],
+];
+
+function cleanDescriptionText(text: string): string {
+  return DESC_TEXT_RULES.reduce((s, [re, to]) => s.replace(re, to), text);
+}
+
 function buildOGHtml(title: string, description: string, image: string, url: string, type = 'website', twitterCard = 'summary_large_image', imgWidth = 1200, imgHeight = 630): string {
   const t = ogEscape(title), d = ogEscape(description), i = ogEscape(image), u = ogEscape(url);
   return `<!DOCTYPE html><html lang="en"><head>
@@ -227,7 +241,7 @@ async function handleOG(req: VercelRequest, res: VercelResponse): Promise<void> 
             const p = gqlData?.data?.product;
             if (p) {
               productTitle = p.title;
-              productDesc = p.description || '';
+              productDesc = cleanDescriptionText(p.description || '');
               productImage =
                 p.featuredImage?.url ??
                 p.images?.edges?.[0]?.node?.url ??
