@@ -37,6 +37,7 @@ import About from "./pages/About";
 import { WhatsAppButton } from "./components/layout/WhatsAppButton";
 import { AnnouncementBar } from "./components/layout/AnnouncementBar";
 import { PetProfilePrompt } from "./components/account/PetProfile";
+import { EmailPopup } from "./components/email-popup/EmailPopup";
 
 // Admin screens load on demand so their code (and fixed sender details) stays out of the store bundle.
 const ManageLayout = lazy(() => import("./components/admin/ManageLayout"));
@@ -154,6 +155,8 @@ const App = () => (
         </Routes>
         <WhatsAppButton />
         <PetProfilePrompt />
+        {/* 첫구매 쿠폰 · 이메일 수집 팝업 — B2C 사이트 전용 */}
+        {IS_B2C_SITE && <EmailPopup />}
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

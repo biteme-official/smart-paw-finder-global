@@ -791,6 +791,161 @@ export async function fetchAnnouncements(first: number = 10): Promise<Announceme
     .map(({ active, ...item }) => item);
 }
 
+// Email Popup (Metaobject) — B2C 첫구매 쿠폰 팝업 운영 설정(이메일 수집 없음, 버튼으로 코드 공개). 문구·이미지·쿠폰 코드·노출 기간은
+// 전부 Shopify 어드민 메타객체(email_popup)에서 바꾼다. 노출 대상은 active='노출' + 기간 안인 첫 항목.
+export interface EmailPopupConfig {
+  couponCode: string;
+  discountLabel: string;
+  delaySeconds: number;
+  hideDays: number;
+  title: string;
+  subtitle: string;
+  successTitle: string;
+  successMessage: string;
+  // 이미지 위에 얹는 글자 — 비우면 이미지만 노출 (메타객체 기본값 없음)
+  imageBadge: string;
+  imageHeadline: string;
+  imageButton: string;
+  codeNote: string;
+  pcImage: { url: string; altText: string | null } | null;
+  mobileImage: { url: string; altText: string | null } | null;
+  // 대표 상품 — PC 이미지가 비면 이 상품의 대표 사진을 쓰고, SHOP NOW가 이 상품으로 간다
+  productHandle: string | null;
+  excludedPaths: string[];
+}
+
+const GET_EMAIL_POPUP_QUERY = `
+  query GetEmailPopup($first: Int!) {
+    metaobjects(type: "email_popup", first: $first) {
+      edges {
+        node {
+          id
+          fields {
+            key
+            value
+            type
+            reference {
+              ... on MediaImage {
+                image {
+                  url
+                  altText
+                }
+              }
+              ... on Product {
+                handle
+                status
+                featuredMedia {
+                  preview {
+                    image {
+                      url
+                      altText
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+// 미리보기에서 쿠폰 코드가 비었을 때 보여주는 자리표시 — 결제용으로 저장하지 않는다
+export const EMAIL_POPUP_PLACEHOLDER_CODE = 'YOURCODE';
+
+// 메타객체에 값이 비어 있을 때 쓰는 기본값 — zeoy 설계안(11/4) 문구
+export const EMAIL_POPUP_DEFAULTS: Omit<EmailPopupConfig, 'couponCode'> = {
+  discountLabel: '10%',
+  delaySeconds: 5,
+  hideDays: 7,
+  title: 'New here?\nGet {pct} off your first order',
+  subtitle: 'Grab your welcome code and treat your pup to something new.',
+  successTitle: 'Here is your code!',
+  successMessage: 'Tap the code to copy it. It will be applied at checkout.',
+  codeNote: 'Valid on your first order only.',
+  imageBadge: '',
+  imageHeadline: '',
+  imageButton: '',
+  pcImage: null,
+  mobileImage: null,
+  productHandle: null,
+  excludedPaths: ['/cart', '/checkout', '/mypage', '/affiliate', '/a/', '/auth', '/manage', '/admin', '/discount'],
+};
+
+// preview=true면 노출·기간·쿠폰 코드 조건을 무시하고 첫 항목을 그대로 보여준다(?email_popup_preview=1 QA용)
+export async function fetchEmailPopupConfig(preview = false): Promise<EmailPopupConfig | null> {
+  const data = await adminApiRequest(GET_EMAIL_POPUP_QUERY, { first: 10 });
+  if (!data) return null;
+
+  const now = Date.now();
+  for (const edge of data.data?.metaobjects?.edges || []) {
+    const fields: Record<string, string> = {};
+    let pcImage: EmailPopupConfig['pcImage'] = null;
+    let mobileImage: EmailPopupConfig['mobileImage'] = null;
+    let productHandle: string | null = null;
+    let productImage: EmailPopupConfig['pcImage'] = null;
+    for (const field of edge.node.fields) {
+      if (field.reference?.image) {
+        if (field.key === 'image_pc') pcImage = field.reference.image;
+        else if (field.key === 'image_mobile') mobileImage = field.reference.image;
+      } else if (field.key === 'featured_product' && field.reference?.handle) {
+        // 판매 중(ACTIVE) 상품만 사용 — 보관·초안 상품이면 이미지·링크 없이 폼만
+        if (field.reference.status === 'ACTIVE') {
+          productHandle = field.reference.handle;
+          productImage = field.reference.featuredMedia?.preview?.image ?? null;
+        }
+      } else if (field.value) {
+        fields[field.key] = field.value;
+      }
+    }
+
+    // 노출 조건 — 메인 배너·띠배너와 같은 패턴(active='노출', start_at/end_at은 값이 있을 때만 제한)
+    const couponCode = (fields.coupon_code || '').trim().toUpperCase();
+    if (!preview) {
+      if (fields.active !== '노출' || !couponCode) continue;
+      if (fields.start_at && new Date(fields.start_at).getTime() > now) continue;
+      if (fields.end_at && new Date(fields.end_at).getTime() < now) continue;
+    }
+
+    let excludedPaths = EMAIL_POPUP_DEFAULTS.excludedPaths;
+    if (fields.excluded_paths) {
+      try {
+        const parsed = JSON.parse(fields.excluded_paths);
+        if (Array.isArray(parsed)) excludedPaths = parsed.filter((p) => typeof p === 'string' && p);
+      } catch {
+        // 형식이 잘못되면 기본 목록 유지
+      }
+    }
+
+    const num = (v: string | undefined, fallback: number) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0 ? n : fallback;
+    };
+
+    return {
+      couponCode: couponCode || EMAIL_POPUP_PLACEHOLDER_CODE,
+      discountLabel: fields.discount_label || EMAIL_POPUP_DEFAULTS.discountLabel,
+      delaySeconds: num(fields.delay_seconds, EMAIL_POPUP_DEFAULTS.delaySeconds),
+      // 0일이면 ✕ 직후 바로 다시 떠서 닫을 수 없게 된다 — 최소 1일
+      hideDays: Math.max(1, num(fields.hide_days, EMAIL_POPUP_DEFAULTS.hideDays)),
+      title: fields.form_title || EMAIL_POPUP_DEFAULTS.title,
+      subtitle: fields.subtitle || EMAIL_POPUP_DEFAULTS.subtitle,
+      successTitle: fields.success_title || EMAIL_POPUP_DEFAULTS.successTitle,
+      successMessage: fields.success_message || EMAIL_POPUP_DEFAULTS.successMessage,
+      codeNote: fields.code_note || EMAIL_POPUP_DEFAULTS.codeNote,
+      imageBadge: fields.image_badge || '',
+      imageHeadline: fields.image_headline || '',
+      imageButton: fields.image_button || '',
+      pcImage: pcImage ?? productImage,
+      mobileImage,
+      productHandle,
+      excludedPaths,
+    };
+  }
+  return null;
+}
+
 export interface ProductsResponse {
   products: ShopifyProduct[];
   pageInfo: {
