@@ -47,6 +47,20 @@ function track(event: string, params: Record<string, unknown> = {}) {
   if (typeof window !== "undefined" && window.gtag) window.gtag("event", event, params);
 }
 
+// 메타객체 문구의 줄바꿈(\n)마다 한 줄로 나누고, 각 줄은 길이를 고르게 나눠 한 단어만 남지 않게 한다
+// (white-space: pre-line 안에서는 브라우저가 균형 줄바꿈을 적용하지 않음)
+function BalancedLines({ text }: { text: string }) {
+  return (
+    <>
+      {text.split("\n").map((line, i) => (
+        <span key={i} className="block text-balance">
+          {line}
+        </span>
+      ))}
+    </>
+  );
+}
+
 type Step = "form" | "code";
 type View = "hidden" | "modal" | "tab";
 
@@ -186,9 +200,10 @@ export function EmailPopup() {
 
   if (view === "tab") {
     return (
-      // 오른쪽 세로 탭 — zeoy 목업 배치(위에서 37.5%, 40×132, ✕는 탭 왼쪽 아래 모서리). 색은 검정(11/5 상아).
+      // 오른쪽 세로 탭 — zeoy 목업 배치(PC 위에서 37.5%, 40×132, ✕는 탭 왼쪽 아래 모서리). 색은 검정(11/5 상아).
+      // 모바일 배너는 폭에 비례해 커져 좌우 화살표가 위에서 약 300~320px — 그보다 위(140px, 배너 윗부분)에 둔다
       // 홈 콘텐츠 박스(max-w 1600px, Index.tsx)보다 화면이 넓으면 화면 끝이 아니라 박스 오른쪽 선(배너 끝)에 맞춘다
-      <div className="fixed right-[max(0px,calc((100%-1600px)/2))] top-[37.5%] z-[60]">
+      <div className="fixed right-[max(0px,calc((100%-1600px)/2))] top-[140px] z-[60] md:top-[37.5%]">
         <button
           type="button"
           onClick={openFromTab}
@@ -236,8 +251,8 @@ export function EmailPopup() {
                     </span>
                   )}
                   {config.imageHeadline && (
-                    <span className="whitespace-pre-line text-[26px] font-extrabold uppercase leading-tight">
-                      {config.imageHeadline}
+                    <span className="text-[26px] font-extrabold uppercase leading-tight">
+                      <BalancedLines text={config.imageHeadline} />
                     </span>
                   )}
                 </div>
@@ -266,10 +281,10 @@ export function EmailPopup() {
 
             {step === "form" ? (
               <>
-                <DialogPrimitive.Title className="whitespace-pre-line text-xl font-extrabold leading-snug md:text-[26px]">
-                  {title}
+                <DialogPrimitive.Title className="text-xl font-extrabold leading-snug md:text-[26px]">
+                  <BalancedLines text={title} />
                 </DialogPrimitive.Title>
-                <p className="text-sm leading-relaxed text-neutral-700">{config.subtitle}</p>
+                <p className="text-pretty text-sm leading-relaxed text-neutral-700">{config.subtitle}</p>
                 <button
                   type="button"
                   onClick={handleReveal}
@@ -280,10 +295,10 @@ export function EmailPopup() {
               </>
             ) : (
               <>
-                <DialogPrimitive.Title className="whitespace-pre-line text-xl font-extrabold leading-snug md:text-[26px]">
-                  {successTitle}
+                <DialogPrimitive.Title className="text-xl font-extrabold leading-snug md:text-[26px]">
+                  <BalancedLines text={successTitle} />
                 </DialogPrimitive.Title>
-                <p className="text-sm leading-relaxed text-neutral-700">{config.successMessage}</p>
+                <p className="text-pretty text-sm leading-relaxed text-neutral-700">{config.successMessage}</p>
                 <button
                   type="button"
                   onClick={handleCopy}
