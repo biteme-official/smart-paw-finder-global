@@ -791,7 +791,7 @@ export async function fetchAnnouncements(first: number = 10): Promise<Announceme
     .map(({ active, ...item }) => item);
 }
 
-// Email Popup (Metaobject) — B2C 첫구매 쿠폰 팝업 운영 설정(이메일 수집 없음, 버튼으로 코드 공개). 문구·이미지·쿠폰 코드·노출 기간은
+// Email Popup (Metaobject) — B2C 첫구매 쿠폰 팝업 운영 설정(이메일 등록 후 코드 공개). 문구·이미지·쿠폰 코드·노출 기간은
 // 전부 Shopify 어드민 메타객체(email_popup)에서 바꾼다. 노출 대상은 active='노출' + 기간 안인 첫 항목.
 export interface EmailPopupConfig {
   couponCode: string;
@@ -859,9 +859,9 @@ export const EMAIL_POPUP_DEFAULTS: Omit<EmailPopupConfig, 'couponCode'> = {
   discountLabel: '10%',
   delaySeconds: 5,
   hideDays: 7,
-  title: 'New here?\nGet {pct} off your first order',
-  subtitle: 'Grab your welcome code and treat your pup to something new.',
-  successTitle: 'Here is your code!',
+  title: 'Sign up & get {pct} off\nyour first order',
+  subtitle: 'Join our list for exclusive deals and new arrivals for your pup.',
+  successTitle: "You're in!\nHere is your code!",
   successMessage: 'Tap the code to copy it. It will be applied at checkout.',
   codeNote: 'Valid on your first order only.',
   imageBadge: '',

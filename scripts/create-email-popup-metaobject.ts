@@ -67,9 +67,9 @@ const ENTRY_FIELDS: { key: string; value: string }[] = [
   { key: 'image_badge', value: 'NEW MEMBER ONLY' },
   { key: 'image_headline', value: 'Toys & treats\nyour dog will love' },
   { key: 'image_button', value: 'SHOP NOW' },
-  { key: 'form_title', value: 'New here?\nGet {pct} off your first order' },
-  { key: 'subtitle', value: 'Grab your welcome code and treat your pup to something new.' },
-  { key: 'success_title', value: 'Here is your code!' },
+  { key: 'form_title', value: 'Sign up & get {pct} off\nyour first order' },
+  { key: 'subtitle', value: 'Join our list for exclusive deals and new arrivals for your pup.' },
+  { key: 'success_title', value: "You're in!\nHere is your code!" },
   { key: 'success_message', value: 'Tap the code to copy it. It will be applied at checkout.' },
   { key: 'code_note', value: 'Valid on your first order only.' },
 ];
@@ -125,7 +125,7 @@ async function setFeaturedProduct(token: string, entryId: string) {
   console.log('대표 상품 지정 완료');
 }
 
-// --update-copy: 기존 항목의 팝업 문구(1·2단계 제목·설명)를 위 기본 문구로 덮어쓴다 (11/5 이메일 수집 제거)
+// --update-copy: 기존 항목의 팝업 문구(1·2단계 제목·설명)를 위 기본 문구로 덮어쓴다
 const UPDATE_COPY = process.argv.includes('--update-copy');
 const COPY_KEYS = ['form_title', 'subtitle', 'success_title', 'success_message'];
 

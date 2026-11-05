@@ -12,8 +12,8 @@ import {
 import { useAuthStore } from "@/stores/authStore";
 import biteMeLogo from "@/assets/bite-me-logo.png";
 
-// B2C 첫구매 쿠폰 팝업 (zeoy 설계안 11/4 기반, 11/5 결정: 이메일 수집 없이 버튼으로 코드 공개).
-// App에서 IS_B2C_SITE일 때만 렌더링한다. 고객 데이터는 저장하지 않는다.
+// B2C 첫구매 쿠폰 팝업 (zeoy 설계안 11/4, 아비브식). App에서 IS_B2C_SITE일 때만 렌더링한다.
+// 이메일 입력 → Shopify 구독자 등록(api/popup-subscribe, 싱글 옵트인·메일 발송 없음) → 코드 공개.
 // 운영값(문구·이미지·대표 상품·쿠폰 코드·노출 기간·초·일수·제외 페이지)은 전부 Shopify 메타객체 email_popup에서 온다.
 
 const STORAGE_KEY = "bm_email_popup_v1";
@@ -21,6 +21,7 @@ const STORAGE_KEY = "bm_email_popup_v1";
 const DISCOUNT_STORAGE_KEY = "affiliate_discount";
 const PREVIEW_PARAM = "email_popup_preview";
 const DAY_MS = 24 * 60 * 60 * 1000;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface PopupStorage {
   revealed?: boolean;
@@ -71,6 +72,10 @@ export function EmailPopup() {
   const [config, setConfig] = useState<EmailPopupConfig | null>(null);
   const [view, setView] = useState<View>("hidden");
   const [step, setStep] = useState<Step>("form");
+  const [email, setEmail] = useState("");
+  const [honeypot, setHoneypot] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const viewedRef = useRef(false);
 
   // 미리보기(?email_popup_preview=1)는 첫 진입 주소로 정하고, 페이지를 옮겨도 미리보기로 유지한다.
@@ -148,6 +153,7 @@ export function EmailPopup() {
 
   const openFromTab = () => {
     track("popup_tab_open");
+    setError(null);
     setStep("form");
     setView("modal");
   };
@@ -158,10 +164,42 @@ export function EmailPopup() {
     setView("hidden");
   };
 
-  const handleReveal = () => {
-    write({ revealed: true });
-    track("popup_get_code");
-    setStep("code");
+  // 이메일을 Shopify 구독자로 등록(api/popup-subscribe)한 뒤 코드를 보여준다. 미리보기에서도 실제로 등록된다
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = email.trim();
+    if (!EMAIL_RE.test(value)) {
+      setError("Enter a valid email address.");
+      return;
+    }
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/popup-subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: value, website: honeypot }),
+      });
+      if (res.status === 400) {
+        setError("Enter a valid email address.");
+        return;
+      }
+      if (res.status === 429) {
+        setError("Please try again in a minute.");
+        return;
+      }
+      if (!res.ok) {
+        setError("Something went wrong. Please try again.");
+        return;
+      }
+      write({ revealed: true });
+      track("popup_submit");
+      setStep("code");
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleCopy = () => {
@@ -286,13 +324,38 @@ export function EmailPopup() {
                   <BalancedLines text={title} />
                 </DialogPrimitive.Title>
                 <p className="text-balance text-sm leading-relaxed text-neutral-700">{config.subtitle}</p>
-                <button
-                  type="button"
-                  onClick={handleReveal}
-                  className="h-12 w-full bg-neutral-900 text-sm font-bold tracking-[0.12em] text-white"
-                >
-                  GET MY CODE
-                </button>
+                <form onSubmit={handleSubmit} noValidate className="flex w-full flex-col gap-3">
+                  <label htmlFor="email-popup-email" className="sr-only">Email address</label>
+                  <input
+                    id="email-popup-email"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Email address"
+                    className="h-14 w-full bg-neutral-200/70 px-5 text-base outline-none focus:ring-2 focus:ring-neutral-900"
+                  />
+                  {/* 봇 차단용 숨김 칸 — 사람은 보지 못한다 */}
+                  <input
+                    type="text"
+                    name="website"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={honeypot}
+                    onChange={(e) => setHoneypot(e.target.value)}
+                    className="hidden"
+                    aria-hidden="true"
+                  />
+                  {error && <p className="text-left text-xs text-red-600">{error}</p>}
+                  <p className="text-xs text-neutral-700">By signing up, you agree to receive email marketing.</p>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="h-12 w-full bg-neutral-900 text-sm font-bold tracking-[0.12em] text-white disabled:opacity-60"
+                  >
+                    {submitting ? "JOINING..." : "JOIN US & SAVE"}
+                  </button>
+                </form>
               </>
             ) : (
               <>
