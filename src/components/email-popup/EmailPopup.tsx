@@ -10,6 +10,7 @@ import {
   EmailPopupConfig,
 } from "@/lib/shopify";
 import { useAuthStore } from "@/stores/authStore";
+import biteMeLogo from "@/assets/bite-me-logo.png";
 
 // B2C 첫구매 쿠폰 팝업 (zeoy 설계안 11/4 기반, 11/5 결정: 이메일 수집 없이 버튼으로 코드 공개).
 // App에서 IS_B2C_SITE일 때만 렌더링한다. 고객 데이터는 저장하지 않는다.
@@ -277,7 +278,7 @@ export function EmailPopup() {
                 className="max-h-44 w-full rounded-lg object-cover md:hidden"
               />
             )}
-            <div className="text-xl font-black tracking-[0.16em] md:text-2xl">BITE ME</div>
+            <img src={biteMeLogo} alt="BITE ME" className="h-[22px] md:h-[26px]" />
 
             {step === "form" ? (
               <>
