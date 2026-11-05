@@ -202,9 +202,9 @@ export function EmailPopup() {
   if (view === "tab") {
     return (
       // 오른쪽 세로 탭 — zeoy 목업 배치(PC 위에서 37.5%, 40×132, ✕는 탭 왼쪽 아래 모서리). 색은 검정(11/5 상아).
-      // 모바일 배너는 폭에 비례해 커져 좌우 화살표가 위에서 약 300~320px — 그보다 위(140px, 배너 윗부분)에 둔다
+      // 모바일은 화면 오른쪽 세로 가운데 (11/5 상아)
       // 홈 콘텐츠 박스(max-w 1600px, Index.tsx)보다 화면이 넓으면 화면 끝이 아니라 박스 오른쪽 선(배너 끝)에 맞춘다
-      <div className="fixed right-[max(0px,calc((100%-1600px)/2))] top-[140px] z-[60] md:top-[37.5%]">
+      <div className="fixed right-[max(0px,calc((100%-1600px)/2))] top-1/2 z-[60] -translate-y-1/2 md:top-[37.5%] md:translate-y-0">
         <button
           type="button"
           onClick={openFromTab}
@@ -278,14 +278,14 @@ export function EmailPopup() {
                 className="max-h-44 w-full rounded-lg object-cover md:hidden"
               />
             )}
-            <img src={biteMeLogo} alt="BITE ME" className="h-[22px] md:h-[26px]" />
+            <img src={biteMeLogo} alt="BITE ME" className="mb-2 h-[22px] md:mb-4 md:h-[26px]" />
 
             {step === "form" ? (
               <>
                 <DialogPrimitive.Title className="text-xl font-extrabold leading-snug md:text-[26px]">
                   <BalancedLines text={title} />
                 </DialogPrimitive.Title>
-                <p className="text-pretty text-sm leading-relaxed text-neutral-700">{config.subtitle}</p>
+                <p className="text-balance text-sm leading-relaxed text-neutral-700">{config.subtitle}</p>
                 <button
                   type="button"
                   onClick={handleReveal}
@@ -299,7 +299,7 @@ export function EmailPopup() {
                 <DialogPrimitive.Title className="text-xl font-extrabold leading-snug md:text-[26px]">
                   <BalancedLines text={successTitle} />
                 </DialogPrimitive.Title>
-                <p className="text-pretty text-sm leading-relaxed text-neutral-700">{config.successMessage}</p>
+                <p className="text-balance text-sm leading-relaxed text-neutral-700">{config.successMessage}</p>
                 <button
                   type="button"
                   onClick={handleCopy}
