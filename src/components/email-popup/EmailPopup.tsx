@@ -31,7 +31,9 @@ interface PopupStorage {
 
 function readStorage(): PopupStorage {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") as PopupStorage;
+    const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    // 손상된 값("null", 숫자 등)이면 빈 상태로 본다
+    return parsed && typeof parsed === "object" ? (parsed as PopupStorage) : {};
   } catch {
     return {};
   }
@@ -194,6 +196,8 @@ export function EmailPopup() {
       }
       write({ revealed: true });
       track("popup_submit");
+      // 코드를 복사하지 않고 닫아도 결제에 붙도록 공개 시점에 바로 저장한다 (팝업은 이 브라우저에서 다시 안 뜸)
+      applyCode();
       setStep("code");
     } catch {
       setError("Something went wrong. Please try again.");
@@ -202,17 +206,11 @@ export function EmailPopup() {
     }
   };
 
-  const handleCopy = () => {
-    if (!config) return;
-    track("popup_coupon_copy");
-    // 클립보드는 결과를 기다리지 않는다 — 브라우저가 응답하지 않아도 안내·결제 적용은 진행
-    navigator.clipboard?.writeText(config.couponCode).catch(() => {});
-
+  // 팝업 코드를 결제용 저장 칸에 넣는다. 반환값: 결제에 자동으로 붙는지 여부
+  const applyCode = (): boolean => {
+    if (!config) return false;
     // 자리표시 코드는 결제에 붙이지 않는다 (미리보기 전용)
-    if (config.couponCode === EMAIL_POPUP_PLACEHOLDER_CODE) {
-      toast.success("Preview code copied (not applied)");
-      return;
-    }
+    if (config.couponCode === EMAIL_POPUP_PLACEHOLDER_CODE) return false;
     // 할인 링크(/discount/코드)로 받은 다른 코드가 있으면 덮어쓰지 않는다 — 파트너 할인·귀속 보호
     let existing: string | null = null;
     try {
@@ -220,16 +218,23 @@ export function EmailPopup() {
     } catch {
       // 무시
     }
-    if (existing && existing.toUpperCase() !== config.couponCode) {
-      toast.success("Code copied");
-      return;
-    }
+    if (existing && existing.toUpperCase() !== config.couponCode) return false;
     try {
       localStorage.setItem(DISCOUNT_STORAGE_KEY, config.couponCode);
+      return true;
     } catch {
-      // 무시
+      return false;
     }
-    toast.success("Your code will be applied at checkout");
+  };
+
+  const handleCopy = () => {
+    if (!config) return;
+    track("popup_coupon_copy");
+    // 클립보드는 결과를 기다리지 않는다 — 브라우저가 응답하지 않아도 안내·결제 적용은 진행
+    navigator.clipboard?.writeText(config.couponCode).catch(() => {});
+    // 다른 코드가 이미 저장돼 자동 적용이 안 되면, 결제 화면에 직접 넣으라고 정확히 안내한다
+    if (applyCode()) toast.success("Your code will be applied at checkout");
+    else toast.success("Code copied. Enter it at checkout.");
   };
 
   if (!config || view === "hidden") return null;

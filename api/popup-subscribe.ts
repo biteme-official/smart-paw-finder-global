@@ -3,7 +3,8 @@ import { kv } from '@vercel/kv';
 
 // B2C 첫구매 쿠폰 팝업 — 이메일을 Shopify 고객(구독자)으로 등록한다 (#196).
 // 비밀번호 없는 고객 기록 + 이메일 마케팅 구독됨(싱글 옵트인, 확인 메일 없음) + 태그 popup-subscribe.
-// 이미 있는 이메일은 건드리지 않는다(구독 상태·태그 변경 없음). 고객에게 메일을 보내지 않는다.
+// 이미 있는 고객: 태그를 붙이고, 수신 동의를 한 적 없으면(NOT_SUBSCRIBED·PENDING) 구독됨으로 바꾼다.
+// 예전에 수신 거부(UNSUBSCRIBED)한 고객은 수신 상태를 바꾸지 않는다. 고객에게 메일을 보내지 않는다.
 // site-b2c 태그는 붙이지 않는다 — 로그인한 고객 표시용(zeoy 설계안: 팝업만 = popup-subscribe만).
 // Self-contained like every other function in api/ — server/popup-subscribe-proxy.ts가 subscribeEmail을 재사용한다.
 
@@ -52,14 +53,43 @@ async function adminGraphql<T>(query: string, variables: Record<string, unknown>
 
 export type SubscribeResult = 'created' | 'existing';
 
-// 이메일을 구독자로 등록. 이미 있으면 아무것도 바꾸지 않는다.
+const SUBSCRIBED_CONSENT = () => ({
+  marketingState: 'SUBSCRIBED',
+  marketingOptInLevel: 'SINGLE_OPT_IN',
+  consentUpdatedAt: new Date().toISOString(),
+});
+
+// 이미 있는 고객: 태그 추가 + 수신 동의를 한 적 없으면 구독 처리 (수신 거부 고객은 그대로)
+async function updateExisting(id: string, marketingState: string | null): Promise<void> {
+  await adminGraphql(
+    `mutation($id: ID!, $tags: [String!]!) { tagsAdd(id: $id, tags: $tags) { userErrors { field message } } }`,
+    { id, tags: [TAG] },
+  );
+  if (marketingState !== 'NOT_SUBSCRIBED' && marketingState !== 'PENDING') return;
+  const res = await adminGraphql<{ customerEmailMarketingConsentUpdate: { userErrors: { message: string }[] } }>(
+    `mutation($input: CustomerEmailMarketingConsentUpdateInput!) {
+      customerEmailMarketingConsentUpdate(input: $input) { userErrors { field message } }
+    }`,
+    { input: { customerId: id, emailMarketingConsent: SUBSCRIBED_CONSENT() } },
+  );
+  const errors = res.customerEmailMarketingConsentUpdate.userErrors;
+  if (errors.length) throw new Error(`consent update failed: ${JSON.stringify(errors)}`);
+}
+
+// 이메일을 구독자로 등록
 export async function subscribeEmail(rawEmail: string): Promise<SubscribeResult> {
   const email = rawEmail.trim().toLowerCase();
-  const found = await adminGraphql<{ customers: { nodes: { id: string }[] } }>(
-    `query($q: String!) { customers(first: 1, query: $q) { nodes { id } } }`,
+  const found = await adminGraphql<{
+    customers: { nodes: { id: string; emailMarketingConsent: { marketingState: string } | null }[] };
+  }>(
+    `query($q: String!) { customers(first: 1, query: $q) { nodes { id emailMarketingConsent { marketingState } } } }`,
     { q: `email:"${email.replace(/"/g, '')}"` },
   );
-  if (found.customers.nodes.length) return 'existing';
+  const existing = found.customers.nodes[0];
+  if (existing) {
+    await updateExisting(existing.id, existing.emailMarketingConsent?.marketingState ?? null);
+    return 'existing';
+  }
 
   const created = await adminGraphql<{
     customerCreate: { customer: { id: string } | null; userErrors: { field: string[] | null; message: string }[] };
@@ -71,11 +101,7 @@ export async function subscribeEmail(rawEmail: string): Promise<SubscribeResult>
       input: {
         email,
         tags: [TAG],
-        emailMarketingConsent: {
-          marketingState: 'SUBSCRIBED',
-          marketingOptInLevel: 'SINGLE_OPT_IN',
-          consentUpdatedAt: new Date().toISOString(),
-        },
+        emailMarketingConsent: SUBSCRIBED_CONSENT(),
       },
     },
   );
@@ -105,6 +131,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // B2B 사이트(biteme.one)에는 팝업이 없다 — 이 기능도 쓰지 않는다
   if (process.env.SITE_MODE !== 'b2c') return res.status(404).json({ error: 'Not found' });
+
+  // 다른 사이트의 브라우저에서 보낸 요청은 거절 (Origin이 있으면 우리 사이트 주소와 같아야 함)
+  const origin = String(req.headers.origin || '');
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '');
+  if (origin && host) {
+    let originHost = '';
+    try {
+      originHost = new URL(origin).host;
+    } catch {
+      // "null" 등 잘못된 Origin
+    }
+    if (originHost !== host) return res.status(403).json({ error: 'Forbidden' });
+  }
 
   const body = (req.body ?? {}) as { email?: unknown; website?: unknown };
   // 봇용 숨김 칸이 채워졌으면 저장하지 않고 성공처럼 응답

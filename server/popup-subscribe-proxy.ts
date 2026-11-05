@@ -26,8 +26,13 @@ export function popupSubscribeProxyMiddleware(): Connect.NextHandleFunction {
 
     if (process.env.SITE_MODE !== 'b2c') return send(res, 404, { error: 'Not found' });
 
+    let body: { email?: unknown; website?: unknown };
     try {
-      const body = JSON.parse((await readBody(req)) || '{}') as { email?: unknown; website?: unknown };
+      body = JSON.parse((await readBody(req)) || '{}');
+    } catch {
+      return send(res, 400, { error: 'Invalid email' });
+    }
+    try {
       if (typeof body.website === 'string' && body.website.trim()) return send(res, 200, { ok: true });
 
       const email = typeof body.email === 'string' ? body.email.trim() : '';
