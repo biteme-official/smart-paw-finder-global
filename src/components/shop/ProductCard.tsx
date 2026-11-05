@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useProductReviewSummary } from "@/hooks/useProductReview";
 import { useFavoriteAction } from "@/hooks/useFavoriteAction";
 import { useAuthStore } from "@/stores/authStore";
+import { useVariantDiscount } from "@/stores/cartPreviewStore";
 
 export interface ProductCardBadge {
   label: string;
@@ -46,11 +47,24 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
   const price = product.node.priceRange.minVariantPrice;
   const originalAmt = parseFloat(price.amount);
 
+  // 카드에 찍히는 가격은 최저가 옵션이므로, 할인도 그 옵션 기준으로 물어본다.
+  const priceVariantId =
+    product.node.variants?.edges?.find((e) => e.node.price.amount === price.amount)?.node.id ??
+    product.node.variants?.edges?.[0]?.node.id;
+  // 자동 할인(Open Sale 등)은 상품 데이터에 없고 카트에서만 계산된다. 카드 여러 장이 동시에
+  // 물어도 한 묶음으로 나간다(cartPreviewStore).
+  const autoDiscount = useVariantDiscount(priceVariantId);
+
   // B2B 할인가는 계정별 실제 가격 정책을 반영 (체크아웃가와 일치).
-  // 일반 고객에게는 원가만 표시 — 클라이언트 계산 할인가는 체크아웃가와 어긋날 수 있음.
-  const showDiscount = isB2B && !isSoldOut;
-  const saleAmt = (originalAmt * (1 - b2bDiscountRate)).toFixed(2);
-  const discountLabel = `${Math.round(b2bDiscountRate * 100)}% OFF`;
+  // 일반 고객에게는 Shopify 가 계산한 자동 할인만 표시한다 — 임의 계산은 체크아웃가와 어긋난다.
+  const hasAutoDiscount = !isB2B && autoDiscount > 0 && originalAmt > 0;
+  const showDiscount = (isB2B || hasAutoDiscount) && !isSoldOut;
+  const saleAmt = isB2B
+    ? (originalAmt * (1 - b2bDiscountRate)).toFixed(2)
+    : (originalAmt - autoDiscount).toFixed(2);
+  const discountLabel = isB2B
+    ? `${Math.round(b2bDiscountRate * 100)}% OFF`
+    : `${Math.round((autoDiscount / originalAmt) * 100)}% OFF`;
 
   return (
     <div

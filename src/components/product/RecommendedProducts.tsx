@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { ShoppingCart, Heart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ShopifyProduct, fetchProductRecommendations } from "@/lib/shopify";
-import { PriceTag } from "@/components/ui/PriceTag";
+import { AutoDiscountPriceTag } from "@/components/ui/PriceTag";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductOptionDialog } from "@/components/shop/ProductOptionDialog";
@@ -151,7 +151,7 @@ export function RecommendedProducts({ productId, currentHandle }: RecommendedPro
                   {product.node.title}
                 </h3>
                 <div className="flex items-start justify-between gap-1">
-                  <PriceTag amount={price.amount} currencyCode={price.currencyCode} className="text-sm font-bold text-primary" originalClassName="text-xs" />
+                  <AutoDiscountPriceTag product={product} amount={price.amount} currencyCode={price.currencyCode} className="text-sm font-bold text-primary" originalClassName="text-xs" />
                   <Button
                     size="sm"
                     variant="secondary"
