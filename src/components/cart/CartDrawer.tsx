@@ -15,6 +15,7 @@ import { ShoppingCart, Minus, Plus, Trash2, ExternalLink, Loader2 } from "lucide
 import { useCartStore } from "@/stores/cartStore";
 import { formatPrice } from "@/lib/shopify";
 import { useAuthStore } from "@/stores/authStore";
+import { getB2BRetailAmount, getIntlRetail } from "@/components/ui/PriceTag";
 import { ThresholdBanner } from "./ThresholdBanner";
 import { useTranslation } from "@/hooks/useTranslation";
 import { safeNavigate } from "@/lib/browser-utils";
@@ -265,10 +266,11 @@ export const CartDrawer = ({ open: controlledOpen, onOpenChange, showTrigger = t
                             if (isB2B) {
                               const discUnit = (unitPrice * (1 - b2bRate)).toFixed(2);
                               const discTotal = (lineTotal * (1 - b2bRate)).toFixed(2);
+                              const retailUnit = getB2BRetailAmount(item.price.amount, getIntlRetail(item.product.node, item.variantId), discUnit);
                               return (
                                 <>
                                   <p className="text-xs text-muted-foreground">
-                                    <span className="line-through">{formatPrice(item.price.amount, item.price.currencyCode)}</span>
+                                    <span className="line-through">{formatPrice(retailUnit, item.price.currencyCode)}</span>
                                     {' '}{formatPrice(discUnit, item.price.currencyCode)} x {item.quantity}
                                   </p>
                                   <p className="font-semibold text-sm text-primary">

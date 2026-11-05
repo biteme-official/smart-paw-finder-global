@@ -1,0 +1,3222 @@
+{
+ "biteme monthly june - message card||congratulations": {
+  "intl": 1.91,
+  "us": 3.0
+ },
+ "biteme monthly june - message card||cheer up": {
+  "intl": 1.91,
+  "us": 3.0
+ },
+ "biteme wand toy for cat - fluffy plush (2p)||default title": {
+  "intl": 2.65,
+  "us": 4.0
+ },
+ "biteme wand toy for cat - fluffy tail (2p)||default title": {
+  "intl": 2.65,
+  "us": 4.0
+ },
+ "biteme wand toy for cat - smooth plush (2p)||default title": {
+  "intl": 2.65,
+  "us": 4.0
+ },
+ "biteme tiny treat (3types)||dried pollack": {
+  "intl": 3.6,
+  "us": 6.0
+ },
+ "biteme tiny treat (3types)||chicken breast": {
+  "intl": 3.6,
+  "us": 6.0
+ },
+ "biteme tiny treat (3types)||halibut": {
+  "intl": 3.6,
+  "us": 6.0
+ },
+ "biteme suppli-chu (3types)||chicken / 5pcs": {
+  "intl": 3.91,
+  "us": 6.0
+ },
+ "biteme suppli-chu (3types)||salmon / 5pcs": {
+  "intl": 3.91,
+  "us": 6.0
+ },
+ "biteme suppli-chu (3types)||tuna / 5pcs": {
+  "intl": 3.91,
+  "us": 6.0
+ },
+ "biteme wand toy for cat - sparkle||default title": {
+  "intl": 3.63,
+  "us": 6.0
+ },
+ "biteme jumping boogie auto-ball toy||roll up snuffle mat": {
+  "intl": 3.92,
+  "us": 6.0
+ },
+ "biteme dog oxo-bio degradable plastics poop bag & dispenser set - ohhh my poo||default title": {
+  "intl": 3.92,
+  "us": 6.0
+ },
+ "biteme new foldable travel bowl - pastel (4types)||light pink": {
+  "intl": 3.92,
+  "us": 6.0
+ },
+ "biteme new foldable travel bowl - pastel (4types)||butter": {
+  "intl": 3.92,
+  "us": 6.0
+ },
+ "biteme new foldable travel bowl - pastel (4types)||melon": {
+  "intl": 3.92,
+  "us": 6.0
+ },
+ "biteme new foldable travel bowl - pastel (4types)||lavander": {
+  "intl": 3.92,
+  "us": 6.0
+ },
+ "monthly biteme december - cake decoration (love/congrats)||love": {
+  "intl": 4.06,
+  "us": 6.0
+ },
+ "monthly biteme december - cake decoration (love/congrats)||congrats": {
+  "intl": 4.06,
+  "us": 6.0
+ },
+ "biteme mayonnaise & ketchup toy||mayo": {
+  "intl": 4.4,
+  "us": 7.0
+ },
+ "biteme mayonnaise & ketchup toy||ketchup": {
+  "intl": 4.4,
+  "us": 7.0
+ },
+ "biteme my sibling plush charm (cat) - 4 types||charcoal": {
+  "intl": 4.54,
+  "us": 7.0
+ },
+ "biteme my sibling plush charm (cat) - 4 types||gray": {
+  "intl": 4.54,
+  "us": 7.0
+ },
+ "biteme my sibling plush charm (cat) - 4 types||cream": {
+  "intl": 4.54,
+  "us": 7.0
+ },
+ "biteme my sibling plush charm (cat) - 4 types||cheese": {
+  "intl": 4.54,
+  "us": 7.0
+ },
+ "biteme mini snack bottle (4 types)||light blue": {
+  "intl": 4.72,
+  "us": 8.0
+ },
+ "biteme mini snack bottle (4 types)||yellow": {
+  "intl": 4.72,
+  "us": 8.0
+ },
+ "biteme mini snack bottle (4 types)||pink": {
+  "intl": 4.72,
+  "us": 8.0
+ },
+ "biteme mini snack bottle (4 types)||white": {
+  "intl": 4.72,
+  "us": 8.0
+ },
+ "biteme sniffy lemon toy||default title": {
+  "intl": 4.72,
+  "us": 8.0
+ },
+ "biteme oops eco-friendly poop bag & dispenser||default title": {
+  "intl": 4.76,
+  "us": 8.0
+ },
+ "biteme rubber glove toy (2 types)||squeaky": {
+  "intl": 4.8,
+  "us": 8.0
+ },
+ "biteme rubber glove toy (2 types)||rustling": {
+  "intl": 4.8,
+  "us": 8.0
+ },
+ "biteme cats party filling cookie (2types)||seafood": {
+  "intl": 5.45,
+  "us": 9.0
+ },
+ "biteme cats party filling cookie (2types)||chicken": {
+  "intl": 5.45,
+  "us": 9.0
+ },
+ "biteme slim detox stick (8pcs)||default title": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme cat fishing toy refill set [basic]||default title": {
+  "intl": 5.45,
+  "us": 9.0
+ },
+ "biteme cat fishing toy refill set (ribbon)||default title": {
+  "intl": 5.45,
+  "us": 9.0
+ },
+ "biteme cat fishing toy refill set [feather]||default title": {
+  "intl": 5.45,
+  "us": 9.0
+ },
+ "biteme egg toast latex toy||default title": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme jelly bear silicone nosework ball (3 types)||skyblue": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme jelly bear silicone nosework ball (3 types)||yellow": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme jelly bear silicone nosework ball (3 types)||pink": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme jelly bear toy (5 types)||red": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme jelly bear toy (5 types)||orange": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme jelly bear toy (5 types)||yellow": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme jelly bear toy (5 types)||white": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme jelly bear toy (5 types)||green": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme farm friends ball toy||bear(5cm)": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme farm friends ball toy||frog(5cm)": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme farm friends ball toy||pig(6cm)": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme farm friends ball toy||mouse(6cm)": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme farm friends ball toy||rabbit(6cm)": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme hate me patch (24pcs)||default title": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme jellybear round face comb||default title": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme jellybear oops clip poop bag holder (3 types)||melon": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme jellybear oops clip poop bag holder (3 types)||pink": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme jellybear oops clip poop bag holder (3 types)||banana": {
+  "intl": 5.53,
+  "us": 9.0
+ },
+ "biteme daily care hair ball for cat (7pcs) expiration date: 2026-04-11||default title": {
+  "intl": 6.0,
+  "us": 10.0
+ },
+ "crunchy pop cereal||default title": {
+  "intl": 6.0,
+  "us": 10.0
+ },
+ "biteme boo stick (2types)||salmon&chicken": {
+  "intl": 6.33,
+  "us": 10.0
+ },
+ "biteme boo stick (2types)||duck": {
+  "intl": 6.33,
+  "us": 10.0
+ },
+ "biteme rolly chew - goat milk||default title": {
+  "intl": 6.33,
+  "us": 10.0
+ },
+ "biteme rolly chew - original||default title": {
+  "intl": 6.33,
+  "us": 10.0
+ },
+ "biteme rolly chew - manuka honey||default title": {
+  "intl": 6.33,
+  "us": 10.0
+ },
+ "bonbon green furry friends ball (3type)||squirrel": {
+  "intl": 6.16,
+  "us": 10.0
+ },
+ "bonbon green furry friends ball (3type)||rabbit": {
+  "intl": 6.16,
+  "us": 10.0
+ },
+ "bonbon green furry friends ball (3type)||raccoon": {
+  "intl": 6.16,
+  "us": 10.0
+ },
+ "biteme mushroom nosework toy||default title": {
+  "intl": 6.33,
+  "us": 10.0
+ },
+ "biteme tennis ball toy (3pcs)||default title": {
+  "intl": 6.33,
+  "us": 10.0
+ },
+ "bonbon green furry friends mini squeaky toy (3type)||penguin": {
+  "intl": 6.33,
+  "us": 10.0
+ },
+ "bonbon green furry friends mini squeaky toy (3type)||bear": {
+  "intl": 6.33,
+  "us": 10.0
+ },
+ "bonbon green furry friends mini squeaky toy (3type)||bunny": {
+  "intl": 6.33,
+  "us": 10.0
+ },
+ "biteme my siblings latex toy||white": {
+  "intl": 6.32,
+  "us": 10.0
+ },
+ "biteme my siblings latex toy||cream": {
+  "intl": 6.32,
+  "us": 10.0
+ },
+ "biteme my siblings latex toy||sliver": {
+  "intl": 6.32,
+  "us": 10.0
+ },
+ "biteme baby pup latex toy (3types)||cream spot": {
+  "intl": 6.32,
+  "us": 10.0
+ },
+ "biteme baby pup latex toy (3types)||white": {
+  "intl": 6.32,
+  "us": 10.0
+ },
+ "biteme baby pup latex toy (3types)||yellow": {
+  "intl": 6.32,
+  "us": 10.0
+ },
+ "biteme mini comfy bag (6 types)||pink": {
+  "intl": 8.08,
+  "us": 10.0
+ },
+ "biteme mini comfy bag (6 types)||mint": {
+  "intl": 8.08,
+  "us": 10.0
+ },
+ "biteme mini comfy bag (6 types)||beige": {
+  "intl": 8.08,
+  "us": 10.0
+ },
+ "biteme mini comfy bag (6 types)||orange": {
+  "intl": 8.08,
+  "us": 10.0
+ },
+ "biteme mini comfy bag (6 types)||yellow": {
+  "intl": 8.08,
+  "us": 10.0
+ },
+ "biteme mini comfy bag (6 types)||blue": {
+  "intl": 8.08,
+  "us": 10.0
+ },
+ "biteme pocket meal (4 types)||chicken": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme pocket meal (4 types)||duck": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme pocket meal (4 types)||salmon": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme pocket meal (4 types)||variety pack": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme smallbite energy treat (2types)||beef": {
+  "intl": 7.14,
+  "us": 11.0
+ },
+ "biteme smallbite energy treat (2types)||duck": {
+  "intl": 7.14,
+  "us": 11.0
+ },
+ "biteme buddy bone nylon toy||default title": {
+  "intl": 6.76,
+  "us": 11.0
+ },
+ "biteme two way dual-headed ultra small toothbrush||default title": {
+  "intl": 7.08,
+  "us": 11.0
+ },
+ "biteme hate me band (3 types)||pink": {
+  "intl": 7.08,
+  "us": 11.0
+ },
+ "biteme hate me band (3 types)||blue": {
+  "intl": 7.08,
+  "us": 11.0
+ },
+ "biteme hate me band (3 types)||yellow": {
+  "intl": 7.08,
+  "us": 11.0
+ },
+ "biteme little jelly bear latex toy (3 pcs)||default title": {
+  "intl": 7.11,
+  "us": 11.0
+ },
+ "biteme petperoni pizza toy||default title": {
+  "intl": 7.11,
+  "us": 11.0
+ },
+ "biteme big face jelly bear latex toy (3pcs)||default title": {
+  "intl": 7.11,
+  "us": 11.0
+ },
+ "biteme my sleepy friends toy (2types)||rabbit": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme my sleepy friends toy (2types)||giraffe": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme agricultural nosework toy (4 types)||onions": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme tails latex toy||raccoon": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme tails latex toy||chinchilla": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme tails latex toy||squirrel": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme sakura jelly bear toy||default title": {
+  "intl": 7.12,
+  "us": 11.0
+ },
+ "biteme fluffy flat latex toy (2 types)||beaver": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme fluffy flat latex toy (2 types)||platypus": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme party series - balloon dog toy||default title": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme banana noseworktoy||default title": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme long hands ball toy (2 types)||frog": {
+  "intl": 7.12,
+  "us": 11.0
+ },
+ "biteme long hands ball toy (2 types)||octopus": {
+  "intl": 7.12,
+  "us": 11.0
+ },
+ "biteme buddy refill toy (2types)||buddy bear": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme buddy refill toy (2types)||buddy bunny": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme new mini tennis balls toy||default title": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "bonbon green furry friends rattle toy (3type)||rabbit": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "bonbon green furry friends rattle toy (3type)||bear": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "bonbon green furry friends rattle toy (3type)||elephant": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme crinkle vinyls pocket toy (2types)||white": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme crinkle vinyls pocket toy (2types)||pink": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme root vegetable toys (2types)||carrot": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme root vegetable toys (2types)||beet": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "bonbon green furry friends rope tug toy (3type)||rabbit": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "bonbon green furry friends rope tug toy (3type)||lamb": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "bonbon green furry friends rope tug toy (3type)||squirrel": {
+  "intl": 7.13,
+  "us": 11.0
+ },
+ "biteme crinkle blanket toy (2types)||bear": {
+  "intl": 7.17,
+  "us": 11.0
+ },
+ "biteme crinkle blanket toy (2types)||rabbit": {
+  "intl": 7.17,
+  "us": 11.0
+ },
+ "biteme chocolate cookie nose-work toy (2pcs)||default title": {
+  "intl": 7.26,
+  "us": 12.0
+ },
+ "biteme toothpaste gel plush toy||default title": {
+  "intl": 7.31,
+  "us": 12.0
+ },
+ "biteme dog oxo-bio degradable plastics poop bag - ohhh my poo||default title": {
+  "intl": 7.65,
+  "us": 12.0
+ },
+ "biteme biobites probiotics treat - salmon||default title": {
+  "intl": 7.88,
+  "us": 13.0
+ },
+ "biteme meatpie mini treats (2types)||lamb": {
+  "intl": 7.88,
+  "us": 13.0
+ },
+ "biteme meatpie mini treats (2types)||duck": {
+  "intl": 7.88,
+  "us": 13.0
+ },
+ "biteme cherry tug toy||default title": {
+  "intl": 7.86,
+  "us": 13.0
+ },
+ "biteme stretchy toy - monkey / fox (2 types)||monkey": {
+  "intl": 7.86,
+  "us": 13.0
+ },
+ "biteme stretchy toy - monkey / fox (2 types)||fox": {
+  "intl": 7.86,
+  "us": 13.0
+ },
+ "biteme retro flip-phone toy||default title": {
+  "intl": 7.93,
+  "us": 13.0
+ },
+ "biteme socks rope toy - rabbit / bear (2types)||rabbit": {
+  "intl": 7.93,
+  "us": 13.0
+ },
+ "biteme socks rope toy - rabbit / bear (2types)||bear": {
+  "intl": 7.93,
+  "us": 13.0
+ },
+ "biteme party series - happy bday card dog toy||default title": {
+  "intl": 7.93,
+  "us": 13.0
+ },
+ "biteme crunchy candy ball toy - lemon & cherry (2 types)||lemon": {
+  "intl": 7.93,
+  "us": 13.0
+ },
+ "biteme crunchy candy ball toy - lemon & cherry (2 types)||cherry": {
+  "intl": 7.93,
+  "us": 13.0
+ },
+ "biteme fruit sandwich toy||default title": {
+  "intl": 8.25,
+  "us": 13.0
+ },
+ "biteme scratch box refill (3p)||default title": {
+  "intl": 8.31,
+  "us": 13.0
+ },
+ "biteme chickpea chips||default title": {
+  "intl": 8.62,
+  "us": 14.0
+ },
+ "biteme paw paw treat (6types)||chicken 60g": {
+  "intl": 8.73,
+  "us": 14.0
+ },
+ "biteme paw paw treat (6types)||flatfish 40g": {
+  "intl": 8.73,
+  "us": 14.0
+ },
+ "biteme paw paw treat (6types)||salmon 45g": {
+  "intl": 8.73,
+  "us": 14.0
+ },
+ "biteme double rolly chew (expiration date: 2026-07-20)||default title": {
+  "intl": 8.73,
+  "us": 14.0
+ },
+ "biteme croissant nosework toy||default title": {
+  "intl": 8.71,
+  "us": 14.0
+ },
+ "biteme agricultural nosework toy (4 types)||corn": {
+  "intl": 8.73,
+  "us": 14.0
+ },
+ "biteme hbd party cake hat toy||default title": {
+  "intl": 8.73,
+  "us": 14.0
+ },
+ "biteme dynabite chicken 8pcs||default title": {
+  "intl": 9.53,
+  "us": 15.0
+ },
+ "biteme dynabite beef 8pcs||default title": {
+  "intl": 9.53,
+  "us": 15.0
+ },
+ "biteme dynabite tuna 8pcs||default title": {
+  "intl": 9.53,
+  "us": 15.0
+ },
+ "biteme dynabite salmon (2types)||8ea": {
+  "intl": 9.53,
+  "us": 15.0
+ },
+ "biteme paw paw treat (6types)||cow liver 75g": {
+  "intl": 9.53,
+  "us": 15.0
+ },
+ "biteme dynabite duck (2types)||8ea": {
+  "intl": 9.53,
+  "us": 15.0
+ },
+ "biteme fluffy towel toy (2types)||pink": {
+  "intl": 9.45,
+  "us": 15.0
+ },
+ "biteme fluffy towel toy (2types)||blue": {
+  "intl": 9.45,
+  "us": 15.0
+ },
+ "biteme long longs tug toy (2 types)||duck": {
+  "intl": 9.53,
+  "us": 15.0
+ },
+ "biteme long longs tug toy (2 types)||alligator": {
+  "intl": 9.53,
+  "us": 15.0
+ },
+ "biteme cupcake nosework toy||default title": {
+  "intl": 9.52,
+  "us": 15.0
+ },
+ "biteme poodle poop bag pouch||default title": {
+  "intl": 9.53,
+  "us": 15.0
+ },
+ "biteme my little animal friends toy (3 types)||elephant": {
+  "intl": 9.52,
+  "us": 15.0
+ },
+ "biteme my little animal friends toy (3 types)||puppy": {
+  "intl": 9.52,
+  "us": 15.0
+ },
+ "biteme my little animal friends toy (3 types)||rabbit": {
+  "intl": 9.52,
+  "us": 15.0
+ },
+ "biteme stubby friends toy - (2types)||cow": {
+  "intl": 9.52,
+  "us": 15.0
+ },
+ "biteme stubby friends toy - (2types)||giraffe": {
+  "intl": 9.52,
+  "us": 15.0
+ },
+ "biteme dog balls toys sets (2pcs)||default title": {
+  "intl": 9.52,
+  "us": 15.0
+ },
+ "biteme agricultural nosework toy (4 types)||chestnut": {
+  "intl": 9.53,
+  "us": 15.0
+ },
+ "biteme agricultural nosework toy (4 types)||pak choi": {
+  "intl": 9.53,
+  "us": 15.0
+ },
+ "biteme colorpop poop bag (120pcs)||default title": {
+  "intl": 9.53,
+  "us": 15.0
+ },
+ "biteme dog biodegradable poop bag - oops bag||default title": {
+  "intl": 9.6,
+  "us": 15.0
+ },
+ "biteme soft eye cleaner 100ml||default title": {
+  "intl": 10.25,
+  "us": 16.0
+ },
+ "biteme paw paw treat (6types)||dried pollack 40g": {
+  "intl": 10.33,
+  "us": 17.0
+ },
+ "biteme dentistick soft original dental chew (2types)||10ea": {
+  "intl": 10.33,
+  "us": 17.0
+ },
+ "biteme burrito nosework toy||default title": {
+  "intl": 10.33,
+  "us": 17.0
+ },
+ "biteme love bear nose-work toy||default title": {
+  "intl": 10.33,
+  "us": 17.0
+ },
+ "biteme buddy fork (3tyes)||beige": {
+  "intl": 10.33,
+  "us": 17.0
+ },
+ "biteme buddy fork (3tyes)||yellow": {
+  "intl": 10.33,
+  "us": 17.0
+ },
+ "biteme buddy fork (3tyes)||green": {
+  "intl": 10.33,
+  "us": 17.0
+ },
+ "biteme christmas friends toy - hot chocolate & slipper||default title": {
+  "intl": 10.32,
+  "us": 17.0
+ },
+ "biteme rainbow cherry tomato latex toy (4pcs)||default title": {
+  "intl": 10.32,
+  "us": 17.0
+ },
+ "biteme hug me tug toy - duck/frog (2 types)||duck": {
+  "intl": 10.33,
+  "us": 17.0
+ },
+ "biteme hug me tug toy - duck/frog (2 types)||frog": {
+  "intl": 10.33,
+  "us": 17.0
+ },
+ "bonbon green my home buddy cushion (3 type)||moon": {
+  "intl": 10.33,
+  "us": 17.0
+ },
+ "bonbon green my home buddy cushion (3 type)||apple": {
+  "intl": 10.33,
+  "us": 17.0
+ },
+ "bonbon green my home buddy cushion (3 type)||house": {
+  "intl": 10.33,
+  "us": 17.0
+ },
+ "biteme crinkle pocket cape toy (3 types)||lion": {
+  "intl": 10.32,
+  "us": 17.0
+ },
+ "biteme crinkle pocket cape toy (3 types)||duck": {
+  "intl": 10.32,
+  "us": 17.0
+ },
+ "biteme crinkle pocket cape toy (3 types)||elephant": {
+  "intl": 10.32,
+  "us": 17.0
+ },
+ "biteme x munyu pukupuku latex toy (3pcs)||default title": {
+  "intl": 10.32,
+  "us": 17.0
+ },
+ "ssfw my bestie bunny toy||default title": {
+  "intl": 10.4,
+  "us": 17.0
+ },
+ "ssfw my bestie bear toy||default title": {
+  "intl": 10.4,
+  "us": 17.0
+ },
+ "bite me bosom pad light - large||default title": {
+  "intl": 10.77,
+  "us": 17.0
+ },
+ "biteme little farm veggie mix 30g||default title": {
+  "intl": 11.12,
+  "us": 18.0
+ },
+ "biteme peanut latex toy (4pcs)||default title": {
+  "intl": 10.99,
+  "us": 18.0
+ },
+ "biteme vegetable ball toy (2sets)||corn & carrot": {
+  "intl": 11.08,
+  "us": 18.0
+ },
+ "biteme vegetable ball toy (2sets)||cabbage & tomato": {
+  "intl": 11.08,
+  "us": 18.0
+ },
+ "biteme hug me tug toy - sea otter||default title": {
+  "intl": 11.08,
+  "us": 18.0
+ },
+ "biteme jelly bear silicone nosework ball (3 types)||set": {
+  "intl": 11.09,
+  "us": 18.0
+ },
+ "biteme golf nosework toy||default title": {
+  "intl": 11.12,
+  "us": 18.0
+ },
+ "biteme long-lasting nosework clown toy||default title": {
+  "intl": 11.12,
+  "us": 18.0
+ },
+ "biteme sea friends toy (2pcs)||stingray & squid": {
+  "intl": 11.13,
+  "us": 18.0
+ },
+ "biteme sea friends toy (2pcs)||starfish & turtle": {
+  "intl": 11.13,
+  "us": 18.0
+ },
+ "biteme sea friends toy (2pcs)||flounder & octopus": {
+  "intl": 11.13,
+  "us": 18.0
+ },
+ "biteme takoyaki dream ball toy (2pcs)||default title": {
+  "intl": 11.12,
+  "us": 18.0
+ },
+ "biteme brushme plus pet moisture mist||default title": {
+  "intl": 11.12,
+  "us": 18.0
+ },
+ "biteme hug me rope tug toy - penguin||default title": {
+  "intl": 11.13,
+  "us": 18.0
+ },
+ "biteme little cottage probiotics cheese - strawberry& blueberry||default title": {
+  "intl": 11.82,
+  "us": 19.0
+ },
+ "biteme little cottage probiotics cheese - pumpkin & brocoli||default title": {
+  "intl": 11.82,
+  "us": 19.0
+ },
+ "biteme bosom pad light - standard||default title": {
+  "intl": 11.63,
+  "us": 19.0
+ },
+ "biteme fluffy friends multi-pack ball toy (3pcs)||default title": {
+  "intl": 11.85,
+  "us": 19.0
+ },
+ "biteme x finca dry me microfibre pet towel mini (2colors)||pink": {
+  "intl": 11.85,
+  "us": 19.0
+ },
+ "biteme x finca dry me microfibre pet towel mini (2colors)||mint": {
+  "intl": 11.85,
+  "us": 19.0
+ },
+ "biteme catch me tug fishing rod toy (3 types)||jellyfish": {
+  "intl": 11.93,
+  "us": 19.0
+ },
+ "biteme catch me tug fishing rod toy (3 types)||crab": {
+  "intl": 11.93,
+  "us": 19.0
+ },
+ "biteme catch me tug fishing rod toy (3 types)||octopus": {
+  "intl": 11.93,
+  "us": 19.0
+ },
+ "biteme catch me tug fishing rod toy (2 types)||blue bird": {
+  "intl": 11.93,
+  "us": 19.0
+ },
+ "biteme catch me tug fishing rod toy (2 types)||owl": {
+  "intl": 11.93,
+  "us": 19.0
+ },
+ "biteme socks elephant toy||default title": {
+  "intl": 11.93,
+  "us": 19.0
+ },
+ "bichon poop bag pouch||default title": {
+  "intl": 11.93,
+  "us": 19.0
+ },
+ "biteme worm tug toy||default title": {
+  "intl": 11.93,
+  "us": 19.0
+ },
+ "[bite me x choigosim] lucky squirrel key ring toy||default title": {
+  "intl": 11.92,
+  "us": 19.0
+ },
+ "biteme dr.innerpeace dentaring rope brush (2 types)||fucoidan": {
+  "intl": 12.72,
+  "us": 20.0
+ },
+ "biteme dr.innerpeace dentaring rope brush (2 types)||coconut": {
+  "intl": 12.72,
+  "us": 20.0
+ },
+ "biteme easy-fuzzy waterless foot&facial cleanser (expiration date: 2026-07-16)||default title": {
+  "intl": 12.45,
+  "us": 20.0
+ },
+ "biteme secondmorning lemonade toy||default title": {
+  "intl": 12.5,
+  "us": 20.0
+ },
+ "biteme bosom pad - large||default title": {
+  "intl": 12.5,
+  "us": 20.0
+ },
+ "biteme my siblings nose-work toy||default title": {
+  "intl": 12.71,
+  "us": 20.0
+ },
+ "biteme mini sports ball toy (3pcs)||default title": {
+  "intl": 12.73,
+  "us": 20.0
+ },
+ "biteme bear candy ball toy (3pcs)||default title": {
+  "intl": 12.73,
+  "us": 20.0
+ },
+ "biteme mini silicone pot (4 types)||cream": {
+  "intl": 12.73,
+  "us": 20.0
+ },
+ "biteme mini silicone pot (4 types)||butter": {
+  "intl": 12.73,
+  "us": 20.0
+ },
+ "biteme mini silicone pot (4 types)||melon": {
+  "intl": 12.73,
+  "us": 20.0
+ },
+ "biteme mini silicone pot (4 types)||lavender": {
+  "intl": 12.73,
+  "us": 20.0
+ },
+ "biteme play long cat fishing toy (2.4m)||default title": {
+  "intl": 13.28,
+  "us": 21.0
+ },
+ "biteme bosom pad - standard||default title": {
+  "intl": 13.36,
+  "us": 21.0
+ },
+ "biteme boosting coin chips (6types)||duck": {
+  "intl": 13.53,
+  "us": 22.0
+ },
+ "biteme boosting coin chips (6types)||pollack": {
+  "intl": 13.53,
+  "us": 22.0
+ },
+ "biteme boosting coin chips (6types)||beef": {
+  "intl": 13.53,
+  "us": 22.0
+ },
+ "biteme boosting coin chips (6types)||chicken": {
+  "intl": 13.53,
+  "us": 22.0
+ },
+ "biteme boosting coin chips (6types)||kangaroo": {
+  "intl": 13.53,
+  "us": 22.0
+ },
+ "biteme boosting coin chips (6types)||pork": {
+  "intl": 13.53,
+  "us": 22.0
+ },
+ "[bite me x paldo] paldo bibimmen nosework toy||default title": {
+  "intl": 13.52,
+  "us": 22.0
+ },
+ "biteme cloudy slow-feeder (2 type)||default title": {
+  "intl": 13.53,
+  "us": 22.0
+ },
+ "biteme furry christmas latex toy - rudolph & tree (2 types)||default title": {
+  "intl": 13.52,
+  "us": 22.0
+ },
+ "biteme sniffy pie toy||default title": {
+  "intl": 13.53,
+  "us": 22.0
+ },
+ "biteme x musinsa earth save my home keyring bag (3 types)||ilí pika (green)": {
+  "intl": 13.52,
+  "us": 22.0
+ },
+ "biteme x musinsa earth save my home keyring bag (3 types)||hawksbill sea turtle (blue)": {
+  "intl": 13.52,
+  "us": 22.0
+ },
+ "biteme x musinsa earth save my home keyring bag (3 types)||albatross (pink)": {
+  "intl": 13.52,
+  "us": 22.0
+ },
+ "biteme little ocean friends toy (3pcs)||default title": {
+  "intl": 13.52,
+  "us": 22.0
+ },
+ "biteme double bubble multi-purpose soap||default title": {
+  "intl": 13.53,
+  "us": 22.0
+ },
+ "biteme jellybear led rechargable blinker (3 types)||pink": {
+  "intl": 13.53,
+  "us": 22.0
+ },
+ "biteme jellybear led rechargable blinker (3 types)||melon": {
+  "intl": 13.53,
+  "us": 22.0
+ },
+ "biteme jellybear led rechargable blinker (3 types)||banana": {
+  "intl": 13.53,
+  "us": 22.0
+ },
+ "biteme big tug toy - lobster||default title": {
+  "intl": 13.85,
+  "us": 22.0
+ },
+ "biteme easy bite grip (2types)||pink": {
+  "intl": 14.33,
+  "us": 23.0
+ },
+ "biteme easy bite grip (2types)||blue": {
+  "intl": 14.33,
+  "us": 23.0
+ },
+ "biteme socks nose-work toy (a set of 3 socks)||default title": {
+  "intl": 14.33,
+  "us": 23.0
+ },
+ "biteme party series - happy party hat dog toy||default title": {
+  "intl": 14.45,
+  "us": 23.0
+ },
+ "biteme peanut scratcher box||default title": {
+  "intl": 14.59,
+  "us": 23.0
+ },
+ "biteme paw paw treat (6types)||horse meat 60g": {
+  "intl": 15.13,
+  "us": 24.0
+ },
+ "biteme silicone pot (6types)||lavender": {
+  "intl": 15.13,
+  "us": 24.0
+ },
+ "biteme silicone pot (6types)||blue": {
+  "intl": 15.13,
+  "us": 24.0
+ },
+ "biteme silicone pot (6types)||green": {
+  "intl": 15.13,
+  "us": 24.0
+ },
+ "biteme silicone pot (6types)||yellow": {
+  "intl": 15.13,
+  "us": 24.0
+ },
+ "biteme silicone pot (6types)||pink": {
+  "intl": 15.13,
+  "us": 24.0
+ },
+ "biteme silicone pot (6types)||cream": {
+  "intl": 15.13,
+  "us": 24.0
+ },
+ "biteme cabbage toy||default title": {
+  "intl": 15.13,
+  "us": 24.0
+ },
+ "biteme napa cabbage toy||default title": {
+  "intl": 15.12,
+  "us": 24.0
+ },
+ "biteme deodorizer - fresh me||default title": {
+  "intl": 15.12,
+  "us": 24.0
+ },
+ "biteme candy crayon collar (6types)||green / s": {
+  "intl": 15.19,
+  "us": 24.0
+ },
+ "biteme candy crayon collar (6types)||green / m": {
+  "intl": 15.19,
+  "us": 24.0
+ },
+ "biteme candy crayon collar (6types)||yellow / s": {
+  "intl": 15.19,
+  "us": 24.0
+ },
+ "biteme candy crayon collar (6types)||yellow / m": {
+  "intl": 15.19,
+  "us": 24.0
+ },
+ "biteme candy crayon collar (6types)||orange / s": {
+  "intl": 15.19,
+  "us": 24.0
+ },
+ "biteme candy crayon collar (6types)||orange / m": {
+  "intl": 15.19,
+  "us": 24.0
+ },
+ "biteme candy crayon collar (6types)||light green / s": {
+  "intl": 15.19,
+  "us": 24.0
+ },
+ "biteme candy crayon collar (6types)||light green / m": {
+  "intl": 15.19,
+  "us": 24.0
+ },
+ "biteme candy crayon collar (6types)||light blue / s": {
+  "intl": 15.19,
+  "us": 24.0
+ },
+ "biteme candy crayon collar (6types)||light blue / m": {
+  "intl": 15.19,
+  "us": 24.0
+ },
+ "biteme candy crayon collar (6types)||light pink / s": {
+  "intl": 15.19,
+  "us": 24.0
+ },
+ "biteme candy crayon collar (6types)||light pink / m": {
+  "intl": 15.19,
+  "us": 24.0
+ },
+ "biteme long time chewing cow (2types)||manuka honey": {
+  "intl": 15.93,
+  "us": 25.0
+ },
+ "biteme long time chewing cow (2types)||original": {
+  "intl": 15.93,
+  "us": 25.0
+ },
+ "[bite me x samjin amook] fish cake soup toy||default title": {
+  "intl": 15.37,
+  "us": 25.0
+ },
+ "comfy ravioli mini town poop-bag keychain||default title": {
+  "intl": 15.88,
+  "us": 25.0
+ },
+ "biteme hate me plus spray 180ml||default title": {
+  "intl": 15.93,
+  "us": 25.0
+ },
+ "biteme candy crayon leash (6 types)||green": {
+  "intl": 16.42,
+  "us": 26.0
+ },
+ "biteme candy crayon leash (6 types)||yellow": {
+  "intl": 16.42,
+  "us": 26.0
+ },
+ "biteme candy crayon leash (6 types)||orange": {
+  "intl": 16.42,
+  "us": 26.0
+ },
+ "biteme candy crayon leash (6 types)||light green": {
+  "intl": 16.42,
+  "us": 26.0
+ },
+ "biteme candy crayon leash (6 types)||light blue": {
+  "intl": 16.42,
+  "us": 26.0
+ },
+ "biteme candy crayon leash (6 types)||light pink": {
+  "intl": 16.42,
+  "us": 26.0
+ },
+ "biteme suppli-chu (3types)||chicken / 30pcs": {
+  "intl": 16.91,
+  "us": 27.0
+ },
+ "biteme suppli-chu (3types)||salmon / 30pcs": {
+  "intl": 16.91,
+  "us": 27.0
+ },
+ "biteme suppli-chu (3types)||tuna / 30pcs": {
+  "intl": 16.91,
+  "us": 27.0
+ },
+ "biteme microfibre pet towel - dry me||default title": {
+  "intl": 16.73,
+  "us": 27.0
+ },
+ "biteme new macaron waterproof collar (4 types)||afrikot / s": {
+  "intl": 17.51,
+  "us": 28.0
+ },
+ "biteme new macaron waterproof collar (4 types)||afrikot / m": {
+  "intl": 17.51,
+  "us": 28.0
+ },
+ "biteme new macaron waterproof collar (4 types)||honey yellow / s": {
+  "intl": 17.51,
+  "us": 28.0
+ },
+ "biteme new macaron waterproof collar (4 types)||honey yellow / m": {
+  "intl": 17.51,
+  "us": 28.0
+ },
+ "biteme new macaron waterproof collar (4 types)||pistachio / s": {
+  "intl": 17.51,
+  "us": 28.0
+ },
+ "biteme new macaron waterproof collar (4 types)||pistachio / m": {
+  "intl": 17.51,
+  "us": 28.0
+ },
+ "biteme new macaron waterproof collar (4 types)||taro milktea / s": {
+  "intl": 17.51,
+  "us": 28.0
+ },
+ "biteme new macaron waterproof collar (4 types)||taro milktea / m": {
+  "intl": 17.51,
+  "us": 28.0
+ },
+ "new xo waterproof collar (4 types)||lemon yellow / s": {
+  "intl": 17.91,
+  "us": 29.0
+ },
+ "new xo waterproof collar (4 types)||lemon yellow / m": {
+  "intl": 17.91,
+  "us": 29.0
+ },
+ "new xo waterproof collar (4 types)||lavender / s": {
+  "intl": 17.91,
+  "us": 29.0
+ },
+ "new xo waterproof collar (4 types)||lavender / m": {
+  "intl": 17.91,
+  "us": 29.0
+ },
+ "new xo waterproof collar (4 types)||aqua mint / s": {
+  "intl": 17.91,
+  "us": 29.0
+ },
+ "new xo waterproof collar (4 types)||aqua mint / m": {
+  "intl": 17.91,
+  "us": 29.0
+ },
+ "new xo waterproof collar (4 types)||coral pink / s": {
+  "intl": 17.91,
+  "us": 29.0
+ },
+ "new xo waterproof collar (4 types)||coral pink / m": {
+  "intl": 17.91,
+  "us": 29.0
+ },
+ "biteme poki pocket nosework toy (2types)||mole": {
+  "intl": 18.33,
+  "us": 29.0
+ },
+ "biteme poki pocket nosework toy (2types)||raccoon": {
+  "intl": 18.33,
+  "us": 29.0
+ },
+ "biteme new macaron waterproof collar (4 types)||afrikot / l": {
+  "intl": 18.42,
+  "us": 29.0
+ },
+ "biteme new macaron waterproof collar (4 types)||honey yellow / l": {
+  "intl": 18.42,
+  "us": 29.0
+ },
+ "biteme new macaron waterproof collar (4 types)||pistachio / l": {
+  "intl": 18.42,
+  "us": 29.0
+ },
+ "biteme new macaron waterproof collar (4 types)||taro milktea / l": {
+  "intl": 18.42,
+  "us": 29.0
+ },
+ "biteme daily care hair ball for cat (30pcs)||default title": {
+  "intl": 18.5,
+  "us": 30.0
+ },
+ "new xo waterproof collar (4 types)||lemon yellow / l": {
+  "intl": 18.82,
+  "us": 30.0
+ },
+ "new xo waterproof collar (4 types)||lavender / l": {
+  "intl": 18.82,
+  "us": 30.0
+ },
+ "new xo waterproof collar (4 types)||aqua mint / l": {
+  "intl": 18.82,
+  "us": 30.0
+ },
+ "new xo waterproof collar (4 types)||coral pink / l": {
+  "intl": 18.82,
+  "us": 30.0
+ },
+ "biteme bell boy bear nosework mat||default title": {
+  "intl": 19.13,
+  "us": 31.0
+ },
+ "bonbon green fluffy snuffy nosework book toy (2type)||mouse": {
+  "intl": 19.12,
+  "us": 31.0
+ },
+ "bonbon green fluffy snuffy nosework book toy (2type)||monkey": {
+  "intl": 19.12,
+  "us": 31.0
+ },
+ "biteme soft hug manner belt (3colors)||blue / s": {
+  "intl": 19.93,
+  "us": 32.0
+ },
+ "biteme soft hug manner belt (3colors)||blue / m": {
+  "intl": 19.93,
+  "us": 32.0
+ },
+ "biteme soft hug manner belt (3colors)||blue / l": {
+  "intl": 19.93,
+  "us": 32.0
+ },
+ "biteme soft hug manner belt (3colors)||yellow / s": {
+  "intl": 19.93,
+  "us": 32.0
+ },
+ "biteme soft hug manner belt (3colors)||yellow / m": {
+  "intl": 19.93,
+  "us": 32.0
+ },
+ "biteme soft hug manner belt (3colors)||yellow / l": {
+  "intl": 19.93,
+  "us": 32.0
+ },
+ "biteme soft hug manner belt (3colors)||pink / s": {
+  "intl": 19.93,
+  "us": 32.0
+ },
+ "biteme soft hug manner belt (3colors)||pink / m": {
+  "intl": 19.93,
+  "us": 32.0
+ },
+ "biteme soft hug manner belt (3colors)||pink / l": {
+  "intl": 19.93,
+  "us": 32.0
+ },
+ "biteme my birthday book nosework playbook||default title": {
+  "intl": 19.93,
+  "us": 32.0
+ },
+ "biteme good night nosework playbook||default title": {
+  "intl": 19.93,
+  "us": 32.0
+ },
+ "biteme lt's laundry day nosework playbook||default title": {
+  "intl": 19.93,
+  "us": 32.0
+ },
+ "biteme woof woof scout nosework playbook||default title": {
+  "intl": 19.93,
+  "us": 32.0
+ },
+ "biteme my lunch box nosework playbook||default title": {
+  "intl": 19.93,
+  "us": 32.0
+ },
+ "bite me x pokori friends adventure leash||yellow": {
+  "intl": 20.7,
+  "us": 33.0
+ },
+ "bite me x pokori friends adventure leash||pink": {
+  "intl": 20.7,
+  "us": 33.0
+ },
+ "bite me x pokori friends adventure leash||mint": {
+  "intl": 20.7,
+  "us": 33.0
+ },
+ "biteme baking day nosework playbook||default title": {
+  "intl": 20.73,
+  "us": 33.0
+ },
+ "biteme miracle clumping casaba sand 3.2kg||default title": {
+  "intl": 21.67,
+  "us": 35.0
+ },
+ "biteme zero guard silicone mat (2 types)||beige": {
+  "intl": 23.13,
+  "us": 37.0
+ },
+ "biteme zero guard silicone mat (2 types)||gray": {
+  "intl": 23.13,
+  "us": 37.0
+ },
+ "biteme x finca dry me microfibre pet towel original (2colors)||mint": {
+  "intl": 23.12,
+  "us": 37.0
+ },
+ "biteme x finca dry me microfibre pet towel original (2colors)||pink": {
+  "intl": 23.12,
+  "us": 37.0
+ },
+ "biteme oral effect probiotics (expiration date: 27/06/04)||default title": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "biteme dr.innerpeace rtg omega-3||default title": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "bite me x ppp studio - hands free leash||red (sparkle)": {
+  "intl": 23.64,
+  "us": 38.0
+ },
+ "bite me x ppp studio - hands free leash||black (popcorn)": {
+  "intl": 23.64,
+  "us": 38.0
+ },
+ "biteme bug shield cool vest (3colors)||cream bear / s": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "biteme bug shield cool vest (3colors)||cream bear / m": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "biteme bug shield cool vest (3colors)||cream bear / l": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "biteme bug shield cool vest (3colors)||cream bear / xl": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "biteme bug shield cool vest (3colors)||cream bear / 2xl": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "biteme bug shield cool vest (3colors)||mint fox / s": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "biteme bug shield cool vest (3colors)||mint fox / m": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "biteme bug shield cool vest (3colors)||mint fox / l": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "biteme bug shield cool vest (3colors)||mint fox / xl": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "biteme bug shield cool vest (3colors)||mint fox / 2xl": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "biteme bug shield cool vest (3colors)||blue seagull / s": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "biteme bug shield cool vest (3colors)||blue seagull / m": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "biteme bug shield cool vest (3colors)||blue seagull / l": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "biteme bug shield cool vest (3colors)||blue seagull / xl": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "biteme bug shield cool vest (3colors)||blue seagull / 2xl": {
+  "intl": 23.93,
+  "us": 38.0
+ },
+ "biteme comfort leash v2 (3 types)||mint": {
+  "intl": 23.92,
+  "us": 38.0
+ },
+ "biteme comfort leash v2 (3 types)||brick": {
+  "intl": 23.92,
+  "us": 38.0
+ },
+ "biteme comfort leash v2 (3 types)||pink": {
+  "intl": 23.92,
+  "us": 38.0
+ },
+ "latta filmcover windbreaker jacket (3types)||mauve pink / s": {
+  "intl": 31.92,
+  "us": 38.0
+ },
+ "latta filmcover windbreaker jacket (3types)||mauve pink / m": {
+  "intl": 31.92,
+  "us": 38.0
+ },
+ "latta filmcover windbreaker jacket (3types)||mauve pink / l": {
+  "intl": 31.92,
+  "us": 38.0
+ },
+ "latta filmcover windbreaker jacket (3types)||mauve pink / xl": {
+  "intl": 31.92,
+  "us": 38.0
+ },
+ "latta filmcover windbreaker jacket (3types)||mauve pink / 2xl": {
+  "intl": 31.92,
+  "us": 38.0
+ },
+ "latta filmcover windbreaker jacket (3types)||airy mint / s": {
+  "intl": 31.92,
+  "us": 38.0
+ },
+ "latta filmcover windbreaker jacket (3types)||airy mint / m": {
+  "intl": 31.92,
+  "us": 38.0
+ },
+ "latta filmcover windbreaker jacket (3types)||airy mint / l": {
+  "intl": 31.92,
+  "us": 38.0
+ },
+ "latta filmcover windbreaker jacket (3types)||airy mint / xl": {
+  "intl": 31.92,
+  "us": 38.0
+ },
+ "latta filmcover windbreaker jacket (3types)||airy mint / 2xl": {
+  "intl": 31.92,
+  "us": 38.0
+ },
+ "latta filmcover windbreaker jacket (3types)||warm olive / s": {
+  "intl": 31.92,
+  "us": 38.0
+ },
+ "latta filmcover windbreaker jacket (3types)||warm olive / m": {
+  "intl": 31.92,
+  "us": 38.0
+ },
+ "latta filmcover windbreaker jacket (3types)||warm olive / l": {
+  "intl": 31.92,
+  "us": 38.0
+ },
+ "latta filmcover windbreaker jacket (3types)||warm olive / xl": {
+  "intl": 31.92,
+  "us": 38.0
+ },
+ "latta filmcover windbreaker jacket (3types)||warm olive / 2xl": {
+  "intl": 31.92,
+  "us": 38.0
+ },
+ "biteme dentistick soft original dental chew (2types)||30ea": {
+  "intl": 25.53,
+  "us": 41.0
+ },
+ "new macaron hands-free waterproof leash (4 types)||afrikot / s": {
+  "intl": 25.86,
+  "us": 41.0
+ },
+ "new macaron hands-free waterproof leash (4 types)||afrikot / m": {
+  "intl": 25.86,
+  "us": 41.0
+ },
+ "new macaron hands-free waterproof leash (4 types)||honey yellow / s": {
+  "intl": 25.86,
+  "us": 41.0
+ },
+ "new macaron hands-free waterproof leash (4 types)||honey yellow / m": {
+  "intl": 25.86,
+  "us": 41.0
+ },
+ "new macaron hands-free waterproof leash (4 types)||pistachio / s": {
+  "intl": 25.86,
+  "us": 41.0
+ },
+ "new macaron hands-free waterproof leash (4 types)||pistachio / m": {
+  "intl": 25.86,
+  "us": 41.0
+ },
+ "new macaron hands-free waterproof leash (4 types)||taro milktea / s": {
+  "intl": 25.86,
+  "us": 41.0
+ },
+ "new macaron hands-free waterproof leash (4 types)||taro milktea / m": {
+  "intl": 25.86,
+  "us": 41.0
+ },
+ "biteme probiotics (lactobacillus) - dr.inner peace||default title": {
+  "intl": 26.33,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||light pink / s": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||light pink / m": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||light pink / l": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||light pink / xl": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||light pink / 2xl": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||dusty blue / s": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||dusty blue / m": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||dusty blue / l": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||dusty blue / xl": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||dusty blue / 2xl": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||lavander / s": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||lavander / m": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||lavander / l": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||lavander / xl": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||lavander / 2xl": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||olive / s": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||olive / m": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||olive / l": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||olive / xl": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "ssfw cozy waffle sleeveless (4types)||olive / 2xl": {
+  "intl": 26.19,
+  "us": 42.0
+ },
+ "biteme ice bear duraron cool mat (3 sizes)||s": {
+  "intl": 26.33,
+  "us": 42.0
+ },
+ "ssfw summer knit top (3colors)||sunny coral / s": {
+  "intl": 26.41,
+  "us": 42.0
+ },
+ "ssfw summer knit top (3colors)||aqua blue / 2xl": {
+  "intl": 26.41,
+  "us": 42.0
+ },
+ "ssfw summer knit top (3colors)||tropical green / s": {
+  "intl": 26.41,
+  "us": 42.0
+ },
+ "ssfw summer knit top (3colors)||tropical green / m": {
+  "intl": 26.41,
+  "us": 42.0
+ },
+ "ssfw summer knit top (3colors)||tropical green / l": {
+  "intl": 26.41,
+  "us": 42.0
+ },
+ "ssfw summer knit top (3colors)||tropical green / xl": {
+  "intl": 26.41,
+  "us": 42.0
+ },
+ "ssfw summer knit top (3colors)||tropical green / 2xl": {
+  "intl": 26.41,
+  "us": 42.0
+ },
+ "ssfw summer knit top (3colors)||sunny coral / m": {
+  "intl": 26.41,
+  "us": 42.0
+ },
+ "ssfw summer knit top (3colors)||sunny coral / l": {
+  "intl": 26.41,
+  "us": 42.0
+ },
+ "ssfw summer knit top (3colors)||sunny coral / xl": {
+  "intl": 26.41,
+  "us": 42.0
+ },
+ "ssfw summer knit top (3colors)||sunny coral / 2xl": {
+  "intl": 26.41,
+  "us": 42.0
+ },
+ "ssfw summer knit top (3colors)||aqua blue / s": {
+  "intl": 26.41,
+  "us": 42.0
+ },
+ "ssfw summer knit top (3colors)||aqua blue / m": {
+  "intl": 26.41,
+  "us": 42.0
+ },
+ "ssfw summer knit top (3colors)||aqua blue / l": {
+  "intl": 26.41,
+  "us": 42.0
+ },
+ "ssfw summer knit top (3colors)||aqua blue / xl": {
+  "intl": 26.41,
+  "us": 42.0
+ },
+ "new xo waterproof hands-free leash (4 types)||lemon yellow / s": {
+  "intl": 26.44,
+  "us": 42.0
+ },
+ "new xo waterproof hands-free leash (4 types)||lemon yellow / m": {
+  "intl": 26.44,
+  "us": 42.0
+ },
+ "new xo waterproof hands-free leash (4 types)||lavender / s": {
+  "intl": 26.44,
+  "us": 42.0
+ },
+ "new xo waterproof hands-free leash (4 types)||lavender / m": {
+  "intl": 26.44,
+  "us": 42.0
+ },
+ "new xo waterproof hands-free leash (4 types)||coral pink / s": {
+  "intl": 26.44,
+  "us": 42.0
+ },
+ "new xo waterproof hands-free leash (4 types)||coral pink / m": {
+  "intl": 26.44,
+  "us": 42.0
+ },
+ "new xo waterproof hands-free leash (4 types)||aqua mint / s": {
+  "intl": 26.44,
+  "us": 42.0
+ },
+ "new xo waterproof hands-free leash (4 types)||aqua mint / m": {
+  "intl": 26.44,
+  "us": 42.0
+ },
+ "biteme braining spin and snack bunny toy||default title": {
+  "intl": 30.32,
+  "us": 49.0
+ },
+ "new macaron hands-free waterproof leash (4 types)||afrikot / l": {
+  "intl": 27.68,
+  "us": 44.0
+ },
+ "new macaron hands-free waterproof leash (4 types)||honey yellow / l": {
+  "intl": 27.68,
+  "us": 44.0
+ },
+ "new macaron hands-free waterproof leash (4 types)||pistachio / l": {
+  "intl": 27.68,
+  "us": 44.0
+ },
+ "new macaron hands-free waterproof leash (4 types)||taro milktea / l": {
+  "intl": 27.68,
+  "us": 44.0
+ },
+ "biteme dynabite salmon (2types)||25ea": {
+  "intl": 27.93,
+  "us": 45.0
+ },
+ "biteme dynabite duck (2types)||25ea": {
+  "intl": 27.93,
+  "us": 45.0
+ },
+ "biteme farm nosework toy||default title": {
+  "intl": 27.93,
+  "us": 45.0
+ },
+ "biteme braining spin and snack squirrel toy||default title": {
+  "intl": 27.93,
+  "us": 45.0
+ },
+ "non-slip silicone mat - standard (grey/beige)||grey": {
+  "intl": 27.93,
+  "us": 45.0
+ },
+ "non-slip silicone mat - standard (grey/beige)||beige": {
+  "intl": 27.93,
+  "us": 45.0
+ },
+ "biteme jumping boogie auto-ball toy||jumping boogie toy": {
+  "intl": 28.04,
+  "us": 45.0
+ },
+ "new xo waterproof hands-free leash (4 types)||lemon yellow / l": {
+  "intl": 28.26,
+  "us": 45.0
+ },
+ "new xo waterproof hands-free leash (4 types)||lavender / l": {
+  "intl": 28.26,
+  "us": 45.0
+ },
+ "new xo waterproof hands-free leash (4 types)||coral pink / l": {
+  "intl": 28.26,
+  "us": 45.0
+ },
+ "new xo waterproof hands-free leash (4 types)||aqua mint / l": {
+  "intl": 28.26,
+  "us": 45.0
+ },
+ "biteme cats'cake automatic toy||default title": {
+  "intl": 28.46,
+  "us": 46.0
+ },
+ "biteme aqua bear life vest (2types)||mint yellow / s": {
+  "intl": 28.73,
+  "us": 46.0
+ },
+ "biteme aqua bear life vest (2types)||mint yellow / m": {
+  "intl": 28.73,
+  "us": 46.0
+ },
+ "biteme aqua bear life vest (2types)||mint yellow / l": {
+  "intl": 28.73,
+  "us": 46.0
+ },
+ "biteme aqua bear life vest (2types)||cream blue / s": {
+  "intl": 28.73,
+  "us": 46.0
+ },
+ "biteme aqua bear life vest (2types)||cream blue / m": {
+  "intl": 28.73,
+  "us": 46.0
+ },
+ "biteme aqua bear life vest (2types)||cream blue / l": {
+  "intl": 28.73,
+  "us": 46.0
+ },
+ "latta filmcover all-in-one windbreaker (3types)||mauve pink / s": {
+  "intl": 38.32,
+  "us": 46.0
+ },
+ "latta filmcover all-in-one windbreaker (3types)||mauve pink / m": {
+  "intl": 38.32,
+  "us": 46.0
+ },
+ "latta filmcover all-in-one windbreaker (3types)||mauve pink / l": {
+  "intl": 38.32,
+  "us": 46.0
+ },
+ "latta filmcover all-in-one windbreaker (3types)||mauve pink / xl": {
+  "intl": 38.32,
+  "us": 46.0
+ },
+ "latta filmcover all-in-one windbreaker (3types)||mauve pink / 2xl": {
+  "intl": 38.32,
+  "us": 46.0
+ },
+ "latta filmcover all-in-one windbreaker (3types)||airy mint / s": {
+  "intl": 38.32,
+  "us": 46.0
+ },
+ "latta filmcover all-in-one windbreaker (3types)||airy mint / m": {
+  "intl": 38.32,
+  "us": 46.0
+ },
+ "latta filmcover all-in-one windbreaker (3types)||airy mint / l": {
+  "intl": 38.32,
+  "us": 46.0
+ },
+ "latta filmcover all-in-one windbreaker (3types)||airy mint / xl": {
+  "intl": 38.32,
+  "us": 46.0
+ },
+ "latta filmcover all-in-one windbreaker (3types)||airy mint / 2xl": {
+  "intl": 38.32,
+  "us": 46.0
+ },
+ "latta filmcover all-in-one windbreaker (3types)||warm olive / s": {
+  "intl": 38.32,
+  "us": 46.0
+ },
+ "latta filmcover all-in-one windbreaker (3types)||warm olive / m": {
+  "intl": 38.32,
+  "us": 46.0
+ },
+ "latta filmcover all-in-one windbreaker (3types)||warm olive / l": {
+  "intl": 38.32,
+  "us": 46.0
+ },
+ "latta filmcover all-in-one windbreaker (3types)||warm olive / xl": {
+  "intl": 38.32,
+  "us": 46.0
+ },
+ "latta filmcover all-in-one windbreaker (3types)||warm olive / 2xl": {
+  "intl": 38.32,
+  "us": 46.0
+ },
+ "biteme daily walking bag- canvas ivory||default title": {
+  "intl": 29.33,
+  "us": 47.0
+ },
+ "biteme daily walking bag- canvas navy||default title": {
+  "intl": 29.33,
+  "us": 47.0
+ },
+ "biteme mixed fruits box nosework toy||default title": {
+  "intl": 29.53,
+  "us": 47.0
+ },
+ "biteme easy peasy body cover raincoat (3 types)||beige / s": {
+  "intl": 30.33,
+  "us": 49.0
+ },
+ "biteme easy peasy body cover raincoat (3 types)||beige / m": {
+  "intl": 30.33,
+  "us": 49.0
+ },
+ "biteme easy peasy body cover raincoat (3 types)||beige / l": {
+  "intl": 30.33,
+  "us": 49.0
+ },
+ "biteme easy peasy body cover raincoat (3 types)||beige / xl": {
+  "intl": 30.33,
+  "us": 49.0
+ },
+ "biteme easy peasy body cover raincoat (3 types)||beige / 2xl": {
+  "intl": 30.33,
+  "us": 49.0
+ },
+ "biteme easy peasy body cover raincoat (3 types)||brick / s": {
+  "intl": 30.33,
+  "us": 49.0
+ },
+ "biteme easy peasy body cover raincoat (3 types)||brick / m": {
+  "intl": 30.33,
+  "us": 49.0
+ },
+ "biteme easy peasy body cover raincoat (3 types)||brick / l": {
+  "intl": 30.33,
+  "us": 49.0
+ },
+ "biteme easy peasy body cover raincoat (3 types)||brick / xl": {
+  "intl": 30.33,
+  "us": 49.0
+ },
+ "biteme easy peasy body cover raincoat (3 types)||brick / 2xl": {
+  "intl": 30.33,
+  "us": 49.0
+ },
+ "biteme easy peasy body cover raincoat (3 types)||sky blue / s": {
+  "intl": 30.33,
+  "us": 49.0
+ },
+ "biteme easy peasy body cover raincoat (3 types)||sky blue / m": {
+  "intl": 30.33,
+  "us": 49.0
+ },
+ "biteme easy peasy body cover raincoat (3 types)||sky blue / l": {
+  "intl": 30.33,
+  "us": 49.0
+ },
+ "biteme easy peasy body cover raincoat (3 types)||sky blue / xl": {
+  "intl": 30.33,
+  "us": 49.0
+ },
+ "biteme easy peasy body cover raincoat (3 types)||sky blue / 2xl": {
+  "intl": 30.33,
+  "us": 49.0
+ },
+ "bite me x ppp studio - dog harness||red (sparkle) / s": {
+  "intl": 30.64,
+  "us": 49.0
+ },
+ "bite me x ppp studio - dog harness||red (sparkle) / m": {
+  "intl": 30.64,
+  "us": 49.0
+ },
+ "bite me x ppp studio - dog harness||black (popcorn) / s": {
+  "intl": 30.64,
+  "us": 49.0
+ },
+ "bite me x ppp studio - dog harness||black (popcorn) / m": {
+  "intl": 30.64,
+  "us": 49.0
+ },
+ "biteme sandy beach bentonite sand 6kg||default title": {
+  "intl": 30.78,
+  "us": 49.0
+ },
+ "biteme easy peasy under cover all-in-one (3 types)||navy / s": {
+  "intl": 31.13,
+  "us": 50.0
+ },
+ "biteme easy peasy under cover all-in-one (3 types)||navy / m": {
+  "intl": 31.13,
+  "us": 50.0
+ },
+ "biteme easy peasy under cover all-in-one (3 types)||navy / l": {
+  "intl": 31.13,
+  "us": 50.0
+ },
+ "biteme easy peasy under cover all-in-one (3 types)||navy / xl": {
+  "intl": 31.13,
+  "us": 50.0
+ },
+ "biteme easy peasy under cover all-in-one (3 types)||navy / 2xl": {
+  "intl": 31.13,
+  "us": 50.0
+ },
+ "biteme easy peasy under cover all-in-one (3 types)||light gray / s": {
+  "intl": 31.13,
+  "us": 50.0
+ },
+ "biteme easy peasy under cover all-in-one (3 types)||light gray / m": {
+  "intl": 31.13,
+  "us": 50.0
+ },
+ "biteme easy peasy under cover all-in-one (3 types)||light gray / l": {
+  "intl": 31.13,
+  "us": 50.0
+ },
+ "biteme easy peasy under cover all-in-one (3 types)||light gray / xl": {
+  "intl": 31.13,
+  "us": 50.0
+ },
+ "biteme easy peasy under cover all-in-one (3 types)||light gray / 2xl": {
+  "intl": 31.13,
+  "us": 50.0
+ },
+ "biteme easy peasy under cover all-in-one (3 types)||yellow / s": {
+  "intl": 31.13,
+  "us": 50.0
+ },
+ "biteme easy peasy under cover all-in-one (3 types)||yellow / m": {
+  "intl": 31.13,
+  "us": 50.0
+ },
+ "biteme easy peasy under cover all-in-one (3 types)||yellow / l": {
+  "intl": 31.13,
+  "us": 50.0
+ },
+ "biteme easy peasy under cover all-in-one (3 types)||yellow / xl": {
+  "intl": 31.13,
+  "us": 50.0
+ },
+ "biteme easy peasy under cover all-in-one (3 types)||yellow / 2xl": {
+  "intl": 31.13,
+  "us": 50.0
+ },
+ "ssfw cozy bestie balaclava (2types)||bunny(choco) / s": {
+  "intl": 31.2,
+  "us": 50.0
+ },
+ "ssfw cozy bestie balaclava (2types)||bunny(choco) / l": {
+  "intl": 31.2,
+  "us": 50.0
+ },
+ "ssfw cozy bestie balaclava (2types)||pony(red) / s": {
+  "intl": 31.2,
+  "us": 50.0
+ },
+ "ssfw cozy bestie balaclava (2types)||pony(red) / l": {
+  "intl": 31.2,
+  "us": 50.0
+ },
+ "ssfw cozy bestie balaclava (2types)||bunny(choco) / m": {
+  "intl": 31.2,
+  "us": 50.0
+ },
+ "ssfw cozy bestie balaclava (2types)||pony(red) / m": {
+  "intl": 31.2,
+  "us": 50.0
+ },
+ "ssfw cloud neck collar (4 sizes)||beige / s": {
+  "intl": 31.21,
+  "us": 50.0
+ },
+ "ssfw cloud neck collar (4 sizes)||beige / m": {
+  "intl": 31.21,
+  "us": 50.0
+ },
+ "ssfw cloud neck collar (4 sizes)||beige / l": {
+  "intl": 31.21,
+  "us": 50.0
+ },
+ "ssfw cloud neck collar (4 sizes)||beige / xl": {
+  "intl": 31.21,
+  "us": 50.0
+ },
+ "ssfw cloud neck collar (4 sizes)||blue / s": {
+  "intl": 31.21,
+  "us": 50.0
+ },
+ "ssfw cloud neck collar (4 sizes)||blue / m": {
+  "intl": 31.21,
+  "us": 50.0
+ },
+ "ssfw cloud neck collar (4 sizes)||blue / l": {
+  "intl": 31.21,
+  "us": 50.0
+ },
+ "ssfw cloud neck collar (4 sizes)||blue / xl": {
+  "intl": 31.21,
+  "us": 50.0
+ },
+ "biteme ice bear duraron cool mat (3 sizes)||m": {
+  "intl": 31.53,
+  "us": 50.0
+ },
+ "non-slip silicone mat - large(grey/beige)||grey": {
+  "intl": 31.93,
+  "us": 51.0
+ },
+ "non-slip silicone mat - large(grey/beige)||beige": {
+  "intl": 31.93,
+  "us": 51.0
+ },
+ "biteme comfort harness v2 (3 types)||blue brick / s": {
+  "intl": 31.92,
+  "us": 51.0
+ },
+ "biteme comfort harness v2 (3 types)||blue brick / m": {
+  "intl": 31.92,
+  "us": 51.0
+ },
+ "biteme comfort harness v2 (3 types)||blue brick / l": {
+  "intl": 31.92,
+  "us": 51.0
+ },
+ "biteme comfort harness v2 (3 types)||blue brick / xl": {
+  "intl": 31.92,
+  "us": 51.0
+ },
+ "biteme comfort harness v2 (3 types)||yellow mint / s": {
+  "intl": 31.92,
+  "us": 51.0
+ },
+ "biteme comfort harness v2 (3 types)||yellow mint / m": {
+  "intl": 31.92,
+  "us": 51.0
+ },
+ "biteme comfort harness v2 (3 types)||yellow mint / l": {
+  "intl": 31.92,
+  "us": 51.0
+ },
+ "biteme comfort harness v2 (3 types)||yellow mint / xl": {
+  "intl": 31.92,
+  "us": 51.0
+ },
+ "biteme comfort harness v2 (3 types)||khaki pink / s": {
+  "intl": 31.92,
+  "us": 51.0
+ },
+ "biteme comfort harness v2 (3 types)||khaki pink / m": {
+  "intl": 31.92,
+  "us": 51.0
+ },
+ "biteme comfort harness v2 (3 types)||khaki pink / l": {
+  "intl": 31.92,
+  "us": 51.0
+ },
+ "biteme comfort harness v2 (3 types)||khaki pink / xl": {
+  "intl": 31.92,
+  "us": 51.0
+ },
+ "biteme x pokori friends harness raincoat (3types)||pink / s": {
+  "intl": 32.04,
+  "us": 51.0
+ },
+ "biteme x pokori friends harness raincoat (3types)||pink / m": {
+  "intl": 32.04,
+  "us": 51.0
+ },
+ "biteme x pokori friends harness raincoat (3types)||pink / l": {
+  "intl": 32.04,
+  "us": 51.0
+ },
+ "biteme x pokori friends harness raincoat (3types)||pink / xl": {
+  "intl": 32.04,
+  "us": 51.0
+ },
+ "biteme x pokori friends harness raincoat (3types)||pink / 2xl": {
+  "intl": 32.04,
+  "us": 51.0
+ },
+ "biteme x pokori friends harness raincoat (3types)||ivory / s": {
+  "intl": 32.04,
+  "us": 51.0
+ },
+ "biteme x pokori friends harness raincoat (3types)||ivory / m": {
+  "intl": 32.04,
+  "us": 51.0
+ },
+ "biteme x pokori friends harness raincoat (3types)||ivory / l": {
+  "intl": 32.04,
+  "us": 51.0
+ },
+ "biteme x pokori friends harness raincoat (3types)||ivory / xl": {
+  "intl": 32.04,
+  "us": 51.0
+ },
+ "biteme x pokori friends harness raincoat (3types)||ivory / 2xl": {
+  "intl": 32.04,
+  "us": 51.0
+ },
+ "biteme x pokori friends harness raincoat (3types)||yellow / s": {
+  "intl": 32.04,
+  "us": 51.0
+ },
+ "biteme x pokori friends harness raincoat (3types)||yellow / m": {
+  "intl": 32.04,
+  "us": 51.0
+ },
+ "biteme x pokori friends harness raincoat (3types)||yellow / l": {
+  "intl": 32.04,
+  "us": 51.0
+ },
+ "biteme x pokori friends harness raincoat (3types)||yellow / xl": {
+  "intl": 32.04,
+  "us": 51.0
+ },
+ "biteme x pokori friends harness raincoat (3types)||yellow / 2xl": {
+  "intl": 32.04,
+  "us": 51.0
+ },
+ "comfort harness new (5 colors)||green blue / s": {
+  "intl": 32.93,
+  "us": 53.0
+ },
+ "comfort harness new (5 colors)||green blue / m": {
+  "intl": 32.93,
+  "us": 53.0
+ },
+ "comfort harness new (5 colors)||green blue / l": {
+  "intl": 32.93,
+  "us": 53.0
+ },
+ "comfort harness new (5 colors)||lavender mustard / s": {
+  "intl": 32.93,
+  "us": 53.0
+ },
+ "comfort harness new (5 colors)||lavender mustard / m": {
+  "intl": 32.93,
+  "us": 53.0
+ },
+ "comfort harness new (5 colors)||lavender mustard / l": {
+  "intl": 32.93,
+  "us": 53.0
+ },
+ "comfort harness new (5 colors)||blue orange / s": {
+  "intl": 32.93,
+  "us": 53.0
+ },
+ "comfort harness new (5 colors)||blue orange / m": {
+  "intl": 32.93,
+  "us": 53.0
+ },
+ "comfort harness new (5 colors)||blue orange / l": {
+  "intl": 32.93,
+  "us": 53.0
+ },
+ "comfort harness new (5 colors)||yellow mint / s": {
+  "intl": 32.93,
+  "us": 53.0
+ },
+ "comfort harness new (5 colors)||yellow mint / m": {
+  "intl": 32.93,
+  "us": 53.0
+ },
+ "comfort harness new (5 colors)||yellow mint / l": {
+  "intl": 32.93,
+  "us": 53.0
+ },
+ "comfort harness new (5 colors)||orange melon / s": {
+  "intl": 32.93,
+  "us": 53.0
+ },
+ "comfort harness new (5 colors)||orange melon / m": {
+  "intl": 32.93,
+  "us": 53.0
+ },
+ "comfort harness new (5 colors)||orange melon / l": {
+  "intl": 32.93,
+  "us": 53.0
+ },
+ "comfort harness new (5 colors)||green blue / xl": {
+  "intl": 33.56,
+  "us": 54.0
+ },
+ "comfort harness new (5 colors)||lavender mustard / xl": {
+  "intl": 33.56,
+  "us": 54.0
+ },
+ "comfort harness new (5 colors)||blue orange / xl": {
+  "intl": 33.56,
+  "us": 54.0
+ },
+ "comfort harness new (5 colors)||yellow mint / xl": {
+  "intl": 33.56,
+  "us": 54.0
+ },
+ "comfort harness new (5 colors)||orange melon / xl": {
+  "intl": 33.56,
+  "us": 54.0
+ },
+ "biteme catchthemouse automatic toy for cat||default title": {
+  "intl": 33.6,
+  "us": 54.0
+ },
+ "biteme friends latex toys (12pcs)||default title": {
+  "intl": 34.34,
+  "us": 55.0
+ },
+ "biteme catch the snake automatic toy for cat||default title": {
+  "intl": 35.17,
+  "us": 56.0
+ },
+ "biteme ice bear duraron cool mat (3 sizes)||l": {
+  "intl": 35.17,
+  "us": 56.0
+ },
+ "biteme soft knit t-shirts (2 types)||brown / s": {
+  "intl": 36.72,
+  "us": 59.0
+ },
+ "biteme soft knit t-shirts (2 types)||brown / m": {
+  "intl": 36.72,
+  "us": 59.0
+ },
+ "biteme soft knit t-shirts (2 types)||brown / l": {
+  "intl": 36.72,
+  "us": 59.0
+ },
+ "biteme soft knit t-shirts (2 types)||brown / xl": {
+  "intl": 36.72,
+  "us": 59.0
+ },
+ "biteme soft knit t-shirts (2 types)||brown / 2xl": {
+  "intl": 36.72,
+  "us": 59.0
+ },
+ "biteme soft knit t-shirts (2 types)||ivory / s": {
+  "intl": 36.72,
+  "us": 59.0
+ },
+ "biteme soft knit t-shirts (2 types)||ivory / m": {
+  "intl": 36.72,
+  "us": 59.0
+ },
+ "biteme soft knit t-shirts (2 types)||ivory / l": {
+  "intl": 36.72,
+  "us": 59.0
+ },
+ "biteme soft knit t-shirts (2 types)||ivory / xl": {
+  "intl": 36.72,
+  "us": 59.0
+ },
+ "biteme soft knit t-shirts (2 types)||ivory / 2xl": {
+  "intl": 36.72,
+  "us": 59.0
+ },
+ "biteme double heat padding v3 (3 types)||green seagull / s": {
+  "intl": 36.74,
+  "us": 59.0
+ },
+ "biteme double heat padding v3 (3 types)||green seagull / m": {
+  "intl": 36.74,
+  "us": 59.0
+ },
+ "biteme double heat padding v3 (3 types)||green seagull / l": {
+  "intl": 36.74,
+  "us": 59.0
+ },
+ "biteme double heat padding v3 (3 types)||green seagull / xl": {
+  "intl": 36.74,
+  "us": 59.0
+ },
+ "biteme double heat padding v3 (3 types)||green seagull / 2xl": {
+  "intl": 36.74,
+  "us": 59.0
+ },
+ "biteme double heat padding v3 (3 types)||beige fox / s": {
+  "intl": 36.74,
+  "us": 59.0
+ },
+ "biteme double heat padding v3 (3 types)||beige fox / m": {
+  "intl": 36.74,
+  "us": 59.0
+ },
+ "biteme double heat padding v3 (3 types)||beige fox / l": {
+  "intl": 36.74,
+  "us": 59.0
+ },
+ "biteme double heat padding v3 (3 types)||beige fox / xl": {
+  "intl": 36.74,
+  "us": 59.0
+ },
+ "biteme double heat padding v3 (3 types)||beige fox / 2xl": {
+  "intl": 36.74,
+  "us": 59.0
+ },
+ "biteme double heat padding v3 (3 types)||navy bear / s": {
+  "intl": 36.74,
+  "us": 59.0
+ },
+ "biteme double heat padding v3 (3 types)||navy bear / m": {
+  "intl": 36.74,
+  "us": 59.0
+ },
+ "biteme double heat padding v3 (3 types)||navy bear / l": {
+  "intl": 36.74,
+  "us": 59.0
+ },
+ "biteme double heat padding v3 (3 types)||navy bear / xl": {
+  "intl": 36.74,
+  "us": 59.0
+ },
+ "biteme double heat padding v3 (3 types)||navy bear / 2xl": {
+  "intl": 36.74,
+  "us": 59.0
+ },
+ "biteme cat cozy house||ivory": {
+  "intl": 38.48,
+  "us": 62.0
+ },
+ "biteme cat cozy house||khaki": {
+  "intl": 38.48,
+  "us": 62.0
+ },
+ "ssfw my little summer poncho (3 types)||ice blue / s": {
+  "intl": 39.11,
+  "us": 63.0
+ },
+ "ssfw my little summer poncho (3 types)||ice blue / m": {
+  "intl": 39.11,
+  "us": 63.0
+ },
+ "ssfw my little summer poncho (3 types)||ice blue / l": {
+  "intl": 39.11,
+  "us": 63.0
+ },
+ "ssfw my little summer poncho (3 types)||ice blue / xl": {
+  "intl": 39.11,
+  "us": 63.0
+ },
+ "ssfw my little summer poncho (3 types)||ice blue / 2xl": {
+  "intl": 39.11,
+  "us": 63.0
+ },
+ "ssfw my little summer poncho (3 types)||pink breeze / s": {
+  "intl": 39.11,
+  "us": 63.0
+ },
+ "ssfw my little summer poncho (3 types)||pink breeze / m": {
+  "intl": 39.11,
+  "us": 63.0
+ },
+ "ssfw my little summer poncho (3 types)||pink breeze / l": {
+  "intl": 39.11,
+  "us": 63.0
+ },
+ "ssfw my little summer poncho (3 types)||pink breeze / xl": {
+  "intl": 39.11,
+  "us": 63.0
+ },
+ "ssfw my little summer poncho (3 types)||pink breeze / 2xl": {
+  "intl": 39.11,
+  "us": 63.0
+ },
+ "ssfw my little summer poncho (3 types)||summer beige / s": {
+  "intl": 39.11,
+  "us": 63.0
+ },
+ "ssfw my little summer poncho (3 types)||summer beige / m": {
+  "intl": 39.11,
+  "us": 63.0
+ },
+ "ssfw my little summer poncho (3 types)||summer beige / l": {
+  "intl": 39.11,
+  "us": 63.0
+ },
+ "ssfw my little summer poncho (3 types)||summer beige / xl": {
+  "intl": 39.11,
+  "us": 63.0
+ },
+ "ssfw my little summer poncho (3 types)||summer beige / 2xl": {
+  "intl": 39.11,
+  "us": 63.0
+ },
+ "biteme bongbong cat basket scratcher set||ivory": {
+  "intl": 39.21,
+  "us": 63.0
+ },
+ "biteme bongbong cat basket scratcher set||khaki": {
+  "intl": 39.21,
+  "us": 63.0
+ },
+ "ssfw cozy bib set up (3colors)||blue brown / l": {
+  "intl": 39.21,
+  "us": 63.0
+ },
+ "ssfw cozy bib set up (3colors)||blue brown / xl": {
+  "intl": 39.21,
+  "us": 63.0
+ },
+ "ssfw cozy bib set up (3colors)||blue brown / 2xl": {
+  "intl": 39.21,
+  "us": 63.0
+ },
+ "ssfw cozy bib set up (3colors)||cream olive / l": {
+  "intl": 39.21,
+  "us": 63.0
+ },
+ "ssfw cozy bib set up (3colors)||cream olive / xl": {
+  "intl": 39.21,
+  "us": 63.0
+ },
+ "ssfw cozy bib set up (3colors)||cream olive / 2xl": {
+  "intl": 39.21,
+  "us": 63.0
+ },
+ "ssfw cozy bib set up (3colors)||pink cream / l": {
+  "intl": 39.21,
+  "us": 63.0
+ },
+ "ssfw cozy bib set up (3colors)||pink cream / xl": {
+  "intl": 39.21,
+  "us": 63.0
+ },
+ "ssfw cozy bib set up (3colors)||pink cream / 2xl": {
+  "intl": 39.21,
+  "us": 63.0
+ },
+ "biteme cloudy bag (3 types)||mint": {
+  "intl": 40.21,
+  "us": 64.0
+ },
+ "biteme cloudy bag (3 types)||beige": {
+  "intl": 40.21,
+  "us": 64.0
+ },
+ "biteme cloudy bag (3 types)||ivory": {
+  "intl": 40.21,
+  "us": 64.0
+ },
+ "apple cider recipe stroller apple guard (3 types)||blue": {
+  "intl": 40.8,
+  "us": 65.0
+ },
+ "apple cider recipe stroller apple guard (3 types)||green": {
+  "intl": 40.8,
+  "us": 65.0
+ },
+ "apple cider recipe stroller apple guard (3 types)||black": {
+  "intl": 40.8,
+  "us": 65.0
+ },
+ "bite me x ppp studio - cross tote bag||black": {
+  "intl": 41.83,
+  "us": 67.0
+ },
+ "bite me x ppp studio - cross tote bag||ivory": {
+  "intl": 41.83,
+  "us": 67.0
+ },
+ "apple cider recipe - summer stroller liner||m / sky blue": {
+  "intl": 41.97,
+  "us": 67.0
+ },
+ "apple cider recipe - summer stroller liner||m / beige": {
+  "intl": 41.97,
+  "us": 67.0
+ },
+ "apple cider recipe - summer stroller liner||l / sky blue": {
+  "intl": 43.74,
+  "us": 70.0
+ },
+ "apple cider recipe - summer stroller liner||l / beige": {
+  "intl": 43.74,
+  "us": 70.0
+ },
+ "ssfw my bestie back pack harness (2types)||bunny / s": {
+  "intl": 44.55,
+  "us": 71.0
+ },
+ "ssfw my bestie back pack harness (2types)||bunny / m": {
+  "intl": 44.55,
+  "us": 71.0
+ },
+ "ssfw my bestie back pack harness (2types)||teddy / s": {
+  "intl": 44.55,
+  "us": 71.0
+ },
+ "ssfw my bestie back pack harness (2types)||teddy / m": {
+  "intl": 44.55,
+  "us": 71.0
+ },
+ "ssfw my bestie poncho (2types)||teddy(brown) / s": {
+  "intl": 47.2,
+  "us": 76.0
+ },
+ "ssfw my bestie poncho (2types)||teddy(brown) / m": {
+  "intl": 47.2,
+  "us": 76.0
+ },
+ "ssfw my bestie poncho (2types)||teddy(brown) / l": {
+  "intl": 47.2,
+  "us": 76.0
+ },
+ "ssfw my bestie poncho (2types)||teddy(brown) / xl": {
+  "intl": 47.2,
+  "us": 76.0
+ },
+ "ssfw my bestie poncho (2types)||teddy(brown) / 2xl": {
+  "intl": 47.2,
+  "us": 76.0
+ },
+ "ssfw my bestie poncho (2types)||bunny(cream) / s": {
+  "intl": 47.2,
+  "us": 76.0
+ },
+ "ssfw my bestie poncho (2types)||bunny(cream) / m": {
+  "intl": 47.2,
+  "us": 76.0
+ },
+ "ssfw my bestie poncho (2types)||bunny(cream) / l": {
+  "intl": 47.2,
+  "us": 76.0
+ },
+ "ssfw my bestie poncho (2types)||bunny(cream) / xl": {
+  "intl": 47.2,
+  "us": 76.0
+ },
+ "ssfw my bestie poncho (2types)||bunny(cream) / 2xl": {
+  "intl": 47.2,
+  "us": 76.0
+ },
+ "latta filmcover windbreaker jacket for people (3types)||mauve pink / m": {
+  "intl": 63.92,
+  "us": 77.0
+ },
+ "latta filmcover windbreaker jacket for people (3types)||mauve pink / l": {
+  "intl": 63.92,
+  "us": 77.0
+ },
+ "latta filmcover windbreaker jacket for people (3types)||airy mint / m": {
+  "intl": 63.92,
+  "us": 77.0
+ },
+ "latta filmcover windbreaker jacket for people (3types)||airy mint / l": {
+  "intl": 63.92,
+  "us": 77.0
+ },
+ "latta filmcover windbreaker jacket for people (3types)||warm olive / m": {
+  "intl": 63.92,
+  "us": 77.0
+ },
+ "latta filmcover windbreaker jacket for people (3types)||warm olive / l": {
+  "intl": 63.92,
+  "us": 77.0
+ },
+ "ssfw breeze bag (3types)||cream": {
+  "intl": 50.02,
+  "us": 80.0
+ },
+ "ssfw breeze bag (3types)||pink": {
+  "intl": 50.02,
+  "us": 80.0
+ },
+ "ssfw breeze bag (3types)||charcoal": {
+  "intl": 50.02,
+  "us": 80.0
+ },
+ "ssfw milk tea duffle coat (3types)||butter yellow / s": {
+  "intl": 52.0,
+  "us": 83.0
+ },
+ "ssfw milk tea duffle coat (3types)||butter yellow / m": {
+  "intl": 52.0,
+  "us": 83.0
+ },
+ "ssfw milk tea duffle coat (3types)||butter yellow / l": {
+  "intl": 52.0,
+  "us": 83.0
+ },
+ "ssfw milk tea duffle coat (3types)||butter yellow / xl": {
+  "intl": 52.0,
+  "us": 83.0
+ },
+ "ssfw milk tea duffle coat (3types)||butter yellow / 2xl": {
+  "intl": 52.0,
+  "us": 83.0
+ },
+ "ssfw milk tea duffle coat (3types)||powder blue / s": {
+  "intl": 52.0,
+  "us": 83.0
+ },
+ "ssfw milk tea duffle coat (3types)||powder blue / m": {
+  "intl": 52.0,
+  "us": 83.0
+ },
+ "ssfw milk tea duffle coat (3types)||powder blue / l": {
+  "intl": 52.0,
+  "us": 83.0
+ },
+ "ssfw milk tea duffle coat (3types)||powder blue / xl": {
+  "intl": 52.0,
+  "us": 83.0
+ },
+ "ssfw milk tea duffle coat (3types)||powder blue / 2xl": {
+  "intl": 52.0,
+  "us": 83.0
+ },
+ "ssfw milk tea duffle coat (3types)||cocoa / s": {
+  "intl": 52.0,
+  "us": 83.0
+ },
+ "ssfw milk tea duffle coat (3types)||cocoa / m": {
+  "intl": 52.0,
+  "us": 83.0
+ },
+ "ssfw milk tea duffle coat (3types)||cocoa / l": {
+  "intl": 52.0,
+  "us": 83.0
+ },
+ "ssfw milk tea duffle coat (3types)||cocoa / xl": {
+  "intl": 52.0,
+  "us": 83.0
+ },
+ "ssfw milk tea duffle coat (3types)||cocoa / 2xl": {
+  "intl": 52.0,
+  "us": 83.0
+ },
+ "ssfw coolette bag (3types)||red": {
+  "intl": 52.02,
+  "us": 83.0
+ },
+ "ssfw coolette bag (3types)||blue": {
+  "intl": 52.02,
+  "us": 83.0
+ },
+ "ssfw coolette bag (3types)||cream": {
+  "intl": 52.02,
+  "us": 83.0
+ },
+ "comfy ravioli downtown bag (3 colors)||cityblue": {
+  "intl": 71.22,
+  "us": 85.0
+ },
+ "comfy ravioli downtown bag (3 colors)||bunny(cream)": {
+  "intl": 71.22,
+  "us": 85.0
+ },
+ "comfy ravioli downtown bag (3 colors)||charcoal": {
+  "intl": 71.22,
+  "us": 85.0
+ },
+ "comfy ravioli mini town bag (3 colors)||beige": {
+  "intl": 71.22,
+  "us": 85.0
+ },
+ "comfy ravioli mini town bag (3 colors)||cityblue": {
+  "intl": 71.22,
+  "us": 85.0
+ },
+ "comfy ravioli mini town bag (3 colors)||charcoal": {
+  "intl": 71.22,
+  "us": 85.0
+ },
+ "apple cider recipe stroller bag (2colors)||charcoal": {
+  "intl": 55.22,
+  "us": 88.0
+ },
+ "apple cider recipe stroller bag (2colors)||red": {
+  "intl": 55.22,
+  "us": 88.0
+ },
+ "biteme latta airtech puffer (3 types)||tan lime / xs": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||tan lime / s": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||tan lime / m": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||tan lime / l": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||tan lime / xl": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||tan lime / 2xl": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||aurora blue / xs": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||aurora blue / s": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||aurora blue / m": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||aurora blue / l": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||aurora blue / xl": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||aurora blue / 2xl": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||airy mint / xs": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||airy mint / s": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||airy mint / m": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||airy mint / l": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||airy mint / xl": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme latta airtech puffer (3 types)||airy mint / 2xl": {
+  "intl": 79.2,
+  "us": 95.0
+ },
+ "biteme 2026 new year's lucky pouch||default title": {
+  "intl": 60.0,
+  "us": 96.0
+ },
+ "biteme pocket pop foldable mesh-bag (2types)||mint / m": {
+  "intl": 63.85,
+  "us": 102.0
+ },
+ "biteme pocket pop foldable mesh-bag (2types)||mint / l": {
+  "intl": 63.85,
+  "us": 102.0
+ },
+ "biteme pocket pop foldable mesh-bag (2types)||black / m": {
+  "intl": 63.85,
+  "us": 102.0
+ },
+ "biteme pocket pop foldable mesh-bag (2types)||black / l": {
+  "intl": 63.85,
+  "us": 102.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||tan lime / xs": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||tan lime / s": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||tan lime / m": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||tan lime / l": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||tan lime / xl": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||tan lime / 2xl": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||aurora blue / xs": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||aurora blue / s": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||aurora blue / m": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||aurora blue / l": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||aurora blue / xl": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||aurora blue / 2xl": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||airy mint / xs": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||airy mint / s": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||airy mint / m": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||airy mint / l": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||airy mint / xl": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "bite me latta airtech all-in-one puffer (3colors)||airy mint / 2xl": {
+  "intl": 95.2,
+  "us": 114.0
+ },
+ "biteme butter big size scratcher for cat||default title": {
+  "intl": 76.95,
+  "us": 123.0
+ },
+ "comfy ravioli city bag (3 colors)||beige / m": {
+  "intl": 127.24,
+  "us": 153.0
+ },
+ "comfy ravioli city bag (3 colors)||city blue / m": {
+  "intl": 127.24,
+  "us": 153.0
+ },
+ "comfy ravioli city bag (3 colors)||charcoal / m": {
+  "intl": 127.24,
+  "us": 153.0
+ },
+ "comfy ravioli city bag (3 colors)||beige / l": {
+  "intl": 138.08,
+  "us": 166.0
+ },
+ "comfy ravioli city bag (3 colors)||city blue / l": {
+  "intl": 138.08,
+  "us": 166.0
+ },
+ "comfy ravioli city bag (3 colors)||charcoal / l": {
+  "intl": 138.08,
+  "us": 166.0
+ },
+ "comfy ravioli urban pillow bag (2 colors)||charcoal / m": {
+  "intl": 151.25,
+  "us": 182.0
+ },
+ "comfy ravioli urban pillow bag (2 colors)||beige / m": {
+  "intl": 151.25,
+  "us": 182.0
+ },
+ "ssfw mellow bag (3types)||1size / black": {
+  "intl": 159.26,
+  "us": 191.0
+ },
+ "ssfw mellow bag (3types)||1size / cream": {
+  "intl": 159.26,
+  "us": 191.0
+ },
+ "ssfw mellow bag (3types)||1size / mint": {
+  "intl": 159.26,
+  "us": 191.0
+ },
+ "comfy ravioli ten-mile bag (3 types)||charcoal / m": {
+  "intl": 159.26,
+  "us": 191.0
+ },
+ "comfy ravioli ten-mile bag (3 types)||cityblue / m": {
+  "intl": 159.26,
+  "us": 191.0
+ },
+ "comfy ravioli ten-mile bag (3 types)||beige / m": {
+  "intl": 159.26,
+  "us": 191.0
+ },
+ "comfy ravioli urban pillow bag (2 colors)||charcoal / l": {
+  "intl": 162.07,
+  "us": 194.0
+ },
+ "comfy ravioli urban pillow bag (2 colors)||beige / l": {
+  "intl": 162.07,
+  "us": 194.0
+ },
+ "ssfw mellow bag (3types)||2size / black": {
+  "intl": 169.88,
+  "us": 204.0
+ },
+ "ssfw mellow bag (3types)||2size / cream": {
+  "intl": 169.88,
+  "us": 204.0
+ },
+ "ssfw mellow bag (3types)||2size / mint": {
+  "intl": 169.88,
+  "us": 204.0
+ },
+ "comfy ravioli ten-mile bag (3 types)||charcoal / l": {
+  "intl": 169.91,
+  "us": 204.0
+ },
+ "comfy ravioli ten-mile bag (3 types)||cityblue / l": {
+  "intl": 169.91,
+  "us": 204.0
+ },
+ "comfy ravioli ten-mile bag (3 types)||beige / l": {
+  "intl": 169.91,
+  "us": 204.0
+ },
+ "ssfw new maron bag - black||1size": {
+  "intl": 199.27,
+  "us": 239.0
+ },
+ "ssfw new maron bag - cream||1size": {
+  "intl": 199.27,
+  "us": 239.0
+ },
+ "ssfw new maron bag - cream||2size": {
+  "intl": 199.27,
+  "us": 239.0
+ },
+ "ssfw new maron bag - black||2size": {
+  "intl": 208.63,
+  "us": 250.0
+ },
+ "biteme pocket fruits nosework toy - lemon||default title": {
+  "intl": 10.32,
+  "us": 17.0
+ },
+ "biteme all day cooling pillow||default title": {
+  "intl": 15.92,
+  "us": 25.0
+ },
+ "biteme halloween pumpkin puppy stretchy toy||default title": {
+  "intl": 9.52,
+  "us": 15.0
+ },
+ "biteme sweet halloween ball toy||default title": {
+  "intl": 11.92,
+  "us": 19.0
+ },
+ "biteme slipper tug toys||default title": {
+  "intl": 7.12,
+  "us": 11.0
+ },
+ "biteme roll-up nosework toy (2types) - squirrel||default title": {
+  "intl": 9.52,
+  "us": 15.0
+ },
+ "biteme roll-up nosework toy (2types) - bear||default title": {
+  "intl": 9.52,
+  "us": 15.0
+ },
+ "biteme square pocket nowework toy - giraffe||default title": {
+  "intl": 11.12,
+  "us": 18.0
+ },
+ "biteme square pocket nowework toy - elephant||default title": {
+  "intl": 11.12,
+  "us": 18.0
+ },
+ "biteme panda jelly bear toy||default title": {
+  "intl": 7.12,
+  "us": 11.0
+ },
+ "biteme jumping boogie crab cover||default title": {
+  "intl": 18.32,
+  "us": 29.0
+ },
+ "biteme fruit friends ball toy (3pcs)||default title": {
+  "intl": 12.72,
+  "us": 20.0
+ },
+ "jumping boogie cover||default title": {
+  "intl": 18.32,
+  "us": 29.0
+ },
+ "biteme hug me koala rope ball toy||default title": {
+  "intl": 7.92,
+  "us": 13.0
+ },
+ "ssfw tiny garden knit bib (3colors)||default title": {
+  "intl": 31.2,
+  "us": 50.0
+ },
+ "ssfw mellow stripe t-shirt (3colors)||default title": {
+  "intl": 23.2,
+  "us": 37.0
+ },
+ "ssfw bebe powder poncho (2colors)||default title": {
+  "intl": 39.2,
+  "us": 63.0
+ },
+ "mochi sleeveless||default title": {
+  "intl": 11.12,
+  "us": 18.0
+ },
+ "mochi t-shirts||default title": {
+  "intl": 11.92,
+  "us": 19.0
+ },
+ "mochi all in one||default title": {
+  "intl": 15.12,
+  "us": 24.0
+ },
+ "보솜기저귀||default title": {
+  "intl": 6.32,
+  "us": 10.0
+ },
+ "더블 히트 패딩||default title": {
+  "intl": 39.92,
+  "us": 64.0
+ },
+ "ssfw 몽글 패딩||default title": {
+  "intl": 63.2,
+  "us": 101.0
+ },
+ "ssfw 바라클라바||default title": {
+  "intl": 31.2,
+  "us": 50.0
+ },
+ "ssfw 코위찬||default title": {
+  "intl": 63.2,
+  "us": 101.0
+ },
+ "ssfw 마이 베스티 판초||default title": {
+  "intl": 47.2,
+  "us": 76.0
+ },
+ "ssfw 마이베스티 푸퍼 하네스||default title": {
+  "intl": 47.2,
+  "us": 76.0
+ },
+ "boong boong squirrel float||default title": {
+  "intl": 29.52,
+  "us": 47.0
+ },
+ "biteme all day cooling mat (3 types)||s": {
+  "intl": 26.32,
+  "us": 42.0
+ },
+ "biteme all day cooling mat (3 types)||m": {
+  "intl": 35.12,
+  "us": 56.0
+ },
+ "biteme all day cooling mat (3 types)||l": {
+  "intl": 40.72,
+  "us": 65.0
+ },
+ "biteme all day cooling mat + pillow set (3 types)||s + pillow": {
+  "intl": 42.24,
+  "us": 68.0
+ },
+ "biteme all day cooling mat + pillow set (3 types)||m + pillow": {
+  "intl": 51.04,
+  "us": 82.0
+ },
+ "biteme all day cooling mat + pillow set (3 types)||l + pillow": {
+  "intl": 56.64,
+  "us": 91.0
+ }
+}
