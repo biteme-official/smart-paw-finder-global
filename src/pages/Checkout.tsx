@@ -4,12 +4,13 @@ import { ChevronLeft, Loader2, Truck, CreditCard, AlertTriangle, PartyPopper } f
 import { Button } from '@/components/ui/button';
 import { useCartStore } from '@/stores/cartStore';
 import { useAuthStore } from '@/stores/authStore';
-import { formatPrice } from '@/lib/shopify';
+import { formatPrice, EMAIL_POPUP_PLACEHOLDER_CODE } from '@/lib/shopify';
 import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
 import { fetchCustomerAccount } from '@/lib/customer-account';
 import { toast } from 'sonner';
 import { decorateWithGaLinker, appendUtmToUrl } from '@/lib/browser-utils';
 import { B2BSiteNotice } from '@/components/account/B2BSiteNotice';
+import { IS_B2C_SITE } from '@/lib/site';
 
 const B2B_MIN_ORDER = 300;
 const SHIPPING_THRESHOLD = 75;
@@ -50,6 +51,18 @@ export default function Checkout() {
   }, [allItems.length, navigate]);
 
   const subtotal = items.reduce((sum, item) => sum + parseFloat(item.price.amount) * item.quantity, 0);
+  // B2C: 팝업에서 복사한 쿠폰 코드는 결제 화면을 만들 때 붙는다 — 미리 안내만 한다
+  const pendingCode = useMemo(() => {
+    if (!IS_B2C_SITE) return null;
+    try {
+      const code = localStorage.getItem('affiliate_discount');
+      // createStorefrontCheckout이 빼는 코드(BUSINESS)와 미리보기 자리표시 코드는 안내하지 않는다
+      if (!code || ['BUSINESS', EMAIL_POPUP_PLACEHOLDER_CODE].includes(code.toUpperCase())) return null;
+      return code;
+    } catch {
+      return null;
+    }
+  }, []);
   const currencyCode = items[0]?.price.currencyCode || 'USD';
 
   const isKorean = customerCountry === 'KR';
@@ -159,6 +172,11 @@ export default function Checkout() {
               <span className="text-muted-foreground">Subtotal</span>
               <span translate="no">{formatPrice(subtotal.toFixed(2), currencyCode)}</span>
             </div>
+            {pendingCode && (
+              <p className="text-xs font-medium text-orange-700" translate="no">
+                {pendingCode} will be applied at checkout
+              </p>
+            )}
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground flex items-center gap-1">
                 <Truck className="h-3.5 w-3.5" />Shipping
