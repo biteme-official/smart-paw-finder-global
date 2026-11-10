@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ShopifyProduct, CollectionSortKey, ProductListSortKey, fetchProducts, fetchBestSellingProductsPaginated, fetchCollectionProducts, fetchCollectionIntersection, fetchProductCount, fetchCollectionProductCount } from '@/lib/shopify';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2 } from 'lucide-react';
 import { ProductCard } from '@/components/shop/ProductCard';
-import { saveScrollPosition } from '@/hooks/useScrollRestoration';
-import { ProductFilters, SortOption } from './ProductFilters';
+import { saveScrollPosition, getScrollPosition, clearScrollPosition } from '@/hooks/useScrollRestoration';
+import { ProductFilters, SortOption, DEFAULT_SORT_OPTION, isSortOption } from './ProductFilters';
 import { ProductOptionDialog } from './ProductOptionDialog';
 import { trackViewItemList, shopifyToGA4Item } from '@/lib/ga4-ecommerce';
 
@@ -52,10 +52,27 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
 
-  const [sortOption, setSortOption] = useState<SortOption>("best-selling");
-
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Sort lives in the URL (?sort=newest) so it survives product detail → back.
+  // Changing category/search rewrites the query without `sort`, which resets it to the default.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sortParam = searchParams.get("sort");
+  const sortOption: SortOption = isSortOption(sortParam) ? sortParam : DEFAULT_SORT_OPTION;
+
+  const handleSortChange = (next: SortOption) => {
+    setSearchParams(prev => {
+      const params = new URLSearchParams(prev);
+      if (next === DEFAULT_SORT_OPTION) params.delete("sort");
+      else params.set("sort", next);
+      return params;
+    }, { replace: true });
+  };
+
+  // Scroll position is keyed by the full listing URL so each category/sort combination restores its own spot.
+  const scrollKey = location.pathname + location.search;
+  const pendingScrollRef = useRef<number | null>(null);
 
   const sortKey: CollectionSortKey =
     sortOption === "best-selling" ? "BEST_SELLING"
@@ -99,7 +116,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
   }, [loading, totalProductCount, filteredAndSortedProducts]);
 
   const handleProductClick = (handle: string) => {
-    saveScrollPosition(location.pathname);
+    saveScrollPosition(scrollKey);
     navigate(`/product/${handle}`);
   };
 
@@ -110,10 +127,6 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
     }
     return undefined;
   }, [searchQuery]);
-
-  useEffect(() => {
-    setSortOption("best-selling");
-  }, [searchQuery, collectionHandle, multiCollections]);
 
   // Initial load
   useEffect(() => {
@@ -189,6 +202,26 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
       setLoadingMore(false);
     }
   }, [loadingMore, hasNextPage, endCursor, multiCollections, collectionHandle, defaultBestSelling, searchQuery, getQuery, sortKey, productListSortKey]);
+
+  useEffect(() => {
+    const saved = getScrollPosition(scrollKey);
+    pendingScrollRef.current = saved > 0 ? saved : null;
+  }, [scrollKey]);
+
+  // Restore scroll once products are rendered. If the saved spot is below the loaded rows
+  // (user had infinite-scrolled further), keep loading pages until it's reachable.
+  useEffect(() => {
+    const target = pendingScrollRef.current;
+    if (target === null || loading || loadingMore) return;
+    const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+    if (maxScroll >= target || !hasNextPage) {
+      window.scrollTo(0, target);
+      pendingScrollRef.current = null;
+      clearScrollPosition(scrollKey);
+    } else {
+      loadMore();
+    }
+  }, [loading, loadingMore, hasNextPage, allProducts.length, loadMore, scrollKey]);
 
   // Intersection Observer for infinite scroll
   useEffect(() => {
@@ -294,7 +327,7 @@ export const ProductGrid = ({ searchQuery = "", collectionHandle = null, multiCo
         <span className="text-sm text-muted-foreground">
           {totalProductCount !== null ? `${totalProductCount} products` : ""}
         </span>
-        <ProductFilters sortOption={sortOption} onSortChange={setSortOption} />
+        <ProductFilters sortOption={sortOption} onSortChange={handleSortChange} />
       </div>
 
       {filteredAndSortedProducts.length === 0 ? (

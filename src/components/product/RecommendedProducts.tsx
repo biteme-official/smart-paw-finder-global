@@ -1,12 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { ShoppingCart, Heart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ShopifyProduct, fetchProductRecommendations } from "@/lib/shopify";
-import { PriceTag } from "@/components/ui/PriceTag";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ProductCard } from "@/components/shop/ProductCard";
 import { ProductOptionDialog } from "@/components/shop/ProductOptionDialog";
-import { useFavoriteAction } from "@/hooks/useFavoriteAction";
 
 interface RecommendedProductsProps {
   productId: string;
@@ -19,7 +16,6 @@ export function RecommendedProducts({ productId, currentHandle }: RecommendedPro
   const [loading, setLoading] = useState(true);
   const [optionDialogOpen, setOptionDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ShopifyProduct | null>(null);
-  const { toggleFavorite, checkFavorite } = useFavoriteAction();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -47,11 +43,8 @@ export function RecommendedProducts({ productId, currentHandle }: RecommendedPro
     isDragging.current = false;
   }, []);
 
-  const handleCardClick = useCallback((e: React.MouseEvent, handle: string) => {
-    if (hasDragged.current) {
-      e.preventDefault();
-      return;
-    }
+  const handleCardClick = useCallback((handle: string) => {
+    if (hasDragged.current) return;
     navigate(`/product/${handle}`);
   }, [navigate]);
 
@@ -110,61 +103,16 @@ export function RecommendedProducts({ productId, currentHandle }: RecommendedPro
         className="flex gap-3 px-4 overflow-x-auto scrollbar-hide select-none"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
       >
-        {products.slice(0, 10).map((product) => {
-          const image = product.node.images.edges[0]?.node;
-          const price = product.node.priceRange.minVariantPrice;
-
-          return (
-            <div
-              key={product.node.id}
-              onClick={(e) => handleCardClick(e, product.node.handle)}
-              className="w-32 flex-shrink-0 bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-card transition-all cursor-pointer"
-            >
-              <div className="aspect-square bg-secondary relative overflow-hidden">
-                {image ? (
-                  <img
-                    src={image.url}
-                    alt={image.altText || product.node.title}
-                    className="w-full h-full object-cover pointer-events-none"
-                    loading="lazy"
-                    draggable={false}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-                    No Image
-                  </div>
-                )}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleFavorite(product.node.handle);
-                  }}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full bg-background/70 backdrop-blur-sm flex items-center justify-center hover:bg-background/90 transition-colors"
-                >
-                  <Heart
-                    className={`h-3.5 w-3.5 ${checkFavorite(product.node.handle) ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`}
-                  />
-                </button>
-              </div>
-              <div className="p-3">
-                <h3 className="text-xs font-medium text-foreground line-clamp-2 mb-2 min-h-[32px]">
-                  {product.node.title}
-                </h3>
-                <div className="flex items-start justify-between gap-1">
-                  <PriceTag amount={price.amount} currencyCode={price.currencyCode} className="text-sm font-bold text-primary" originalClassName="text-xs" />
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={(e) => handleAddToCart(e, product)}
-                    className="h-7 w-7 p-0 flex-shrink-0"
-                  >
-                    <ShoppingCart className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        {products.slice(0, 10).map((product) => (
+          // onDragStart blocks native image drag so pointer-drag scrolling keeps working over the card image
+          <div key={product.node.id} className="w-32 flex-shrink-0" onDragStart={(e) => e.preventDefault()}>
+            <ProductCard
+              product={product}
+              onClick={() => handleCardClick(product.node.handle)}
+              onAddToCart={(e) => handleAddToCart(e, product)}
+            />
+          </div>
+        ))}
       </div>
 
       <ProductOptionDialog
