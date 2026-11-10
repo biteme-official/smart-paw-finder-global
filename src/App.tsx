@@ -34,6 +34,8 @@ import BlogPost from "./pages/BlogPost";
 import NewProductsPage from "./pages/NewProducts";
 import RefundPolicy from "./pages/RefundPolicy";
 import About from "./pages/About";
+import AffiliateLink from "./pages/AffiliateLink";
+import MyAffiliate from "./pages/MyAffiliate";
 import { WhatsAppButton } from "./components/layout/WhatsAppButton";
 import { AnnouncementBar } from "./components/layout/AnnouncementBar";
 import { PetProfilePrompt } from "./components/account/PetProfile";
@@ -130,6 +132,9 @@ const App = () => (
           <Route path="/mypage/order-history" element={<OrderHistory />} />
           <Route path="/mypage/store-credit" element={<StoreCreditHistory />} />
           <Route path="/mypage/favorites" element={<FavoritesPage />} />
+          {/* B2C 어필리에이트 — 파트너 대시보드, 파트너 링크 /a/{코드} */}
+          {IS_B2C_SITE && <Route path="/mypage/affiliate" element={<MyAffiliate />} />}
+          {IS_B2C_SITE && <Route path="/a/:code" element={<AffiliateLink />} />}
           <Route path="/favorites" element={<FavoritesPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/guest-order" element={<GuestOrderLookup />} />

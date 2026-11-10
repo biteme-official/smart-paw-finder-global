@@ -23,7 +23,8 @@ import { Footer } from "@/components/layout/Footer";
 import { RecommendedProducts } from "@/components/product/RecommendedProducts";
 import { ReviewWidget } from "@/components/product/ReviewWidget";
 import { ScrollToTop } from "@/components/ui/ScrollToTop";
-import { SITE_URL } from "@/lib/site";
+import { SITE_URL, IS_B2C_SITE } from "@/lib/site";
+import { AffiliateShareRow } from "@/components/affiliate/AffiliateShareRow";
 import { cleanDescriptionHtml, cleanDescriptionText } from "@/lib/product-description";
 
 // Product detail skeleton component
@@ -602,6 +603,11 @@ export default function ProductDetail() {
 
       {/* Product Info */}
       <div className="px-4 pt-4">
+        {/* B2C 어필리에이트 — 예상 커미션 + Copy link */}
+        {IS_B2C_SITE && (
+          <AffiliateShareRow handle={product.handle} minPrice={parseFloat(product.priceRange.minVariantPrice.amount)} />
+        )}
+
         {/* Title & Price */}
         <div className="mb-4">
           <nav aria-label="breadcrumb" className="mb-1 text-xs text-muted-foreground">
