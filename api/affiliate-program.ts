@@ -20,7 +20,8 @@ const CUSTOMER_ACCOUNT_ENDPOINT = `https://shopify.com/${SHOP_ID}/account/custom
 
 export const COMMISSION_RATE = 0.1;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 헷갈리는 0/O/1/I 제외
-const CLICK_DEDUPE_SECONDS = 30 * 60; // 같은 사람이 같은 링크를 30분 안에 다시 눌러도 1번
+const CLICK_DEDUPE_SECONDS = 30 * 60; // 같은 브라우저가 같은 링크를 30분 안에 다시 눌러도 1번
+const CLICK_IP_DAILY_CAP = 20; // 방문자 ID는 지우면 새로 생기므로, 같은 IP에서 하루 최대 20회까지만 센다
 const BOT_UA = /bot|crawl|spider|slurp|facebookexternalhit|embedly|preview|headless|lighthouse|pingdom|monitor/i;
 const SYNC_START = '2026-11-01T00:00:00Z'; // 첫 수집 시작 시점
 const SYNC_OVERLAP_MS = 10 * 60 * 1000; // 직전 수집과 10분 겹쳐 읽어 경계에 걸친 주문을 놓치지 않는다
@@ -74,7 +75,8 @@ const K = {
   partners: 'affp:partners',
   clicks: (code: string) => `affp:clicks:${code}`, // hash  "YYYY-MM-DD|handle" → count
   copies: (code: string) => `affp:copies:${code}`, // hash  "YYYY-MM-DD|handle" → count
-  clickDedupe: (code: string, handle: string, ip: string) => `affp:clk:${code}:${handle}:${ip}`,
+  clickDedupe: (code: string, handle: string, who: string) => `affp:clk:${code}:${handle}:${who}`,
+  clickIpDaily: (code: string, ip: string, day: string) => `affp:clkip:${code}:${ip}:${day}`,
   order: (orderId: string) => `affp:order:${orderId}`,
   orders: 'affp:orders', // zset score = 주문 시각(ms)
   partnerOrders: (code: string) => `affp:partner-orders:${code}`,
@@ -387,7 +389,7 @@ async function handlePaypal(req: VercelRequest, res: VercelResponse) {
 // ─── 고객: 링크 클릭 ──────────────────────────────────────────────────────────
 
 async function handleClick(req: VercelRequest, res: VercelResponse) {
-  const body = (req.body ?? {}) as { code?: unknown; handle?: unknown };
+  const body = (req.body ?? {}) as { code?: unknown; handle?: unknown; vid?: unknown };
   const code = normalizeCode(body.code);
   if (!code) return res.status(400).json({ error: 'Invalid code' });
   const handle = normalizeHandle(body.handle) || '_home';
@@ -400,9 +402,17 @@ async function handleClick(req: VercelRequest, res: VercelResponse) {
   if (!partner || partner.status !== 'active') return res.status(200).json({ ok: true, valid: false });
 
   const ip = clientIp(req) || 'unknown';
-  const fresh = await kv.set(K.clickDedupe(code, handle, ip), '1', { nx: true, ex: CLICK_DEDUPE_SECONDS });
-  if (fresh) await kv.hincrby(K.clicks(code), `${kstDate()}|${handle}`, 1);
-  return res.status(200).json({ ok: true, valid: true, counted: !!fresh });
+  // 중복 기준: 브라우저 방문자 ID (없으면 IP)
+  const vid = typeof body.vid === 'string' && /^[a-z0-9-]{8,64}$/i.test(body.vid) ? `v:${body.vid}` : `ip:${ip}`;
+  const fresh = await kv.set(K.clickDedupe(code, handle, vid), '1', { nx: true, ex: CLICK_DEDUPE_SECONDS });
+  if (!fresh) return res.status(200).json({ ok: true, valid: true, counted: false });
+  const day = kstDate();
+  const ipKey = K.clickIpDaily(code, ip, day);
+  const ipCount = await kv.incr(ipKey);
+  if (ipCount === 1) await kv.expire(ipKey, 2 * 24 * 60 * 60);
+  if (ipCount > CLICK_IP_DAILY_CAP) return res.status(200).json({ ok: true, valid: true, counted: false });
+  await kv.hincrby(K.clicks(code), `${day}|${handle}`, 1);
+  return res.status(200).json({ ok: true, valid: true, counted: true });
 }
 
 // ─── 고객: 파트너 대시보드 ────────────────────────────────────────────────────

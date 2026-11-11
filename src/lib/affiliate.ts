@@ -154,8 +154,23 @@ export function recordLinkCopy(handle: string | null): void {
   call('copy', { method: 'POST', auth: true, body: { handle } }).catch(() => {});
 }
 
+// 브라우저별 방문자 ID — 같은 와이파이(같은 IP)를 쓰는 다른 사람의 클릭도 각각 세기 위해
+const VISITOR_KEY = 'biteme-aff-vid';
+function getVisitorId(): string | null {
+  try {
+    let id = localStorage.getItem(VISITOR_KEY);
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(VISITOR_KEY, id);
+    }
+    return id;
+  } catch {
+    return null;
+  }
+}
+
 export function recordAffiliateClick(code: string, handle: string | null): void {
-  call('click', { method: 'POST', body: { code, handle } }).catch(() => {});
+  call('click', { method: 'POST', body: { code, handle, vid: getVisitorId() } }).catch(() => {});
 }
 
 export function fetchAffiliateDashboard(range: { from: string; to: string }): Promise<AffiliateDashboard> {
