@@ -106,6 +106,9 @@ export interface AffiliateDashboard {
   range: { from: string; to: string };
   rate: number;
   performance: { clicks: number; orders: number; sales: number; commission: number };
+  confirmDays: number;
+  minPayout: number;
+  // 기간과 상관없는 잔액: 대기 / 확정(미지급) / 지급 누계
   month: { pending: number; confirmed: number; paid: number; nextPayout: string };
   links: AffiliateLinkRow[];
 }

@@ -19,12 +19,12 @@ import { fetchProductsByHandles } from '@/lib/shopify';
 import { ManagePageHeader, useManageAuth } from '@/components/admin/ManageLayout';
 
 // B2C 어필리에이트 관리자 (biteme.one /manage/affiliate) — 조이 님 11/4 목업 ①~⑤.
-// ⑥ 월 정산·PayPal CSV, 승인(Approved)은 2차. 날짜는 모두 KST.
+// ⑥ 정산: 주문 + N일 자동 확정 → 지난달 확정분을 이번 달 말 지급(Mark as paid). 날짜는 모두 KST.
 
 // ─── 타입 (api/affiliate-program.ts 응답) ─────────────────────────────────────
 
 type PartnerStatus = 'active' | 'suspended' | 'removed';
-type CommissionStatus = 'pending' | 'excluded' | 'void';
+type CommissionStatus = 'pending' | 'confirmed' | 'paid' | 'excluded' | 'void';
 
 interface Order {
   orderId: string;
@@ -41,6 +41,10 @@ interface Order {
   manualVoid: boolean;
   history: { at: string; change: string }[];
   partnerName?: string;
+  confirmedAt?: string | null;
+  paidAt?: string | null;
+  paidAmount?: number | null;
+  clawback?: number;
 }
 
 interface PartnerRow {
@@ -60,8 +64,10 @@ interface PartnerRow {
 
 interface Summary {
   range: { from: string; to: string };
+  confirmDays: number;
   totals: {
-    gmv: number; orders: number; commission: number; clicks: number; copies: number; conversion: number;
+    gmv: number; orders: number; commission: number; pendingCommission: number; confirmedCommission: number;
+    clicks: number; copies: number; conversion: number;
     partners: number; newPartners: number; clickingPartners: number; excluded: number; excludedAmount: number; void: number;
   };
   daily: { date: string; gmv: number; orders: number; commission: number; clicks: number }[];
@@ -109,7 +115,7 @@ function presetRange(key: Exclude<Preset, 'custom'>) {
 // ─── 표시 ─────────────────────────────────────────────────────────────────────
 
 const usd = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const approvesOn = (createdAt: string) => shiftDays(kstDate(createdAt), 30);
+const approvesOn = (createdAt: string, days: number) => shiftDays(kstDate(createdAt), days);
 const maskEmail = (email: string | null) => {
   if (!email) return '';
   const [u, d] = email.split('@');
@@ -120,9 +126,32 @@ const REASON_LABEL: Record<string, string> = {
   self: 'Self-purchase', b2b: 'B2B', 'partner-suspended': 'Partner suspended', cancelled: 'Cancelled', manual: 'Voided',
 };
 
+// 정산: 지급 대상이 아닌 이유
+type PayoutBlock = 'ready' | 'below-min' | 'no-paypal' | 'suspended' | 'removed';
+const BLOCK_LABEL: Record<PayoutBlock, string> = {
+  ready: 'Ready', 'below-min': '최소 금액 미만 · 이월', 'no-paypal': 'PayPal 없음 · 이월', suspended: '정지 · 보류', removed: '제거 · 보류',
+};
+
+interface PayoutRow {
+  code: string; name: string; email: string; paypalEmail: string | null; status: PartnerStatus;
+  orders: number; adjustments: number; adjustmentAmount: number; amount: number; block: PayoutBlock;
+}
+
+interface PayoutsData {
+  period: string; payDate: string; minPayout: number; confirmDays: number;
+  rows: PayoutRow[];
+  payouts: { id: string; code: string; partnerName: string; period: string; amount: number; paypalEmail: string; paidAt: string; orderIds: string[] }[];
+}
+
 function StatusBadge({ order }: { order: Order }) {
   if (order.status === 'pending') {
     return <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700">Pending</span>;
+  }
+  if (order.status === 'confirmed') {
+    return <span className="inline-flex rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700">Confirmed</span>;
+  }
+  if (order.status === 'paid') {
+    return <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">Paid{order.clawback ? ` (차감 ${usd(order.clawback)})` : ''}</span>;
   }
   if (order.status === 'excluded') {
     return <span className="inline-flex rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-xs font-semibold text-gray-600">Excluded ({REASON_LABEL[order.reason || ''] || order.reason})</span>;
@@ -185,8 +214,8 @@ function useAdminApi() {
 
 // ─── 파트너 상세 ──────────────────────────────────────────────────────────────
 
-function PartnerSheet({ code, range, onClose, onChanged }: {
-  code: string | null; range: { from: string; to: string }; onClose: () => void; onChanged: () => void;
+function PartnerSheet({ code, range, confirmDays, onClose, onChanged }: {
+  code: string | null; range: { from: string; to: string }; confirmDays: number; onClose: () => void; onChanged: () => void;
 }) {
   const api = useAdminApi();
   const [confirm, setConfirm] = useState<PartnerStatus | null>(null);
@@ -322,7 +351,7 @@ function PartnerSheet({ code, range, onClose, onChanged }: {
                           <td className="py-2 text-right">{usd(o.commission)}</td>
                           <td className="py-2 text-center">
                             <StatusBadge order={o} />
-                            {o.status === 'pending' && <div className="mt-0.5 text-xs text-muted-foreground">Approves {approvesOn(o.createdAt)}</div>}
+                            {o.status === 'pending' && <div className="mt-0.5 text-xs text-muted-foreground">Approves {approvesOn(o.createdAt, confirmDays)}</div>}
                           </td>
                         </tr>
                       ))}
@@ -459,6 +488,127 @@ function PartnersTable({ partners, onOpen }: { partners: PartnerRow[]; onOpen: (
   );
 }
 
+// ─── 정산 ─────────────────────────────────────────────────────────────────────
+
+function PayoutsPanel({ data, onChanged }: { data: PayoutsData; onChanged: () => void }) {
+  const api = useAdminApi();
+  const [target, setTarget] = useState<PayoutRow | null>(null);
+  const [saving, setSaving] = useState(false);
+  const ready = data.rows.filter((r) => r.block === 'ready');
+
+  const markPaid = async (row: PayoutRow) => {
+    setSaving(true);
+    try {
+      await api('admin-payout-mark', { body: { code: row.code, amount: row.amount } });
+      toast.success(`${row.name || row.code} 지급 완료로 기록했습니다.`);
+      onChanged();
+    } catch (e) {
+      toast.error(`실패: ${(e as Error).message}`);
+    } finally {
+      setSaving(false);
+      setTarget(null);
+    }
+  };
+
+  return (
+    <Panel>
+      <h2 className="text-lg font-bold">
+        Payouts <span className="font-normal text-muted-foreground">· {data.period} 확정분 · 지급일 {data.payDate}</span>
+      </h2>
+      <p className="text-sm text-muted-foreground">
+        주문 {data.confirmDays}일 뒤 자동 확정 → 지난달 말까지 확정된 커미션(지급 후 환불 차감 포함)을 이번 달 말 지급. {usd(data.minPayout)} 미만·PayPal 없음은 다음 달로 이월.
+        PayPal에서 송금한 뒤 Mark as paid를 누르세요. Ready {ready.length}명 · {usd(ready.reduce((t, r) => t + r.amount, 0))}
+      </p>
+      <div className="mt-4 overflow-x-auto rounded-xl border">
+        <table className="w-full min-w-[820px] text-sm">
+          <thead className="bg-gray-50 text-left text-muted-foreground">
+            <tr>
+              <th className="px-3 py-3 font-medium">Partner</th>
+              <th className="px-3 py-3 font-medium">PayPal</th>
+              <th className="px-3 py-3 text-right font-medium">Orders</th>
+              <th className="px-3 py-3 text-right font-medium">Deductions</th>
+              <th className="px-3 py-3 text-right font-medium">Amount</th>
+              <th className="px-3 py-3 text-center font-medium">Status</th>
+              <th className="px-3 py-3 text-center font-medium">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.rows.length === 0 ? (
+              <tr><td colSpan={7} className="px-3 py-10 text-center text-muted-foreground">이번 지급 대상이 없습니다.</td></tr>
+            ) : data.rows.map((r) => (
+              <tr key={r.code} className="border-t">
+                <td className="px-3 py-3"><div className="font-mono text-xs">{r.code}</div><div className="text-muted-foreground">{r.name || '—'}</div></td>
+                <td className="px-3 py-3 break-all">{r.paypalEmail || <span className="text-red-600">Missing</span>}</td>
+                <td className="px-3 py-3 text-right">{r.orders}</td>
+                <td className="px-3 py-3 text-right">{r.adjustments ? `${r.adjustments}건 · ${usd(r.adjustmentAmount)}` : '—'}</td>
+                <td className="px-3 py-3 text-right font-semibold">{usd(r.amount)}</td>
+                <td className="px-3 py-3 text-center">
+                  <span className={cn('inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+                    r.block === 'ready' ? 'border-green-200 bg-green-50 text-green-700' : 'border-gray-200 bg-gray-50 text-gray-600')}>
+                    {BLOCK_LABEL[r.block]}
+                  </span>
+                </td>
+                <td className="px-3 py-3 text-center">
+                  {r.block === 'ready' && (
+                    <Button size="sm" variant="outline" disabled={saving} onClick={() => setTarget(r)}>Mark as paid</Button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {data.payouts.length > 0 && (
+        <div className="mt-6">
+          <h3 className="font-bold">최근 지급 기록</h3>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="text-left text-muted-foreground">
+                <tr className="border-b">
+                  <th className="py-2 font-medium">Paid</th><th className="py-2 font-medium">Partner</th><th className="py-2 font-medium">Period</th>
+                  <th className="py-2 font-medium">PayPal</th><th className="py-2 text-right font-medium">Orders</th><th className="py-2 text-right font-medium">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.payouts.map((x) => (
+                  <tr key={x.id} className="border-b last:border-0">
+                    <td className="py-2 text-muted-foreground">{kstDate(x.paidAt)}</td>
+                    <td className="py-2"><span className="font-mono text-xs">{x.code}</span> {x.partnerName}</td>
+                    <td className="py-2">{x.period}</td>
+                    <td className="py-2 break-all">{x.paypalEmail}</td>
+                    <td className="py-2 text-right">{x.orderIds.length}</td>
+                    <td className="py-2 text-right font-semibold">{usd(x.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <AlertDialog open={!!target} onOpenChange={(open) => !open && setTarget(null)}>
+        <AlertDialogContent>
+          {target && (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{target.name || target.code} · {usd(target.amount)} 지급 완료로 기록할까요?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  PayPal({target.paypalEmail}) 송금을 먼저 마쳤는지 확인하세요. 확정 주문 {target.orders}건이 Paid로 바뀌고{target.adjustments ? `, 차감 ${target.adjustments}건이 함께 반영됩니다` : '니다'}. 되돌릴 수 없어요.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction onClick={() => markPaid(target)}>Mark as paid</AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
+    </Panel>
+  );
+}
+
 // ─── 페이지 ───────────────────────────────────────────────────────────────────
 
 export default function AffiliateAdmin() {
@@ -476,14 +626,15 @@ export default function AffiliateAdmin() {
   const summary = useQuery({ queryKey: ['aff-admin-summary', q], queryFn: () => api<Summary>('admin-summary', { query: q }) });
   const orders = useQuery({ queryKey: ['aff-admin-orders', q], queryFn: () => api<{ orders: Order[] }>('admin-orders', { query: q }) });
   const partners = useQuery({ queryKey: ['aff-admin-partners', q], queryFn: () => api<{ partners: PartnerRow[] }>('admin-partners', { query: q }) });
+  const payouts = useQuery({ queryKey: ['aff-admin-payouts'], queryFn: () => api<PayoutsData>('admin-payouts') });
 
   const refreshAll = () => queryClient.invalidateQueries({ predicate: (query) => String(query.queryKey[0]).startsWith('aff-admin') });
 
   const runSync = async () => {
     setSyncing(true);
     try {
-      const r = await api<{ scanned?: number; new?: number; updated?: number; skipped?: string }>('sync', { body: {} });
-      toast.success(r.skipped ? '다른 수집이 진행 중입니다.' : `주문 수집 완료 · 확인 ${r.scanned}건, 새 귀속 ${r.new}건, 변경 ${r.updated}건`);
+      const r = await api<{ scanned?: number; new?: number; updated?: number; confirmed?: number; skipped?: string }>('sync', { body: {} });
+      toast.success(r.skipped ? '다른 수집이 진행 중입니다.' : `주문 수집 완료 · 확인 ${r.scanned}건, 새 귀속 ${r.new}건, 변경 ${r.updated}건, 확정 ${r.confirmed ?? 0}건`);
       refreshAll();
     } catch (e) {
       toast.error(`수집 실패: ${(e as Error).message}`);
@@ -505,6 +656,7 @@ export default function AffiliateAdmin() {
   };
 
   const t = summary.data?.totals;
+  const confirmDays = summary.data?.confirmDays ?? payouts.data?.confirmDays ?? 30;
   const loading = summary.isLoading || orders.isLoading || partners.isLoading;
   const error = summary.error || orders.error || partners.error;
 
@@ -544,7 +696,7 @@ export default function AffiliateAdmin() {
           <span className="flex items-center gap-2 font-bold"><span className="h-2 w-2 rounded-full bg-green-600" />Program rules</span>
           <span>10% commission (whole order, after discounts)</span>
           <span>30-day attribution (last click)</span>
-          <span>Approved after 30 days</span>
+          <span>Approved after {confirmDays} days</span>
           <span>B2B &amp; self-purchases excluded</span>
         </div>
 
@@ -566,8 +718,8 @@ export default function AffiliateAdmin() {
               <StatCard icon={Percent} tone="bg-purple-50 text-purple-600" value={`${t.conversion}%`} label="Conversion rate" sub={`${t.orders} orders ÷ ${t.clicks} clicks`} />
               <StatCard icon={ShoppingBag} tone="bg-blue-50 text-blue-600" value={t.orders} label="Attributed orders" sub="제외·무효 빼고" />
               <StatCard icon={DollarSign} tone="bg-blue-50 text-blue-600" value={usd(t.gmv)} label="Attributed sales" sub="할인 후 상품 금액" />
-              <StatCard icon={Clock} tone="bg-amber-50 text-amber-600" value={usd(t.commission)} label="Pending commission" sub="30일 대기" />
-              <StatCard icon={CheckCircle2} tone="bg-green-50 text-green-600" value={usd(0)} label="Approved commission" sub="2차(11/20)부터 집계" />
+              <StatCard icon={Clock} tone="bg-amber-50 text-amber-600" value={usd(t.pendingCommission)} label="Pending commission" sub={`주문 후 ${confirmDays}일 대기`} />
+              <StatCard icon={CheckCircle2} tone="bg-green-50 text-green-600" value={usd(t.confirmedCommission)} label="Approved commission" sub="확정 + 지급 (기간 주문 기준)" />
               <StatCard icon={Ban} tone="bg-gray-100 text-gray-500" value={<>{t.excluded} <span className="text-base font-normal text-muted-foreground">· {usd(t.excludedAmount)}</span></>} label="Excluded orders" sub={`B2B · 본인 구매 · 무효 ${t.void}건 별도`} />
             </div>
 
@@ -625,9 +777,9 @@ export default function AffiliateAdmin() {
                         <td className="px-3 py-3 text-right">{Math.round(o.rate * 100)}%</td>
                         <td className="px-3 py-3 text-right font-semibold">{usd(o.commission)}</td>
                         <td className="px-3 py-3 text-center"><StatusBadge order={o} /></td>
-                        <td className="px-3 py-3 text-center text-muted-foreground">{o.status === 'pending' ? approvesOn(o.createdAt) : '—'}</td>
+                        <td className="px-3 py-3 text-center text-muted-foreground">{o.status === 'pending' ? approvesOn(o.createdAt, confirmDays) : '—'}</td>
                         <td className="px-3 py-3 text-center">
-                          {(o.status === 'pending' || o.manualVoid) && (
+                          {(o.status === 'pending' || o.status === 'confirmed' || o.status === 'paid' || o.manualVoid) && (
                             <button type="button" className="text-muted-foreground underline underline-offset-2 hover:text-foreground" onClick={() => setVoidTarget(o)}>
                               {o.manualVoid ? 'Restore' : 'Void'}
                             </button>
@@ -640,12 +792,18 @@ export default function AffiliateAdmin() {
               </div>
             </Panel>
 
+            {payouts.error ? (
+              <Panel><p className="text-sm text-red-600">정산을 불러오지 못했습니다: {(payouts.error as Error).message}</p></Panel>
+            ) : payouts.data ? (
+              <PayoutsPanel data={payouts.data} onChanged={refreshAll} />
+            ) : null}
+
             <PartnersTable partners={partners.data.partners} onOpen={setOpenCode} />
           </>
         )}
       </main>
 
-      <PartnerSheet code={openCode} range={range} onClose={() => setOpenCode(null)} onChanged={refreshAll} />
+      <PartnerSheet code={openCode} range={range} confirmDays={confirmDays} onClose={() => setOpenCode(null)} onChanged={refreshAll} />
 
       <AlertDialog open={!!voidTarget} onOpenChange={(open) => !open && setVoidTarget(null)}>
         <AlertDialogContent>
@@ -655,8 +813,10 @@ export default function AffiliateAdmin() {
                 <AlertDialogTitle>{voidTarget.manualVoid ? `${voidTarget.orderName} 무효를 취소할까요?` : `${voidTarget.orderName} 커미션을 무효 처리할까요?`}</AlertDialogTitle>
                 <AlertDialogDescription>
                   {voidTarget.manualVoid
-                    ? '대기 상태로 돌아가고, 다음 수집 때 상태·금액을 다시 계산합니다.'
-                    : `커미션 ${usd(voidTarget.commission)}가 0이 됩니다. 이력이 남고 나중에 되돌릴 수 있어요.`}
+                    ? 'Shopify 주문을 다시 읽어 상태·금액을 바로 다시 계산합니다.'
+                    : voidTarget.status === 'paid'
+                      ? `이미 지급된 주문이라 커미션 ${usd(voidTarget.commission)}가 다음 지급분에서 차감됩니다. 이력이 남고 나중에 되돌릴 수 있어요.`
+                      : `커미션 ${usd(voidTarget.commission)}가 0이 됩니다. 이력이 남고 나중에 되돌릴 수 있어요.`}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

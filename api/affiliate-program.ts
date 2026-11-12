@@ -26,6 +26,10 @@ const BOT_UA = /bot|crawl|spider|slurp|facebookexternalhit|embedly|preview|headl
 const SYNC_START = '2026-11-01T00:00:00Z'; // 첫 수집 시작 시점
 const SYNC_OVERLAP_MS = 10 * 60 * 1000; // 직전 수집과 10분 겹쳐 읽어 경계에 걸친 주문을 놓치지 않는다
 const TRACKING_DAYS = 30; // 링크 클릭 후 귀속 기한
+const DAY_MS = 24 * 60 * 60 * 1000;
+// 주문 후 확정까지 일수 (반품 14일 + 해외 배송 약 2주). 환경변수로 바꿀 수 있다
+const CONFIRM_DAYS = Math.max(1, Math.floor(Number(process.env.AFFILIATE_CONFIRM_DAYS)) || 30);
+const MIN_PAYOUT = 20; // 지급 최소 금액(USD) — 미만이면 다음 달로 이월
 const CLOCK_SKEW_MS = 10 * 60 * 1000; // 고객 기기 시계 오차 허용
 const MAX_RANGE_DAYS = 366; // 기간 조회 최대 길이
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -48,7 +52,8 @@ export interface Partner {
   statusHistory: { at: string; from: PartnerStatus; to: PartnerStatus }[];
 }
 
-export type CommissionStatus = 'pending' | 'excluded' | 'void';
+// 대기 → (주문 + CONFIRM_DAYS) 확정 → (관리자 Mark as paid) 지급. 제외·무효는 커미션 0
+export type CommissionStatus = 'pending' | 'confirmed' | 'paid' | 'excluded' | 'void';
 
 export interface Commission {
   orderId: string;
@@ -64,10 +69,38 @@ export interface Commission {
   rate: number;
   commission: number;
   status: CommissionStatus;
-  reason: string | null; // excluded: self | b2b | partner-suspended / void: cancelled | manual
+  reason: string | null; // excluded: self | b2b | partner-suspended / void: cancelled | manual / paid: clawback
   manualVoid: boolean;
   updatedAt: string;
   history: { at: string; change: string }[];
+  confirmedAt?: string | null; // 확정 시각 (주문 + CONFIRM_DAYS)
+  paidAt?: string | null;
+  payoutId?: string | null;
+  paidAmount?: number | null; // 실제 지급한 커미션
+  clawback?: number; // 지급 후 환불·취소로 차감한 누적 금액 (0 이하)
+}
+
+// 지급 후 환불·차지백 등으로 생긴 차감(또는 차감 되돌림). 다음 지급분에 더해진다
+export interface Adjustment {
+  id: string;
+  code: string;
+  orderId: string;
+  orderName: string;
+  amount: number; // 차감은 음수
+  at: string;
+  note: string;
+  payoutId: string | null; // 반영된 지급
+}
+
+export interface Payout {
+  id: string;
+  code: string;
+  period: string; // 확정 마감 월 YYYY-MM (이 달 말까지 확정된 커미션)
+  amount: number;
+  paypalEmail: string;
+  paidAt: string;
+  orderIds: string[];
+  adjustmentIds: string[];
 }
 
 // ─── KV 키 ────────────────────────────────────────────────────────────────────
@@ -84,6 +117,10 @@ const K = {
   orders: 'affp:orders', // zset score = 주문 시각(ms)
   partnerOrders: (code: string) => `affp:partner-orders:${code}`,
   paypalHistory: (code: string) => `affp:paypal-history:${code}`,
+  adjustments: (code: string) => `affp:adjust:${code}`, // hash  id → Adjustment
+  payout: (id: string) => `affp:payout:${id}`,
+  payouts: 'affp:payouts', // zset score = 지급 시각(ms)
+  partnerPayouts: (code: string) => `affp:partner-payouts:${code}`,
   syncCursor: 'affp:sync:cursor',
   syncLock: 'affp:sync:lock',
 };
@@ -292,8 +329,52 @@ function sumCounts(hash: Record<string, unknown> | null, r: { from: string; to: 
   return { total, byHandle, byDate };
 }
 
-// 커미션이 실제로 생기는 주문 (대기). 제외·무효는 금액 0
-const counts = (o: Commission) => o.status === 'pending';
+// 커미션이 실제로 생기는 주문 (대기·확정·지급). 제외·무효, 지급 후 전액 취소된 주문은 빼고 센다
+const counts = (o: Commission) =>
+  o.status === 'pending' || o.status === 'confirmed' || (o.status === 'paid' && o.commission > 0);
+
+const sum = (list: { commission?: number; amount?: number }[], key: 'commission' | 'amount') =>
+  round2(list.reduce((t, x) => t + (x[key] || 0), 0));
+
+// ─── 정산 ─────────────────────────────────────────────────────────────────────
+
+// 이번 지급 = 지난달 말(KST)까지 확정된 커미션. 지급일은 이번 달 말일
+function payoutWindow(today = kstDate()) {
+  const cutoffMs = kstStartMs(`${today.slice(0, 7)}-01`);
+  const [y, m] = today.split('-').map(Number);
+  return {
+    period: kstDate(cutoffMs - 1).slice(0, 7),
+    cutoffMs,
+    payDate: new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10), // 이번 달 말일
+  };
+}
+
+async function getAdjustments(code: string): Promise<Adjustment[]> {
+  const hash = await kv.hgetall<Record<string, Adjustment>>(K.adjustments(code));
+  return Object.values(hash || {});
+}
+
+// 이번에 지급할 몫: 마감 전에 확정됐고 아직 지급 안 된 주문 + 반영 안 된 차감
+function splitPayable(orders: Commission[], adjustments: Adjustment[], cutoffMs: number) {
+  const items = orders.filter((o) => o.status === 'confirmed' && !o.payoutId && !!o.confirmedAt && Date.parse(o.confirmedAt) < cutoffMs);
+  const adj = adjustments.filter((a) => !a.payoutId);
+  return { items, adjustments: adj, amount: round2(sum(items, 'commission') + sum(adj, 'amount')) };
+}
+
+type PayoutBlock = 'ready' | 'below-min' | 'no-paypal' | 'suspended' | 'removed';
+
+function payoutBlock(p: Partner, amount: number): PayoutBlock {
+  if (p.status === 'removed') return 'removed';
+  if (p.status === 'suspended') return 'suspended';
+  if (amount < MIN_PAYOUT) return 'below-min';
+  if (!p.paypalEmail) return 'no-paypal';
+  return 'ready';
+}
+
+async function getAllPartnerOrders(code: string): Promise<Commission[]> {
+  const ids = await kv.zrange<string[]>(K.partnerOrders(code), 0, -1);
+  return getOrders(ids.map(String));
+}
 
 function summarizeOrders(orders: Commission[]) {
   const live = orders.filter(counts);
@@ -430,11 +511,11 @@ async function handleClick(req: VercelRequest, res: VercelResponse) {
 
 // ─── 고객: 파트너 대시보드 ────────────────────────────────────────────────────
 
-// 이번 달 커미션은 다음 달 1일 마감 → 다음 달 말일까지 지급 (2차에서 실제 정산)
-function nextPayoutDate(today = kstDate()): string {
+// 다음 지급일: 지난달까지 확정된 몫이 최소 금액 이상이면 이번 달 말, 아니면 다음 달 말
+function nextPayoutDate(payableNow: number, today = kstDate()): string {
   const [y, m] = today.split('-').map(Number);
-  const lastDayNextMonth = new Date(Date.UTC(y, m + 1, 0)); // m은 1부터라 m+1 = 다음 달, 0일 = 그 달 말일
-  return lastDayNextMonth.toISOString().slice(0, 10);
+  const monthEnd = (offset: number) => new Date(Date.UTC(y, m + offset, 0)).toISOString().slice(0, 10);
+  return payableNow >= MIN_PAYOUT ? monthEnd(0) : monthEnd(1);
 }
 
 function linkRows(clicks: Record<string, number>, copies: Record<string, number>, orders: Commission[]) {
@@ -457,29 +538,33 @@ async function handleDashboard(req: VercelRequest, res: VercelResponse) {
   if (!partner || partner.status === 'removed') return res.status(403).json({ error: 'Not a partner' });
 
   const range = readRange(req);
-  const today = kstDate();
-  const month = { from: `${today.slice(0, 7)}-01`, to: today };
-
-  const [clickHash, copyHash, orders, monthOrders] = await Promise.all([
+  const [clickHash, copyHash, orders, allOrders, adjustments] = await Promise.all([
     kv.hgetall<Record<string, number>>(K.clicks(partner.code)),
     kv.hgetall<Record<string, number>>(K.copies(partner.code)),
     getOrdersInRange(K.partnerOrders(partner.code), range),
-    getOrdersInRange(K.partnerOrders(partner.code), month),
+    getAllPartnerOrders(partner.code),
+    getAdjustments(partner.code),
   ]);
   const clicks = sumCounts(clickHash, range);
   const copies = sumCounts(copyHash, range);
   const perf = summarizeOrders(orders);
+
+  // 금액은 기간과 상관없는 잔액: 대기 / 확정(미지급, 차감 반영) / 지급 누계(차감 전 지급액)
+  const unpaidAdjustments = sum(adjustments.filter((a) => !a.payoutId), 'amount');
+  const payableNow = splitPayable(allOrders, adjustments, payoutWindow().cutoffMs).amount;
 
   return res.status(200).json({
     partner: publicPartner(partner),
     range,
     rate: COMMISSION_RATE,
     performance: { clicks: clicks.total, orders: perf.orders, sales: perf.sales, commission: perf.commission },
+    confirmDays: CONFIRM_DAYS,
+    minPayout: MIN_PAYOUT,
     month: {
-      pending: summarizeOrders(monthOrders).commission,
-      confirmed: 0, // 2차: 30일 후 승인
-      paid: 0, // 2차: 월 정산
-      nextPayout: nextPayoutDate(today),
+      pending: sum(allOrders.filter((o) => o.status === 'pending'), 'commission'),
+      confirmed: Math.max(0, round2(sum(allOrders.filter((o) => o.status === 'confirmed' && !o.payoutId), 'commission') + unpaidAdjustments)),
+      paid: round2(allOrders.reduce((t, o) => t + (o.paidAmount || 0), 0) + sum(adjustments.filter((a) => !!a.payoutId), 'amount')),
+      nextPayout: nextPayoutDate(payableNow),
     },
     links: linkRows(clicks.byHandle, copies.byHandle, orders),
   });
@@ -533,10 +618,13 @@ async function handleAdminSummary(req: VercelRequest, res: VercelResponse) {
   const activeCodes = new Set(orders.filter(counts).map((o) => o.code));
   return res.status(200).json({
     range,
+    confirmDays: CONFIRM_DAYS,
     totals: {
       gmv: perf.sales,
       orders: perf.orders,
       commission: perf.commission,
+      pendingCommission: sum(orders.filter((o) => o.status === 'pending'), 'commission'),
+      confirmedCommission: sum(orders.filter((o) => o.status === 'confirmed' || o.status === 'paid'), 'commission'),
       clicks,
       copies,
       conversion: clicks ? round2((perf.orders / clicks) * 100) : 0,
@@ -645,42 +733,117 @@ async function handleAdminPartnerStatus(req: VercelRequest, res: VercelResponse)
   return res.status(200).json({ partner: adminPartner(updated) });
 }
 
-// 관리자 수동 무효(Void)·되돌리기
+// 관리자 수동 무효(Void)·되돌리기 — Shopify 주문을 다시 읽어 바로 재계산한다.
+// 지급이 끝난 주문을 무효하면 다음 지급분에서 차감된다
 async function handleAdminVoid(req: VercelRequest, res: VercelResponse) {
   const body = (req.body ?? {}) as { orderId?: unknown; void?: unknown };
   const orderId = typeof body.orderId === 'string' ? body.orderId : '';
   const existing = orderId ? await kv.get<Commission>(K.order(orderId)) : null;
   if (!existing) return res.status(404).json({ error: 'Not found' });
+  const makeVoid = body.void === true;
+  if (existing.manualVoid === makeVoid) return res.status(200).json({ order: existing });
 
+  const data = await adminGraphql<{ order: ShopifyOrderNode | null }>(ORDER_QUERY, { id: orderId });
+  if (!data.order) return res.status(404).json({ error: 'Shopify order not found' });
   const now = new Date().toISOString();
-  let updated: Commission;
-  if (body.void === true) {
-    if (existing.manualVoid) return res.status(200).json({ order: existing });
-    updated = {
-      ...existing,
-      manualVoid: true,
-      status: 'void',
-      reason: 'manual',
-      commission: 0,
-      updatedAt: now,
-      history: [...existing.history, { at: now, change: `관리자 무효 (${existing.status} → void)` }],
+  await kv.set(K.order(orderId), {
+    ...existing,
+    manualVoid: makeVoid,
+    updatedAt: now,
+    history: [...existing.history, { at: now, change: makeVoid ? '관리자 무효' : '관리자 무효 취소' }],
+  } satisfies Commission);
+  await upsertCommission(data.order, new Map());
+  return res.status(200).json({ order: await kv.get<Commission>(K.order(orderId)) });
+}
+
+// 정산 현황: 이번 지급 대상(파트너별) + 최근 지급 기록
+async function handleAdminPayouts(req: VercelRequest, res: VercelResponse) {
+  const win = payoutWindow();
+  const partners = await getAllPartners();
+  const rows = (
+    await Promise.all(
+      partners.map(async (p) => {
+        const [orders, adjustments] = await Promise.all([getAllPartnerOrders(p.code), getAdjustments(p.code)]);
+        const pay = splitPayable(orders, adjustments, win.cutoffMs);
+        if (!pay.items.length && !pay.adjustments.length) return null;
+        return {
+          ...adminPartner(p),
+          orders: pay.items.length,
+          adjustments: pay.adjustments.length,
+          adjustmentAmount: sum(pay.adjustments, 'amount'),
+          amount: pay.amount,
+          block: payoutBlock(p, pay.amount),
+        };
+      }),
+    )
+  ).filter((r): r is NonNullable<typeof r> => !!r);
+  rows.sort((a, b) => b.amount - a.amount);
+
+  const ids = await kv.zrange<string[]>(K.payouts, 0, 49, { rev: true });
+  const payouts = ids.length ? (await kv.mget<(Payout | null)[]>(...ids.map((id) => K.payout(String(id))))).filter((x): x is Payout => !!x) : [];
+  const names = new Map(partners.map((p) => [p.code, p.name]));
+  return res.status(200).json({
+    ...win,
+    minPayout: MIN_PAYOUT,
+    confirmDays: CONFIRM_DAYS,
+    rows,
+    payouts: payouts.map((x) => ({ ...x, partnerName: names.get(x.code) || '' })),
+  });
+}
+
+// 지급 완료 기록 (실제 송금은 PayPal에서 사람이 먼저 한다)
+async function handleAdminPayoutMark(req: VercelRequest, res: VercelResponse) {
+  const body = (req.body ?? {}) as { code?: unknown; amount?: unknown };
+  const code = normalizeCode(body.code);
+  const expected = Number(body.amount);
+  if (!code || !Number.isFinite(expected)) return res.status(400).json({ error: 'Invalid request' });
+  const partner = await getPartner(code);
+  if (!partner) return res.status(404).json({ error: 'Not found' });
+
+  // 수집과 겹치면 같은 주문을 동시에 고칠 수 있다 — 수집 잠금을 함께 쓴다
+  if (!(await kv.set(K.syncLock, 'payout', { nx: true, ex: 120 }))) return res.status(409).json({ error: '주문 수집 중입니다. 잠시 후 다시 시도하세요.' });
+  try {
+    const win = payoutWindow();
+    const [orders, adjustments] = await Promise.all([getAllPartnerOrders(code), getAdjustments(code)]);
+    const pay = splitPayable(orders, adjustments, win.cutoffMs);
+    const block = payoutBlock(partner, pay.amount);
+    if (block !== 'ready') return res.status(409).json({ error: `지급 대상이 아닙니다 (${block})` });
+    if (round2(expected) !== pay.amount) return res.status(409).json({ error: `금액이 바뀌었습니다 (${pay.amount}). 새로고침 후 확인하세요.` });
+
+    const now = new Date().toISOString();
+    const id = `${win.period}-${code}-${Date.now().toString(36)}`;
+    const payout: Payout = {
+      id,
+      code,
+      period: win.period,
+      amount: pay.amount,
+      paypalEmail: partner.paypalEmail!,
+      paidAt: now,
+      orderIds: pay.items.map((o) => o.orderId),
+      adjustmentIds: pay.adjustments.map((a) => a.id),
     };
-  } else {
-    if (!existing.manualVoid) return res.status(200).json({ order: existing });
-    // 되돌리면 Shopify 주문을 바로 다시 읽어 상태·금액을 재계산한다 (취소·본인 구매·B2B면 계속 제외)
-    const data = await adminGraphql<{ order: ShopifyOrderNode | null }>(ORDER_QUERY, { id: orderId });
-    if (!data.order) return res.status(404).json({ error: 'Shopify order not found' });
-    await kv.set(K.order(orderId), {
-      ...existing,
-      manualVoid: false,
-      updatedAt: now,
-      history: [...existing.history, { at: now, change: '관리자 무효 취소 (재계산)' }],
-    } satisfies Commission);
-    await upsertCommission(data.order, new Map());
-    return res.status(200).json({ order: await kv.get<Commission>(K.order(orderId)) });
+    await kv.set(K.payout(id), payout);
+    for (const o of pay.items) {
+      await kv.set(K.order(o.orderId), {
+        ...o,
+        status: 'paid',
+        paidAt: now,
+        payoutId: id,
+        paidAmount: o.commission,
+        clawback: 0,
+        updatedAt: now,
+        history: [...o.history, { at: now, change: `지급 ${win.period} · ${o.commission}` }],
+      } satisfies Commission);
+    }
+    if (pay.adjustments.length) {
+      await kv.hset(K.adjustments(code), Object.fromEntries(pay.adjustments.map((a) => [a.id, { ...a, payoutId: id }])));
+    }
+    await kv.zadd(K.payouts, { score: Date.parse(now), member: id });
+    await kv.zadd(K.partnerPayouts(code), { score: Date.parse(now), member: id });
+    return res.status(200).json({ payout });
+  } finally {
+    await kv.del(K.syncLock);
   }
-  await kv.set(K.order(orderId), updated);
-  return res.status(200).json({ order: updated });
 }
 
 // ─── 주문 수집 (정기 작업) ────────────────────────────────────────────────────
@@ -791,8 +954,15 @@ async function upsertCommission(node: ShopifyOrderNode, addrCache: Map<string, s
   else if (isB2B) [status, reason] = ['excluded', 'b2b'];
   else if (statusAt(partner, node.createdAt) !== 'active') [status, reason] = ['excluded', 'partner-suspended'];
 
-  const commission = status === 'pending' ? round2(baseAmount * rate) : 0;
+  // 정상 주문은 주문 + CONFIRM_DAYS가 지나면 확정 (한 번 확정되면 일수 설정이 바뀌어도 유지)
+  const dueAt = new Date(Date.parse(node.createdAt) + CONFIRM_DAYS * DAY_MS);
+  if (status === 'pending' && (existing?.status === 'confirmed' || Date.now() >= dueAt.getTime())) status = 'confirmed';
+  const earned = round2(baseAmount * rate);
+  const commission = status === 'pending' || status === 'confirmed' ? earned : 0;
+  const confirmedAt = status === 'confirmed' ? existing?.confirmedAt || dueAt.toISOString() : null;
   const now = new Date().toISOString();
+
+  if (existing?.status === 'paid') return settlePaidOrder(existing, node, baseAmount, commission, reason, now);
 
   if (!existing) {
     const record: Commission = {
@@ -813,6 +983,7 @@ async function upsertCommission(node: ShopifyOrderNode, addrCache: Map<string, s
       manualVoid: false,
       updatedAt: now,
       history: [{ at: now, change: `수집: ${status}${reason ? `(${reason})` : ''} · 기준 ${baseAmount} · 커미션 ${commission}` }],
+      confirmedAt,
     };
     const score = new Date(node.createdAt).getTime();
     await kv.set(K.order(node.id), record);
@@ -835,10 +1006,68 @@ async function upsertCommission(node: ShopifyOrderNode, addrCache: Map<string, s
     status,
     reason,
     commission,
+    confirmedAt,
     updatedAt: now,
     history: [...existing.history, { at: now, change: changes.join(' · ') }],
   } satisfies Commission);
   return 'updated';
+}
+
+// 지급이 끝난 주문이 나중에 환불·취소·무효되면 차이만큼 차감 줄을 만든다 (되돌려지면 차감도 그만큼 되돌림)
+async function settlePaidOrder(
+  existing: Commission, node: ShopifyOrderNode, baseAmount: number, target: number, reason: string | null, now: string,
+): Promise<'updated' | 'same'> {
+  const paid = existing.paidAmount ?? existing.commission;
+  const clawback = existing.clawback ?? 0;
+  let delta = round2(target - (paid + clawback));
+  if (delta > 0) delta = Math.min(delta, -clawback); // 차감 되돌림은 이미 차감한 만큼까지만
+  const changes: string[] = [];
+  if (existing.baseAmount !== baseAmount) changes.push(`기준 금액 ${existing.baseAmount} → ${baseAmount}`);
+  if (delta !== 0) changes.push(`지급 후 ${delta < 0 ? '차감' : '차감 되돌림'} ${delta}${reason ? ` (${reason})` : ''}`);
+  if (!changes.length && existing.commission === target) return 'same';
+
+  if (delta !== 0) {
+    const adj: Adjustment = {
+      id: `${node.id.split('/').pop()}-${Date.now().toString(36)}`,
+      code: existing.code,
+      orderId: existing.orderId,
+      orderName: existing.orderName,
+      amount: delta,
+      at: now,
+      note: reason || (target < paid ? 'refund' : 'restore'),
+      payoutId: null,
+    };
+    await kv.hset(K.adjustments(existing.code), { [adj.id]: adj });
+  }
+  const nextClawback = round2(clawback + delta);
+  await kv.set(K.order(node.id), {
+    ...existing,
+    baseAmount,
+    commission: target,
+    clawback: nextClawback,
+    reason: nextClawback < 0 ? 'clawback' : null,
+    updatedAt: now,
+    history: changes.length ? [...existing.history, { at: now, change: changes.join(' · ') }] : existing.history,
+  } satisfies Commission);
+  return 'updated';
+}
+
+// Shopify 쪽 변화 없이 시간이 지나 확정되는 주문 — 매 수집 때 확정 시점이 지난 대기 주문을 확정으로
+async function confirmDueOrders(): Promise<number> {
+  const max = Date.now() - CONFIRM_DAYS * DAY_MS;
+  const ids = await kv.zrange<string[]>(K.orders, max - 90 * DAY_MS, max, { byScore: true });
+  const due = (await getOrders(ids.map(String))).filter((o) => o.status === 'pending');
+  const now = new Date().toISOString();
+  for (const o of due) {
+    await kv.set(K.order(o.orderId), {
+      ...o,
+      status: 'confirmed',
+      confirmedAt: new Date(Date.parse(o.createdAt) + CONFIRM_DAYS * DAY_MS).toISOString(),
+      updatedAt: now,
+      history: [...o.history, { at: now, change: `확정 (주문 후 ${CONFIRM_DAYS}일)` }],
+    } satisfies Commission);
+  }
+  return due.length;
 }
 
 async function runSync(): Promise<Record<string, number | string>> {
@@ -867,7 +1096,8 @@ async function runSync(): Promise<Record<string, number | string>> {
     } while (after);
 
     await kv.set(K.syncCursor, startedAt.toISOString());
-    return { since, ...stats };
+    const confirmed = await confirmDueOrders();
+    return { since, ...stats, confirmed };
   } finally {
     await kv.del(K.syncLock);
   }
@@ -907,6 +1137,8 @@ const ADMIN_ROUTES: Record<string, { method: 'GET' | 'POST'; fn: Handler }> = {
   'admin-partner': { method: 'GET', fn: handleAdminPartner },
   'admin-partner-status': { method: 'POST', fn: handleAdminPartnerStatus },
   'admin-void': { method: 'POST', fn: handleAdminVoid },
+  'admin-payouts': { method: 'GET', fn: handleAdminPayouts },
+  'admin-payout-mark': { method: 'POST', fn: handleAdminPayoutMark },
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
