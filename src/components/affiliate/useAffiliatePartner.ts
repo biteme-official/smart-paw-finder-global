@@ -13,7 +13,10 @@ export function useAffiliatePartner() {
 
   const query = useQuery({
     queryKey: key,
-    queryFn: async () => (await fetchMyPartner()).partner,
+    queryFn: async () => {
+      const r = await fetchMyPartner();
+      return { partner: r.partner, removed: !!r.removed };
+    },
     enabled: IS_B2C_SITE && isLoggedIn && !!userId,
     staleTime: 5 * 60 * 1000,
     retry: false,
@@ -21,12 +24,14 @@ export function useAffiliatePartner() {
 
   const join = useCallback(async (): Promise<AffiliatePartner> => {
     const { partner } = await joinAffiliate();
-    queryClient.setQueryData(['affiliate-me', userId], partner);
+    queryClient.setQueryData(['affiliate-me', userId], { partner, removed: false });
     return partner;
   }, [queryClient, userId]);
 
   return {
-    partner: query.data ?? null,
+    partner: query.data?.partner ?? null,
+    removed: query.data?.removed ?? false, // 관리자가 프로그램에서 제외한 고객
+    ready: query.isSuccess, // 내 정보를 실제로 받아온 뒤에만 true
     isLoading: query.isLoading && query.fetchStatus !== 'idle',
     isError: query.isError,
     join,

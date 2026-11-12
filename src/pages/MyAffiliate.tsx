@@ -372,7 +372,7 @@ function Dashboard({ code }: { code: string }) {
 
 export default function MyAffiliate() {
   const loggedIn = isCustomerLoggedIn();
-  const { partner, isLoading, isError, join } = useAffiliatePartner();
+  const { partner, removed, isLoading, isError, join } = useAffiliatePartner();
   const [joinOpen, setJoinOpen] = useState(false);
 
   if (!IS_B2C_SITE) return <Navigate to="/mypage" replace />;
@@ -408,6 +408,8 @@ export default function MyAffiliate() {
           <p className="pt-10 text-center text-sm text-muted-foreground">Couldn&apos;t load the affiliate program. Please refresh.</p>
         ) : partner ? (
           <Dashboard code={partner.code} />
+        ) : removed ? (
+          <p className="pt-10 text-center text-sm text-muted-foreground">This account can&apos;t join the program. Please contact us.</p>
         ) : (
           <JoinIntro onStart={() => setJoinOpen(true)} />
         )}

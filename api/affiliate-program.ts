@@ -25,6 +25,9 @@ const CLICK_IP_DAILY_CAP = 20; // 방문자 ID는 지우면 새로 생기므로,
 const BOT_UA = /bot|crawl|spider|slurp|facebookexternalhit|embedly|preview|headless|lighthouse|pingdom|monitor/i;
 const SYNC_START = '2026-11-01T00:00:00Z'; // 첫 수집 시작 시점
 const SYNC_OVERLAP_MS = 10 * 60 * 1000; // 직전 수집과 10분 겹쳐 읽어 경계에 걸친 주문을 놓치지 않는다
+const TRACKING_DAYS = 30; // 링크 클릭 후 귀속 기한
+const CLOCK_SKEW_MS = 10 * 60 * 1000; // 고객 기기 시계 오차 허용
+const MAX_RANGE_DAYS = 366; // 기간 조회 최대 길이
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ─── 타입 ─────────────────────────────────────────────────────────────────────
@@ -105,7 +108,10 @@ function readRange(req: VercelRequest): { from: string; to: string } {
   const today = kstDate();
   const from = isDate(req.query.from) ? req.query.from : `${today.slice(0, 7)}-01`;
   const to = isDate(req.query.to) ? req.query.to : today;
-  return from <= to ? { from, to } : { from: to, to: from };
+  const r = from <= to ? { from, to } : { from: to, to: from };
+  // 일별 행을 날짜마다 만들므로 최대 366일로 자른다
+  const minFrom = kstDate(kstStartMs(r.to) - MAX_RANGE_DAYS * 24 * 60 * 60 * 1000);
+  return r.from < minFrom ? { from: minFrom, to: r.to } : r;
 }
 
 function inRange(date: string, r: { from: string; to: string }): boolean {
@@ -314,7 +320,8 @@ async function handleMe(req: VercelRequest, res: VercelResponse) {
   const customer = await getCustomer(req);
   if (!customer) return res.status(401).json({ error: 'Unauthorized' });
   const partner = await getPartnerByCustomer(customer.id);
-  return res.status(200).json({ partner: partner && partner.status !== 'removed' ? publicPartner(partner) : null });
+  if (partner?.status === 'removed') return res.status(200).json({ partner: null, removed: true });
+  return res.status(200).json({ partner: partner ? publicPartner(partner) : null, removed: false });
 }
 
 async function handleJoin(req: VercelRequest, res: VercelResponse) {
@@ -334,6 +341,12 @@ async function handleJoin(req: VercelRequest, res: VercelResponse) {
   if (!(await kv.set(lockKey, '1', { nx: true, ex: 30 }))) return res.status(409).json({ error: 'Try again' });
 
   try {
+    // 잠금을 잡기 직전에 다른 요청이 가입을 끝냈을 수 있다 — 잡은 뒤 한 번 더 확인
+    const joined = await getPartnerByCustomer(customer.id);
+    if (joined) {
+      if (joined.status === 'removed') return res.status(403).json({ error: 'Not available' });
+      return res.status(200).json({ partner: publicPartner(joined), created: false });
+    }
     const now = new Date().toISOString();
     for (let attempt = 0; attempt < 10; attempt++) {
       const code = Array.from({ length: 6 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join('');
@@ -654,16 +667,17 @@ async function handleAdminVoid(req: VercelRequest, res: VercelResponse) {
     };
   } else {
     if (!existing.manualVoid) return res.status(200).json({ order: existing });
-    // 되돌리면 다음 수집 때 상태·금액을 다시 계산한다. 그 전까지는 대기로 표시
-    updated = {
+    // 되돌리면 Shopify 주문을 바로 다시 읽어 상태·금액을 재계산한다 (취소·본인 구매·B2B면 계속 제외)
+    const data = await adminGraphql<{ order: ShopifyOrderNode | null }>(ORDER_QUERY, { id: orderId });
+    if (!data.order) return res.status(404).json({ error: 'Shopify order not found' });
+    await kv.set(K.order(orderId), {
       ...existing,
       manualVoid: false,
-      status: 'pending',
-      reason: null,
-      commission: round2(existing.baseAmount * existing.rate),
       updatedAt: now,
-      history: [...existing.history, { at: now, change: '관리자 무효 취소 (void → pending, 다음 수집 때 재계산)' }],
-    };
+      history: [...existing.history, { at: now, change: '관리자 무효 취소 (재계산)' }],
+    } satisfies Commission);
+    await upsertCommission(data.order, new Map());
+    return res.status(200).json({ order: await kv.get<Commission>(K.order(orderId)) });
   }
   await kv.set(K.order(orderId), updated);
   return res.status(200).json({ order: updated });
@@ -684,20 +698,24 @@ interface ShopifyOrderNode {
   shippingAddress: { address1: string | null; zip: string | null } | null;
 }
 
+const ORDER_FIELDS = `
+  id name createdAt updatedAt cancelledAt email
+  customAttributes { key value }
+  currentSubtotalPriceSet { shopMoney { amount currencyCode } }
+  customer { id tags }
+  shippingAddress { address1 zip }
+`;
+
 const ORDERS_QUERY = `
   query($q: String!, $after: String) {
     orders(first: 100, after: $after, query: $q, sortKey: UPDATED_AT) {
       pageInfo { hasNextPage endCursor }
-      nodes {
-        id name createdAt updatedAt cancelledAt email
-        customAttributes { key value }
-        currentSubtotalPriceSet { shopMoney { amount currencyCode } }
-        customer { id tags }
-        shippingAddress { address1 zip }
-      }
+      nodes { ${ORDER_FIELDS} }
     }
   }
 `;
+
+const ORDER_QUERY = `query($id: ID!) { order(id: $id) { ${ORDER_FIELDS} } }`;
 
 const addressKey = (a: { address1: string | null; zip: string | null } | null | undefined) => {
   const line = (a?.address1 || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -722,6 +740,25 @@ async function partnerAddressKey(p: Partner, cache: Map<string, string>): Promis
   return key;
 }
 
+// 주문 시각 기준 파트너 상태 — 상태 변경 이력을 최근부터 거꾸로 되돌린다
+function statusAt(p: Partner, iso: string): PartnerStatus {
+  const t = new Date(iso).getTime();
+  let s = p.status;
+  for (let i = p.statusHistory.length - 1; i >= 0; i--) {
+    if (new Date(p.statusHistory[i].at).getTime() > t) s = p.statusHistory[i].from;
+  }
+  return s;
+}
+
+// 서버에서도 귀속 기한(클릭 후 30일)을 확인한다. 클릭 시각이 없거나 주문보다 늦으면 귀속하지 않는다
+function withinTrackingWindow(clickedAt: string | null, orderCreatedAt: string): boolean {
+  const click = clickedAt ? Date.parse(clickedAt) : NaN;
+  const order = Date.parse(orderCreatedAt);
+  if (Number.isNaN(click) || Number.isNaN(order)) return false;
+  const diff = order - click;
+  return diff >= -CLOCK_SKEW_MS && diff <= TRACKING_DAYS * 24 * 60 * 60 * 1000;
+}
+
 function attr(node: ShopifyOrderNode, key: string): string | null {
   return node.customAttributes.find((a) => a.key === key)?.value ?? null;
 }
@@ -734,10 +771,11 @@ async function upsertCommission(node: ShopifyOrderNode, addrCache: Map<string, s
   if (!partner) return 'skip'; // 없는 코드 (조작·오타)
 
   const existing = await kv.get<Commission>(K.order(node.id));
+  if (!existing && !withinTrackingWindow(attr(node, '_aff_at'), node.createdAt)) return 'skip';
   const baseAmount = round2(Number(node.currentSubtotalPriceSet.shopMoney.amount) || 0);
   const rate = existing?.rate ?? COMMISSION_RATE; // 요율은 처음 기록한 값으로 고정
 
-  // 상태 판정 (우선순위: 취소 > 관리자 무효 > 본인 구매 > B2B > 파트너 정지 > 대기)
+  // 상태 판정 (우선순위: 취소 > 관리자 무효 > 본인 구매 > B2B > 주문 시각에 파트너 정지 > 대기)
   const orderEmail = (node.email || '').toLowerCase();
   const isSelf =
     node.customer?.id === partner.customerId ||
@@ -751,8 +789,7 @@ async function upsertCommission(node: ShopifyOrderNode, addrCache: Map<string, s
   else if (existing?.manualVoid) [status, reason] = ['void', 'manual'];
   else if (isSelf) [status, reason] = ['excluded', 'self'];
   else if (isB2B) [status, reason] = ['excluded', 'b2b'];
-  else if (partner.status !== 'active' && !existing) [status, reason] = ['excluded', 'partner-suspended'];
-  else if (existing?.reason === 'partner-suspended') [status, reason] = ['excluded', 'partner-suspended'];
+  else if (statusAt(partner, node.createdAt) !== 'active') [status, reason] = ['excluded', 'partner-suspended'];
 
   const commission = status === 'pending' ? round2(baseAmount * rate) : 0;
   const now = new Date().toISOString();
@@ -823,6 +860,9 @@ async function runSync(): Promise<Record<string, number | string>> {
         stats.scanned += 1;
         stats[await upsertCommission(node, addrCache)] += 1;
       }
+      // 페이지마다 진행 위치 저장 — 중간에 시간 초과가 나도 다음 수집은 여기서 이어간다 (수정 시각 오름차순)
+      const last = data.orders.nodes[data.orders.nodes.length - 1];
+      if (last && data.orders.pageInfo.hasNextPage) await kv.set(K.syncCursor, last.updatedAt);
       after = data.orders.pageInfo.hasNextPage ? data.orders.pageInfo.endCursor : null;
     } while (after);
 
@@ -834,7 +874,8 @@ async function runSync(): Promise<Record<string, number | string>> {
 }
 
 async function handleSync(req: VercelRequest, res: VercelResponse) {
-  const isCron = !!req.headers['x-vercel-cron'];
+  const ua = String(req.headers['user-agent'] || '');
+  const isCron = !!req.headers['x-vercel-cron'] || ua.startsWith('vercel-cron/');
   const cronSecret = process.env.CRON_SECRET;
   const bearerOk = !!cronSecret && req.headers.authorization === `Bearer ${cronSecret}`;
   // CRON_SECRET이 있으면 Vercel이 정기 작업에 Bearer로 붙여 보낸다 — 그때는 헤더만으로는 통과시키지 않는다

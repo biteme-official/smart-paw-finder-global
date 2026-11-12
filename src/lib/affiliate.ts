@@ -142,7 +142,7 @@ async function call<T>(action: string, init: { method: 'GET' | 'POST'; body?: un
   return data as T;
 }
 
-export function fetchMyPartner(): Promise<{ partner: AffiliatePartner | null }> {
+export function fetchMyPartner(): Promise<{ partner: AffiliatePartner | null; removed?: boolean }> {
   return call('me', { method: 'GET', auth: true });
 }
 

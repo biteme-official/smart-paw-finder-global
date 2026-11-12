@@ -21,12 +21,13 @@ import { copyText } from './copy-text';
 import { useAffiliatePartner } from './useAffiliatePartner';
 
 const SHARE_PARAM = 'share';
+const REMOVED_MESSAGE = 'This account can’t join the program. Please contact us.';
 
 // 상품 상세 "$4.50+ earn per share sale · Copy link" 줄 (B2C 사이트 전용)
 // 비로그인 → 로그인 안내 → 로그인 후 같은 상품으로 돌아와 가입 시트, 파트너 → 바로 복사
 export function AffiliateShareRow({ handle, minPrice }: { handle: string; minPrice: number }) {
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
-  const { partner, isLoading, join } = useAffiliatePartner();
+  const { partner, removed, ready, isLoading, join } = useAffiliatePartner();
   const [loginOpen, setLoginOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -35,14 +36,14 @@ export function AffiliateShareRow({ handle, minPrice }: { handle: string; minPri
 
   useEffect(() => () => window.clearTimeout(resetTimer.current), []);
 
-  // 로그인 후 돌아온 경우(?share=1): 아직 파트너가 아니면 가입 시트를 연다
+  // 로그인 후 돌아온 경우(?share=1): 내 정보를 받아온 뒤, 아직 파트너가 아니면 가입 시트를 연다
   useEffect(() => {
-    if (params.get(SHARE_PARAM) !== '1' || !isLoggedIn || isLoading) return;
+    if (params.get(SHARE_PARAM) !== '1' || !isLoggedIn || !ready) return;
     const next = new URLSearchParams(params);
     next.delete(SHARE_PARAM);
     setParams(next, { replace: true });
-    if (!partner) setJoinOpen(true);
-  }, [params, setParams, isLoggedIn, isLoading, partner]);
+    if (!partner && !removed) setJoinOpen(true);
+  }, [params, setParams, isLoggedIn, ready, partner, removed]);
 
   const markCopied = () => {
     setCopied(true);
@@ -55,6 +56,10 @@ export function AffiliateShareRow({ handle, minPrice }: { handle: string; minPri
   const onCopyClick = async () => {
     if (!isLoggedIn) return setLoginOpen(true);
     if (isLoading) return;
+    if (removed) {
+      toast.error(REMOVED_MESSAGE, { position: 'top-center' });
+      return;
+    }
     if (!partner) return setJoinOpen(true);
     if (partner.status !== 'active') {
       toast.error('Your affiliate account is paused. Please contact us.', { position: 'top-center' });
