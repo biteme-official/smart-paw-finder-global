@@ -123,7 +123,8 @@ const App = () => (
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/checkout-return" element={<CheckoutReturn />} />
           <Route path="/contact" element={<ContactUs />} />
-          <Route path="/affiliate" element={<Affiliate />} />
+          {/* B2C는 예전 어필리에이트 신청서 대신 마이페이지 Affiliate로 */}
+          <Route path="/affiliate" element={IS_B2C_SITE ? <Navigate to="/mypage/affiliate" replace /> : <Affiliate />} />
           <Route path="/about" element={<About />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
