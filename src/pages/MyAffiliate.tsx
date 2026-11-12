@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Archive, CalendarDays, Check, ChevronLeft, ChevronRight, Copy, Info, Loader2 } from 'lucide-react';
@@ -22,6 +22,8 @@ import {
 import { AffiliateJoinSheet, AffiliateStats } from '@/components/affiliate/AffiliateJoinSheet';
 import { copyText } from '@/components/affiliate/copy-text';
 import { useAffiliatePartner } from '@/components/affiliate/useAffiliatePartner';
+
+const JOIN_PARAM = 'join';
 
 // ─── 기간 (KST 기준 — 서버 집계와 같은 날짜) ─────────────────────────────────
 
@@ -372,8 +374,18 @@ function Dashboard({ code }: { code: string }) {
 
 export default function MyAffiliate() {
   const loggedIn = isCustomerLoggedIn();
-  const { partner, removed, isLoading, isError, join } = useAffiliatePartner();
+  const { partner, removed, ready, isLoading, isError, join } = useAffiliatePartner();
   const [joinOpen, setJoinOpen] = useState(false);
+  const [params, setParams] = useSearchParams();
+
+  // 로그인 전에 Start now를 누르고 돌아온 경우(?join=1): 내 정보를 받아온 뒤, 미가입자면 가입 시트를 연다
+  useEffect(() => {
+    if (params.get(JOIN_PARAM) !== '1' || !loggedIn || !ready) return;
+    const next = new URLSearchParams(params);
+    next.delete(JOIN_PARAM);
+    setParams(next, { replace: true });
+    if (!partner && !removed) setJoinOpen(true);
+  }, [params, setParams, loggedIn, ready, partner, removed]);
 
   if (!IS_B2C_SITE) return <Navigate to="/mypage" replace />;
 
@@ -398,7 +410,7 @@ export default function MyAffiliate() {
         <BackToMyPage />
         {!loggedIn ? (
           // 로그인 전에도 안내는 보여주고, Start now에서 로그인 → 이 화면으로 복귀
-          <JoinIntro onStart={() => initiateLogin('/mypage/affiliate')} />
+          <JoinIntro onStart={() => initiateLogin(`/mypage/affiliate?${JOIN_PARAM}=1`)} />
         ) : isLoading ? (
           <div className="space-y-4">
             <Skeleton className="h-32 w-full rounded-3xl" />
