@@ -5,6 +5,7 @@
 
 import { getAccessToken, refreshAccessToken } from '@/lib/customer-auth';
 import { B2C_SITE_URL } from '@/lib/site';
+import type { AffiliateJoinProfile } from '@/components/affiliate/joinProfile';
 
 export const AFFILIATE_RATE = 0.1;
 export const AFFILIATE_MIN_PAYOUT = 20;
@@ -149,8 +150,15 @@ export function fetchMyPartner(): Promise<{ partner: AffiliatePartner | null; re
   return call('me', { method: 'GET', auth: true });
 }
 
-export function joinAffiliate(): Promise<{ partner: AffiliatePartner; created: boolean }> {
-  return call('join', { method: 'POST', auth: true, body: { age18: true, terms: true } });
+// profile(이름·거주 국가·주소)은 서버가 아직 저장하지 않는다 — api/affiliate-program.ts handleJoin에서 body.profile을 읽도록 연결 예정
+export function joinAffiliate(profile: AffiliateJoinProfile): Promise<{ partner: AffiliatePartner; created: boolean }> {
+  return call('join', { method: 'POST', auth: true, body: { age18: true, terms: true, profile } });
+}
+
+// W-9 업로드 (거주 국가 US 파트너만, 가입 직후). 서버는 action=w9 추가 예정(PR #199 요청) — 그 전에는 404로 실패한다.
+// 응답에는 파일 주소를 돌려주지 않는다 (제출 여부·시각만).
+export function uploadW9(file: { fileName: string; mimeType: string; data: string }): Promise<{ w9: { uploadedAt: string } }> {
+  return call('w9', { method: 'POST', auth: true, body: file });
 }
 
 export function recordLinkCopy(handle: string | null): void {

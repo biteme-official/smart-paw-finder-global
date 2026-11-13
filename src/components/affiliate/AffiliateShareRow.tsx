@@ -17,6 +17,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { initiateLogin } from '@/lib/customer-auth';
 import { buildAffiliateLink, estimateCommission, formatUsd, recordLinkCopy } from '@/lib/affiliate';
 import { AffiliateJoinSheet } from './AffiliateJoinSheet';
+import type { AffiliateJoinProfile } from './joinProfile';
 import { copyText } from './copy-text';
 import { useAffiliatePartner } from './useAffiliatePartner';
 
@@ -73,9 +74,9 @@ export function AffiliateShareRow({ handle, minPrice }: { handle: string; minPri
     }
   };
 
-  const onJoinConfirm = async () => {
+  const onJoinConfirm = async (profile: AffiliateJoinProfile, w9: File | null) => {
     // 가입 응답을 기다리는 동안에도 복사가 막히지 않게 Promise째 넘긴다
-    const joined = join();
+    const joined = join(profile, w9);
     const link = joined.then((p) => buildAffiliateLink(p.code, handle));
     const copied = await copyText(link).then(() => true, () => false);
     try {

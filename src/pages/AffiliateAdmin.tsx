@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from 'recharts';
 import {
-  Ban, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Copy, DollarSign, Handshake, Loader2,
+  Ban, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Copy, DollarSign, Download, Handshake, Loader2,
   MousePointer2, MousePointerClick, Percent, RefreshCw, ShoppingBag, UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { B2C_SITE_URL } from '@/lib/site';
 import { fetchProductsByHandles } from '@/lib/shopify';
 import { ManagePageHeader, useManageAuth } from '@/components/admin/ManageLayout';
+import { legalName } from '@/components/affiliate/joinProfile';
 
 // B2C 어필리에이트 관리자 (biteme.one /manage/affiliate) — 조이 님 11/4 목업 ①~⑤.
 // ⑥ 정산: 주문 + N일 자동 확정 → 지난달 확정분을 이번 달 말 지급(Mark as paid). 날짜는 모두 KST.
@@ -47,11 +48,33 @@ interface Order {
   clawback?: number;
 }
 
+// 가입 시 받은 정산 정보 — PR #199에 저장 요청 중. 기존 가입자는 없음(null/undefined)
+interface PartnerProfile {
+  firstName: string;
+  lastName: string;
+  country: string; // 거주 국가 (ISO 2자리)
+  address1: string;
+  address2?: string;
+  city: string;
+  province?: string;
+  zip?: string;
+}
+
+// W-9 제출 정보 — 파일 주소는 응답에 오지 않는다. 열람은 admin-w9로만
+interface PartnerW9 {
+  fileName: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+}
+
 interface PartnerRow {
   code: string;
   name: string;
   email: string;
   country: string | null;
+  profile?: PartnerProfile | null;
+  w9?: PartnerW9 | null;
   status: PartnerStatus;
   joinedAt: string;
   paypalEmail: string | null;
@@ -212,6 +235,34 @@ function useAdminApi() {
   }, [adminKey, logout]);
 }
 
+// W-9 내려받기 — 관리자 키로만 받는다. 브라우저 메모리에서 바로 저장하고 주소는 즉시 폐기(캐시·기록 안 남김)
+function useW9Download() {
+  const { adminKey, logout } = useManageAuth();
+  return useCallback(async (code: string, fileName: string) => {
+    const res = await fetch(`/api/affiliate-program?${new URLSearchParams({ action: 'admin-w9', code })}`, {
+      headers: { 'x-admin-key': adminKey },
+      cache: 'no-store',
+    });
+    if (res.status === 401) {
+      logout();
+      throw new Error('Unauthorized');
+    }
+    if (!res.ok) throw new Error(res.status === 404 ? '파일이 없습니다' : `Request failed (${res.status})`);
+    const url = URL.createObjectURL(await res.blob());
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName || `W-9_${code}`;
+      a.click();
+    } finally {
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+  }, [adminKey, logout]);
+}
+
+const formatAddress = (p: PartnerProfile) =>
+  [p.address1, p.address2, [p.city, p.province, p.zip].filter(Boolean).join(' '), p.country].filter((v) => v && v.trim()).join(', ');
+
 // ─── 파트너 상세 ──────────────────────────────────────────────────────────────
 
 function PartnerSheet({ code, range, confirmDays, onClose, onChanged }: {
@@ -250,6 +301,19 @@ function PartnerSheet({ code, range, confirmDays, onClose, onChanged }: {
   };
 
   const p = data?.partner;
+  const downloadW9 = useW9Download();
+  const [w9Busy, setW9Busy] = useState(false);
+  const openW9 = async () => {
+    if (!p?.w9) return;
+    setW9Busy(true);
+    try {
+      await downloadW9(p.code, p.w9.fileName);
+    } catch (e) {
+      toast.error(`W-9 열기 실패: ${(e as Error).message}`);
+    } finally {
+      setW9Busy(false);
+    }
+  };
   const link = code ? `${B2C_SITE_URL}/a/${code}` : '';
   const CONFIRM_TEXT: Record<PartnerStatus, { title: string; desc: string; action: string }> = {
     suspended: { title: '파트너를 정지할까요?', desc: '링크 클릭이 집계되지 않고, 정지 이후 새 주문은 커미션 0(Excluded)으로 기록됩니다. 다시 활성화할 수 있어요.', action: 'Suspend' },
@@ -280,6 +344,26 @@ function PartnerSheet({ code, range, confirmDays, onClose, onChanged }: {
               <div><dt className="text-muted-foreground">Country (default shipping)</dt><dd>{p.country || '—'}</dd></div>
               <div><dt className="text-muted-foreground">Joined</dt><dd>{kstDate(p.joinedAt)}</dd></div>
               <div><dt className="text-muted-foreground">PayPal email</dt><dd>{p.paypalEmail ? maskEmail(p.paypalEmail) : <span className="text-red-600">Missing</span>}</dd></div>
+              <div><dt className="text-muted-foreground">Legal name</dt><dd>{legalName(p.profile) || '—'}</dd></div>
+              <div><dt className="text-muted-foreground">Country of residence</dt><dd>{p.profile?.country || '—'}</dd></div>
+              <div className="md:col-span-2"><dt className="text-muted-foreground">Address</dt><dd className="break-words">{p.profile ? formatAddress(p.profile) || '—' : '—'}</dd></div>
+              <div className="md:col-span-2">
+                <dt className="text-muted-foreground">W-9</dt>
+                <dd>
+                  {p.w9 ? (
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span>제출 · {kstDate(p.w9.uploadedAt)}</span>
+                      <Button size="sm" variant="outline" disabled={w9Busy} onClick={openW9}>
+                        {w9Busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} 열기
+                      </Button>
+                    </span>
+                  ) : p.profile?.country === 'US' ? (
+                    <span className="text-muted-foreground">미제출</span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </dd>
+              </div>
               <div className="md:col-span-2">
                 <dt className="text-muted-foreground">Partner link</dt>
                 <dd className="flex items-center gap-2 break-all">
