@@ -390,8 +390,8 @@ export default function MyAffiliate() {
 
   if (!IS_B2C_SITE) return <Navigate to="/mypage" replace />;
 
-  const onJoinConfirm = async (profile: AffiliateJoinProfile) => {
-    const joined = join(profile);
+  const onJoinConfirm = async (profile: AffiliateJoinProfile, w9: File | null) => {
+    const joined = join(profile, w9);
     const copied = await copyText(joined.then((p) => buildAffiliateLink(p.code))).then(() => true, () => false);
     try {
       await joined;

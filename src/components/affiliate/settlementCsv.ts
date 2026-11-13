@@ -7,6 +7,9 @@
 // - 실 지급일자: 주문 응답에 PAYOUT_DATE_FIELDS 중 하나가 있으면 채운다.
 // - PayPal 수수료·결제번호: 주문 응답에 paypalFee·paypalTransactionId가 있으면 채운다.
 // 필드명이 확정되면 위 목록·이름만 맞추면 된다.
+// - 실명(Legal name): 파트너 응답의 profile.firstName·lastName을 "이름 성" 순서로. 없으면(기존 가입자) 빈칸.
+
+import { legalName } from './joinProfile';
 
 export interface SettlementOrder {
   orderName: string;
@@ -23,6 +26,8 @@ export interface SettlementPartner {
   code: string;
   name: string;
   paypalEmail: string | null;
+  // 가입 시 받은 실명 (PR #199에 저장 요청 중). 기존 가입자는 없음 → 실명 칸 빈칸
+  profile?: { firstName?: string; lastName?: string } | null;
 }
 
 export const SCHEDULED_PAYOUT_FIELDS = ['scheduledPayoutAt', 'expectedPayoutDate'] as const;
@@ -48,7 +53,7 @@ const REASON_LABEL: Record<string, string> = {
 };
 
 const BOM = String.fromCharCode(0xfeff);
-const HEADERS = ['어필리에이트 코드', '파트너 이름', 'PayPal 이메일', '주문번호', '주문일(KST)', '주문 금액', '커미션', '상태', '지급 예정일', '실 지급일자', 'PayPal 수수료', 'PayPal 결제번호'];
+const HEADERS = ['어필리에이트 코드', '파트너 이름', '실명(Legal name)', 'PayPal 이메일', '주문번호', '주문일(KST)', '주문 금액', '커미션', '상태', '지급 예정일', '실 지급일자', 'PayPal 수수료', 'PayPal 결제번호'];
 
 const kstDate = (value: string) => {
   const t = Date.parse(value);
@@ -105,6 +110,7 @@ export function buildSettlementCsv(orders: SettlementOrder[], partners: Settleme
       return [
         o.code,
         o.partnerName || p?.name || '',
+        legalName(p?.profile),
         p?.paypalEmail || '',
         o.orderName,
         kstDate(o.createdAt),

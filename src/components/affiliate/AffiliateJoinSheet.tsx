@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Check, Loader2 } from 'lucide-react';
+import { Check, FileText, Loader2, X } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from '@/components/ui/drawer';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { AFFILIATE_MIN_PAYOUT, AFFILIATE_RATE, AFFILIATE_TERMS_URL, AFFILIATE_TRACKING_DAYS } from '@/lib/affiliate';
 import { fetchCustomerAccount } from '@/lib/customer-account';
 import {
-  EMPTY_JOIN_PROFILE, PROFILE_MAX_LENGTH, countryOptions, isJoinProfileComplete, trimJoinProfile, type AffiliateJoinProfile,
+  EMPTY_JOIN_PROFILE, PROFILE_MAX_LENGTH, W9_ACCEPT, W9_COUNTRY, checkW9File, countryOptions, isJoinProfileComplete, trimJoinProfile,
+  type AffiliateJoinProfile,
 } from './joinProfile';
 
 export function AffiliateStats({ className }: { className?: string }) {
@@ -66,10 +67,11 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   // 상품 상세: 제목·혜택 요약을 보여주고 "Copy link", 마이페이지: 체크만 보여주고 "Get my link"
   variant: 'product' | 'mypage';
-  onConfirm: (profile: AffiliateJoinProfile) => Promise<void>;
+  // w9: 거주 국가가 US일 때만 고를 수 있는 선택 파일 (형식·크기 검사를 통과한 파일만 넘어간다)
+  onConfirm: (profile: AffiliateJoinProfile, w9: File | null) => Promise<void>;
 }
 
-// 가입 시트 — 정산 정보(이름·거주 국가·주소) 입력 + 체크 2개(만 18세 이상, 약관·#ad 규칙 동의) 후 버튼 한 번에 가입 + 링크 받기. 심사 없음.
+// 가입 시트 — 정산 정보(이름·거주 국가·주소, US 거주자는 W-9 선택) 입력 + 체크 2개(만 18세 이상, 약관·#ad 규칙 동의) 후 버튼 한 번에 가입 + 링크 받기. 심사 없음.
 export function AffiliateJoinSheet({ open, onOpenChange, variant, onConfirm }: Props) {
   const displayName = useAuthStore((s) => s.user?.displayName);
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
@@ -78,6 +80,8 @@ export function AffiliateJoinSheet({ open, onOpenChange, variant, onConfirm }: P
   const [age18, setAge18] = useState(false);
   const [terms, setTerms] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [w9, setW9] = useState<File | null>(null);
+  const [w9Error, setW9Error] = useState<string | null>(null);
   const countries = useMemo(countryOptions, []);
 
   // Shopify 기본 배송지 국가로 미리 채움 (고객이 직접 고르면 덮지 않음)
@@ -97,8 +101,33 @@ export function AffiliateJoinSheet({ open, onOpenChange, variant, onConfirm }: P
       setAge18(false);
       setTerms(false);
       setBusy(false);
+      setW9(null);
+      setW9Error(null);
     }
   }, [open]);
+
+  // 거주 국가가 US가 아니게 바뀌면 고른 W-9를 버린다 (US 외에는 받지 않음)
+  const showW9 = profile.country === W9_COUNTRY;
+  useEffect(() => {
+    if (!showW9) {
+      setW9(null);
+      setW9Error(null);
+    }
+  }, [showW9]);
+
+  const pickW9 = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    e.target.value = ''; // 같은 파일을 다시 골라도 change가 오도록
+    if (!file) return;
+    const check = await checkW9File(file);
+    if ('error' in check) {
+      setW9(null);
+      setW9Error(check.error);
+      return;
+    }
+    setW9(file);
+    setW9Error(null);
+  };
 
   useEffect(() => {
     if (open && !countryTouched && defaultCountry && countries.some((c) => c.code === defaultCountry)) {
@@ -116,7 +145,7 @@ export function AffiliateJoinSheet({ open, onOpenChange, variant, onConfirm }: P
     if (!ready) return;
     setBusy(true);
     try {
-      await onConfirm(trimJoinProfile(profile));
+      await onConfirm(trimJoinProfile(profile), showW9 ? w9 : null);
     } finally {
       setBusy(false);
     }
@@ -173,6 +202,39 @@ export function AffiliateJoinSheet({ open, onOpenChange, variant, onConfirm }: P
               </Field>
             </div>
             <p className="text-xs text-muted-foreground">Use your legal name. We use this to pay you and for tax records.</p>
+
+            {showW9 && (
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  W-9 form<span className="font-normal text-muted-foreground"> (optional)</span>
+                </p>
+                <input id="aff-w9" type="file" accept={W9_ACCEPT} className="sr-only" aria-describedby="aff-w9-help" onChange={pickW9} />
+                {w9 ? (
+                  <div className="flex h-11 items-center gap-2 rounded-xl border border-input bg-background px-3 text-base md:text-[15px]">
+                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span className="min-w-0 flex-1 truncate">{w9.name}</span>
+                    <button
+                      type="button"
+                      aria-label="Remove W-9 file"
+                      className="shrink-0 rounded-full p-1 text-muted-foreground hover:text-foreground"
+                      onClick={() => setW9(null)}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="aff-w9"
+                    className="flex h-11 w-full cursor-pointer items-center justify-center rounded-xl border border-dashed border-input bg-background text-base font-medium text-foreground hover:bg-muted/60 md:text-[15px]"
+                  >
+                    Upload W-9
+                  </label>
+                )}
+                <p id="aff-w9-help" role={w9Error ? 'alert' : undefined} className={cn('text-xs', w9Error ? 'text-destructive' : 'text-muted-foreground')}>
+                  {w9Error || 'PDF, JPG or PNG, up to 3 MB. Kept private — only our payout team can view it.'}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="mt-4 rounded-2xl bg-muted/60 px-4 py-2">

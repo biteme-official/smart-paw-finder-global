@@ -155,6 +155,12 @@ export function joinAffiliate(profile: AffiliateJoinProfile): Promise<{ partner:
   return call('join', { method: 'POST', auth: true, body: { age18: true, terms: true, profile } });
 }
 
+// W-9 업로드 (거주 국가 US 파트너만, 가입 직후). 서버는 action=w9 추가 예정(PR #199 요청) — 그 전에는 404로 실패한다.
+// 응답에는 파일 주소를 돌려주지 않는다 (제출 여부·시각만).
+export function uploadW9(file: { fileName: string; mimeType: string; data: string }): Promise<{ w9: { uploadedAt: string } }> {
+  return call('w9', { method: 'POST', auth: true, body: file });
+}
+
 export function recordLinkCopy(handle: string | null): void {
   call('copy', { method: 'POST', auth: true, body: { handle } }).catch(() => {});
 }
