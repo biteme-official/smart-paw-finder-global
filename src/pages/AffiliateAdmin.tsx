@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from 'recharts';
 import {
-  Ban, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Copy, DollarSign, Handshake, Loader2,
+  Ban, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Copy, DollarSign, Download, Handshake, Loader2,
   MousePointer2, MousePointerClick, Percent, RefreshCw, ShoppingBag, UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -17,9 +18,10 @@ import { cn } from '@/lib/utils';
 import { B2C_SITE_URL } from '@/lib/site';
 import { fetchProductsByHandles } from '@/lib/shopify';
 import { ManagePageHeader, useManageAuth } from '@/components/admin/ManageLayout';
+import { buildSettlementCsv, downloadCsv, monthRange } from '@/components/affiliate/settlementCsv';
 
 // B2C 어필리에이트 관리자 (biteme.one /manage/affiliate) — 조이 님 11/4 목업 ①~⑤.
-// ⑥ 정산: 주문 + N일 자동 확정 → 지난달 확정분을 이번 달 말 지급(Mark as paid). 날짜는 모두 KST.
+// ⑥ 정산: 주문 + N일 자동 확정 → 지난달 확정분을 이번 달 말 지급(Mark as paid). 월별 정산 CSV는 상단 버튼. 날짜는 모두 KST.
 
 // ─── 타입 (api/affiliate-program.ts 응답) ─────────────────────────────────────
 
@@ -609,6 +611,64 @@ function PayoutsPanel({ data, onChanged }: { data: PayoutsData; onChanged: () =>
   );
 }
 
+// ─── 월별 정산 CSV ────────────────────────────────────────────────────────────
+
+const lastMonthKst = () => shiftDays(`${kstToday().slice(0, 7)}-01`, -1).slice(0, 7);
+
+// 상단 "정산 CSV" 버튼 → 작은 팝업에서 월 선택 후 다운로드 (기본값: 지난달)
+function SettlementCsvButton() {
+  const api = useAdminApi();
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [month, setMonth] = useState(lastMonthKst);
+  const [busy, setBusy] = useState(false);
+
+  // 팝업을 다시 열면 지난달로 되돌린다
+  useEffect(() => {
+    if (open) setMonth(lastMonthKst());
+  }, [open]);
+
+  const download = async () => {
+    if (!/^\d{4}-\d{2}$/.test(month)) return;
+    setBusy(true);
+    try {
+      // 위 표와 같은 조회 키 — 이미 불러온 기간이면 다시 요청하지 않는다
+      const q = monthRange(month);
+      const [o, p] = await Promise.all([
+        queryClient.fetchQuery({ queryKey: ['aff-admin-orders', q], queryFn: () => api<{ orders: Order[] }>('admin-orders', { query: q }) }),
+        queryClient.fetchQuery({ queryKey: ['aff-admin-partners', q], queryFn: () => api<{ partners: PartnerRow[] }>('admin-partners', { query: q }) }),
+      ]);
+      downloadCsv(`affiliate-settlement-${month}.csv`, buildSettlementCsv(o.orders, p.partners));
+      toast.success(`${month} 정산 CSV · 주문 ${o.orders.length}건`);
+      setOpen(false);
+    } catch (e) {
+      toast.error(`다운로드 실패: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={(v) => !busy && setOpen(v)}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="rounded-full">
+          <Download className="mr-1.5 h-4 w-4" />정산 CSV
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 space-y-3">
+        <div>
+          <p className="font-semibold">월별 정산 CSV</p>
+          <p className="text-xs text-muted-foreground">고른 달(KST 주문일)의 귀속 주문 전체 · 제외·취소 포함</p>
+        </div>
+        <Input type="month" aria-label="정산 월" value={month} max={kstToday().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} />
+        <Button onClick={download} disabled={busy || !month} className="w-full">
+          {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Download className="mr-1.5 h-4 w-4" />}다운로드
+        </Button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ─── 페이지 ───────────────────────────────────────────────────────────────────
 
 export default function AffiliateAdmin() {
@@ -619,6 +679,7 @@ export default function AffiliateAdmin() {
   const [openCode, setOpenCode] = useState<string | null>(null);
   const [voidTarget, setVoidTarget] = useState<Order | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const ordersScrollRef = useRef<HTMLDivElement>(null);
 
   const range = preset === 'custom' ? custom : presetRange(preset);
   const q = { from: range.from, to: range.to };
@@ -660,6 +721,31 @@ export default function AffiliateAdmin() {
   const loading = summary.isLoading || orders.isLoading || partners.isLoading;
   const error = summary.error || orders.error || partners.error;
 
+  // Attributed orders 표: 처음엔 10줄까지만 보이고 나머지는 표 안에서 스크롤 (헤더는 고정)
+  // 행 높이가 내용(Guest 표시·줄바꿈)에 따라 달라서 실제 높이를 재서 맞춘다
+  useLayoutEffect(() => {
+    const box = ordersScrollRef.current;
+    const table = box?.querySelector('table');
+    if (!box || !table) return;
+    const VISIBLE_ROWS = 10;
+    const fit = () => {
+      const rows = table.tBodies[0]?.rows;
+      if (!rows || rows.length <= VISIBLE_ROWS) {
+        box.style.maxHeight = '';
+        return;
+      }
+      const head = table.tHead?.getBoundingClientRect().height ?? 0;
+      const top = rows[0].getBoundingClientRect().top;
+      const bottom = rows[VISIBLE_ROWS - 1].getBoundingClientRect().bottom;
+      const border = box.offsetHeight - box.clientHeight; // 위아래 테두리
+      box.style.maxHeight = `${Math.ceil(head + (bottom - top) + border)}px`;
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(table);
+    return () => ro.disconnect();
+  }, [orders.data, loading]);
+
   return (
     <div>
       <ManagePageHeader icon={Handshake} heading="Affiliate Partners (B2C)" />
@@ -681,6 +767,7 @@ export default function AffiliateAdmin() {
             <Button variant="outline" className="rounded-full" onClick={runSync} disabled={syncing}>
               {syncing ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />}지금 수집
             </Button>
+            <SettlementCsvButton />
           </div>
         </div>
 
@@ -745,9 +832,9 @@ export default function AffiliateAdmin() {
             <Panel>
               <h2 className="text-lg font-bold">Attributed orders <span className="font-normal text-muted-foreground">· {orders.data.orders.length}</span></h2>
               <p className="text-sm text-muted-foreground">선택 기간에 생긴 주문. 요율은 주문 시점에 고정. 금액 = 할인 후 상품 금액(배송비·세금 제외, 환불 반영).</p>
-              <div className="mt-4 overflow-x-auto rounded-xl border">
+              <div ref={ordersScrollRef} className="mt-4 overflow-auto rounded-xl border">
                 <table className="w-full min-w-[900px] text-sm">
-                  <thead className="bg-gray-50 text-left text-muted-foreground">
+                  <thead className="sticky top-0 z-10 bg-gray-50 text-left text-muted-foreground shadow-[0_1px_0_hsl(var(--border))]">
                     <tr>
                       <th className="px-3 py-3 font-medium">Order</th>
                       <th className="px-3 py-3 font-medium">Date</th>
