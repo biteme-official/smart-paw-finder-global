@@ -1,6 +1,6 @@
 import { formatPrice } from '@/lib/shopify';
 import { useAuthStore } from '@/stores/authStore';
-import { getAutoDiscountRate } from '@/lib/autoDiscount';
+import { getDisplayDiscountRate } from '@/lib/autoDiscount';
 
 interface PriceTagProps {
   amount: string;
@@ -15,8 +15,8 @@ export function PriceTag({ amount, currencyCode, className = '', originalClassNa
   const isB2B = useAuthStore((s) => s.isB2B);
   const discountRate = useAuthStore((s) => s.b2bDiscountRate);
 
-  // 도매 고객은 기존 B2B 할인 표시 유지, 그 외(비로그인 포함)는 자동 할인 표시
-  const rate = isB2B ? discountRate : getAutoDiscountRate(variantId);
+  // 일반 고객(비로그인 포함)은 자동 할인, 도매 고객은 도매 할인 + 자동 할인 합산
+  const rate = getDisplayDiscountRate(isB2B, discountRate, variantId);
 
   if (!rate) {
     return <span className={className} translate="no">{formatPrice(amount, currencyCode)}</span>;
@@ -27,13 +27,13 @@ export function PriceTag({ amount, currencyCode, className = '', originalClassNa
 
   return (
     <span className="inline-flex flex-wrap items-baseline gap-1.5">
+      <span className={`${className} !text-red-500`} translate="no">
+        {formatPrice(discounted, currencyCode)}
+      </span>
       <span className={`line-through text-muted-foreground ${originalClassName}`} translate="no">
         {formatPrice(amount, currencyCode)}
       </span>
-      <span className={className} translate="no">
-        {formatPrice(discounted, currencyCode)}
-      </span>
-      <span className="inline-flex items-center rounded-sm bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-600">
+      <span className="inline-flex items-center rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
         -{discountPercent}%
       </span>
     </span>

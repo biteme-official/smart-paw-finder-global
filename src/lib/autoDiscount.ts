@@ -12,3 +12,9 @@ export function getAutoDiscountRate(variantId: string | undefined): number {
   const pct = variants[variantId.split('/').pop() ?? ''];
   return pct ? pct / 100 : 0;
 }
+
+/** 도매 할인과 자동 할인은 결제에서 겹쳐 적용된다 (정가 × (1−도매) × (1−자동)) */
+export function getDisplayDiscountRate(isB2B: boolean, b2bRate: number, variantId: string | undefined): number {
+  const auto = getAutoDiscountRate(variantId);
+  return isB2B ? 1 - (1 - b2bRate) * (1 - auto) : auto;
+}
