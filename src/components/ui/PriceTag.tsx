@@ -1,23 +1,29 @@
 import { formatPrice } from '@/lib/shopify';
 import { useAuthStore } from '@/stores/authStore';
+import { getAutoDiscountRate } from '@/lib/autoDiscount';
 
 interface PriceTagProps {
   amount: string;
   currencyCode: string;
   className?: string;
   originalClassName?: string;
+  /** 옵션 ID — 자동 할인(블프 등) 표시용 */
+  variantId?: string;
 }
 
-export function PriceTag({ amount, currencyCode, className = '', originalClassName = '' }: PriceTagProps) {
+export function PriceTag({ amount, currencyCode, className = '', originalClassName = '', variantId }: PriceTagProps) {
   const isB2B = useAuthStore((s) => s.isB2B);
   const discountRate = useAuthStore((s) => s.b2bDiscountRate);
 
-  if (!isB2B) {
+  // 도매 고객은 기존 B2B 할인 표시 유지, 그 외(비로그인 포함)는 자동 할인 표시
+  const rate = isB2B ? discountRate : getAutoDiscountRate(variantId);
+
+  if (!rate) {
     return <span className={className} translate="no">{formatPrice(amount, currencyCode)}</span>;
   }
 
-  const discounted = (parseFloat(amount) * (1 - discountRate)).toFixed(2);
-  const discountPercent = Math.round(discountRate * 100);
+  const discounted = (parseFloat(amount) * (1 - rate)).toFixed(2);
+  const discountPercent = Math.round(rate * 100);
 
   return (
     <span className="inline-flex flex-wrap items-baseline gap-1.5">

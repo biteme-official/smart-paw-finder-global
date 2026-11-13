@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useProductReviewSummary } from "@/hooks/useProductReview";
 import { useFavoriteAction } from "@/hooks/useFavoriteAction";
 import { useAuthStore } from "@/stores/authStore";
+import { getAutoDiscountRate } from "@/lib/autoDiscount";
 
 export interface ProductCardBadge {
   label: string;
@@ -47,10 +48,12 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
   const originalAmt = parseFloat(price.amount);
 
   // B2B 할인가는 계정별 실제 가격 정책을 반영 (체크아웃가와 일치).
-  // 일반 고객에게는 원가만 표시 — 클라이언트 계산 할인가는 체크아웃가와 어긋날 수 있음.
-  const showDiscount = isB2B && !isSoldOut;
-  const saleAmt = (originalAmt * (1 - b2bDiscountRate)).toFixed(2);
-  const discountLabel = `${Math.round(b2bDiscountRate * 100)}% OFF`;
+  // 일반 고객(비로그인 포함)은 최저가 옵션에 걸린 Shopify 자동 할인(블프 등)을 표시.
+  const minVariant = product.node.variants?.edges?.find(({ node }) => node.price.amount === price.amount)?.node;
+  const rate = isB2B ? b2bDiscountRate : getAutoDiscountRate(minVariant?.id);
+  const showDiscount = rate > 0 && !isSoldOut;
+  const saleAmt = (originalAmt * (1 - rate)).toFixed(2);
+  const discountLabel = `${Math.round(rate * 100)}% OFF`;
 
   return (
     <div

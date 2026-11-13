@@ -613,7 +613,7 @@ export default function ProductDetail() {
           </nav>
           <h1 className="text-xl font-bold text-foreground mb-2">{product.title}</h1>
           <div className="flex items-baseline gap-2">
-            <PriceTag amount={price.amount} currencyCode={price.currencyCode} className="text-2xl font-bold text-foreground" originalClassName="text-base" />
+            <PriceTag amount={price.amount} currencyCode={price.currencyCode} variantId={selectedVariant?.id} className="text-2xl font-bold text-foreground" originalClassName="text-base" />
           </div>
         </div>
 
@@ -662,7 +662,7 @@ export default function ProductDetail() {
                   <span className="text-sm font-medium text-foreground">{selectedOptions[option.name]}</span>
                 </div>
                 {showSwatchUI && (
-                  <PriceTag amount={price.amount} currencyCode={price.currencyCode} className="text-base font-semibold text-foreground" originalClassName="text-sm" />
+                  <PriceTag amount={price.amount} currencyCode={price.currencyCode} variantId={selectedVariant?.id} className="text-base font-semibold text-foreground" originalClassName="text-sm" />
                 )}
               </div>
 
