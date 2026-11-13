@@ -5,6 +5,7 @@
 
 import { getAccessToken, refreshAccessToken } from '@/lib/customer-auth';
 import { B2C_SITE_URL } from '@/lib/site';
+import type { AffiliateJoinProfile } from '@/components/affiliate/joinProfile';
 
 export const AFFILIATE_RATE = 0.1;
 export const AFFILIATE_MIN_PAYOUT = 20;
@@ -149,8 +150,9 @@ export function fetchMyPartner(): Promise<{ partner: AffiliatePartner | null; re
   return call('me', { method: 'GET', auth: true });
 }
 
-export function joinAffiliate(): Promise<{ partner: AffiliatePartner; created: boolean }> {
-  return call('join', { method: 'POST', auth: true, body: { age18: true, terms: true } });
+// profile(이름·거주 국가·주소)은 서버가 아직 저장하지 않는다 — api/affiliate-program.ts handleJoin에서 body.profile을 읽도록 연결 예정
+export function joinAffiliate(profile: AffiliateJoinProfile): Promise<{ partner: AffiliatePartner; created: boolean }> {
+  return call('join', { method: 'POST', auth: true, body: { age18: true, terms: true, profile } });
 }
 
 export function recordLinkCopy(handle: string | null): void {
