@@ -11,6 +11,10 @@
     {
       "path": "/api/slack-report?action=health",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/affiliate-program?action=sync",
+      "schedule": "0 * * * *"
     }
   ],
   "headers": [
@@ -90,6 +94,18 @@
     { "source": "/product-feed.xml", "destination": "/api/product-feed" },
     { "source": "/sitemap.xml", "destination": "/api/product-feed?type=sitemap" },
     { "source": "/robots.txt", "destination": "/api/product-feed?type=robots" },
+    {
+      "source": "/a/:code",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "Slackbot|facebookexternalhit|Twitterbot|LinkedInBot|WhatsApp|TelegramBot|kakaotalk-scrap|Line/|Pinterest|Applebot|ia_archiver|Yandex|DuckDuckBot"
+        },
+        { "type": "query", "key": "p", "value": "(?<p>/product/[A-Za-z0-9-]+)" }
+      ],
+      "destination": "/api/shopify?action=og&path=:p"
+    },
     {
       "source": "/:path*",
       "has": [

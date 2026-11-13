@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import {
   LogOut, User, ShoppingBag, Heart, HelpCircle, ChevronRight,
-  MapPin, Loader2, Search, Building2, Wallet, Mail,
+  MapPin, Loader2, Search, Building2, Wallet, Mail, Handshake,
 } from 'lucide-react';
 import { initiateLogin, isLoggedIn as isCustomerLoggedIn, logout as customerLogout } from '@/lib/customer-auth';
 import {
@@ -358,6 +358,10 @@ export default function MyPage() {
                   />
                 );
               })()}
+              {/* B2C 어필리에이트 — 가입 안내 또는 파트너 대시보드 */}
+              {IS_B2C_SITE && (
+                <MenuLink icon={Handshake} label="Affiliate" onClick={() => navigate('/mypage/affiliate')} />
+              )}
               <MenuLink icon={HelpCircle} label="Contact Us" onClick={() => navigate('/contact')} />
             </div>
 

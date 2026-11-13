@@ -29,7 +29,11 @@ export const GNB_LINKS: GnbLinkDef[] = [
   { label: "BLOG", type: "route", path: "/blog" },
   { label: "POP-UP", type: "route", path: "/popup-offline-stores" },
   { label: "ABOUT US", type: "route", path: "/about" },
-  { label: "AFFILIATE", type: "route", path: "/affiliate" },
-  // B2C 사이트에는 도매 신청 메뉴를 두지 않는다
-  ...(IS_B2C_SITE ? [] : [{ label: "WHOLESALE", type: "route", path: "/mypage/b2b-apply" } as const]),
+  // B2C 사이트에는 예전 어필리에이트 신청서·도매 신청 메뉴를 두지 않는다 (B2C 어필리에이트는 상품 상세·마이페이지에서)
+  ...(IS_B2C_SITE
+    ? []
+    : ([
+        { label: "AFFILIATE", type: "route", path: "/affiliate" },
+        { label: "WHOLESALE", type: "route", path: "/mypage/b2b-apply" },
+      ] as const)),
 ];
