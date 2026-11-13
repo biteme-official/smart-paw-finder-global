@@ -20,6 +20,7 @@ import {
   fetchAffiliateDashboard, formatUsd, recordLinkCopy, savePaypalEmail, type AffiliateLinkRow,
 } from '@/lib/affiliate';
 import { AffiliateJoinSheet, AffiliateStats } from '@/components/affiliate/AffiliateJoinSheet';
+import type { AffiliateJoinProfile } from '@/components/affiliate/joinProfile';
 import { copyText } from '@/components/affiliate/copy-text';
 import { useAffiliatePartner } from '@/components/affiliate/useAffiliatePartner';
 
@@ -389,8 +390,8 @@ export default function MyAffiliate() {
 
   if (!IS_B2C_SITE) return <Navigate to="/mypage" replace />;
 
-  const onJoinConfirm = async () => {
-    const joined = join();
+  const onJoinConfirm = async (profile: AffiliateJoinProfile) => {
+    const joined = join(profile);
     const copied = await copyText(joined.then((p) => buildAffiliateLink(p.code))).then(() => true, () => false);
     try {
       await joined;
