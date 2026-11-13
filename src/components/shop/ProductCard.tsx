@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useProductReviewSummary } from "@/hooks/useProductReview";
 import { useFavoriteAction } from "@/hooks/useFavoriteAction";
 import { useAuthStore } from "@/stores/authStore";
-import { getDisplayDiscountRate } from "@/lib/autoDiscount";
+import { AUTO_DISCOUNT_BADGE, getAutoDiscountRate, getDisplayDiscountRate } from "@/lib/autoDiscount";
 
 export interface ProductCardBadge {
   label: string;
@@ -52,6 +52,7 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
   const minVariant = product.node.variants?.edges?.find(({ node }) => node.price.amount === price.amount)?.node;
   const rate = getDisplayDiscountRate(isB2B, b2bDiscountRate, minVariant?.id);
   const showDiscount = rate > 0 && !isSoldOut;
+  const isEventDiscount = getAutoDiscountRate(minVariant?.id) > 0;
   const saleAmt = (originalAmt * (1 - rate)).toFixed(2);
   const discountPercent = Math.round(rate * 100);
 
@@ -85,12 +86,14 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
             )}
             {showDiscount && (
               <>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500 text-white leading-tight">
-                  SALE
-                </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500 text-white leading-tight">
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#B2EE2B] text-[#111111] leading-tight">
                   -{discountPercent}%
                 </span>
+                {isEventDiscount && (
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#111111] text-[#B2EE2B] leading-tight tracking-wide">
+                    {AUTO_DISCOUNT_BADGE}
+                  </span>
+                )}
               </>
             )}
           </div>

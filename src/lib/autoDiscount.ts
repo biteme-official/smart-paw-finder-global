@@ -6,6 +6,9 @@ import autoDiscounts from '@/data/autoDiscounts.json';
 const variants: Record<string, number> = autoDiscounts.variants;
 const endsAt = new Date(autoDiscounts.endsAt).getTime();
 
+/** 진행 중인 자동 할인 행사 배지 (목록을 다른 행사로 바꾸면 같이 바꾼다) */
+export const AUTO_DISCOUNT_BADGE = 'BLACK FRIDAY';
+
 /** 옵션의 자동 할인율(0~1). 할인이 없거나 기간이 끝났으면 0 */
 export function getAutoDiscountRate(variantId: string | undefined): number {
   if (!variantId || Date.now() > endsAt) return 0;
