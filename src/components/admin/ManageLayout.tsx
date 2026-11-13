@@ -15,6 +15,7 @@ const MANAGE_TABS = [
   { to: '/manage/b2b', label: 'B2B' },
   { to: '/manage/affiliate', label: '어필리에이트' },
   { to: '/manage/international-shipping', label: '해외출고' },
+  { to: '/manage/restock', label: '재입고 알림' },
 ];
 
 interface ManageAuth {

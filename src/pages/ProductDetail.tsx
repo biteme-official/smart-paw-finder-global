@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { fetchProductByHandle, formatPrice, createStorefrontCheckout, ShopifyProduct } from "@/lib/shopify";
 import { PriceTag } from "@/components/ui/PriceTag";
+import { RestockDetailButton } from "@/components/product/RestockNotify";
 import { trackViewItem, trackAddToCart, shopifyToGA4Item } from "@/lib/ga4-ecommerce";
 import { trackViewContentCapi } from "@/lib/meta-capi";
 import { useCartStore } from "@/stores/cartStore";
@@ -900,22 +901,37 @@ export default function ProductDetail() {
               )}
             />
           </button>
-          <Button
-            onClick={handleAddToCart}
-            disabled={!selectedVariant?.availableForSale}
-            variant="outline"
-            className="flex-1 h-12 font-semibold border-primary text-primary hover:bg-primary/10"
-          >
-            <ShoppingCart className="h-5 w-5 mr-2" />
-            {selectedVariant?.availableForSale ? t('product.addToCart') : t('product.outOfStock')}
-          </Button>
-          <Button
-            onClick={handleBuyNow}
-            disabled={!selectedVariant?.availableForSale || isBuyingNow}
-            className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 h-12 font-semibold"
-          >
-            {isBuyingNow ? 'Processing...' : 'Buy Now'}
-          </Button>
+{selectedVariant && !selectedVariant.availableForSale ? (
+            <RestockDetailButton
+              product={{
+                handle: product.handle,
+                title: product.title,
+                soldOutVariants: product.variants.edges
+                  .filter(({ node }) => !node.availableForSale)
+                  .map(({ node }) => ({ id: node.id, title: node.title })),
+              }}
+              variant={{ id: selectedVariant.id, title: selectedVariant.title }}
+            />
+          ) : (
+            <>
+                    <Button
+              onClick={handleAddToCart}
+              disabled={!selectedVariant?.availableForSale}
+              variant="outline"
+              className="flex-1 h-12 font-semibold border-primary text-primary hover:bg-primary/10"
+            >
+              <ShoppingCart className="h-5 w-5 mr-2" />
+              {selectedVariant?.availableForSale ? t('product.addToCart') : t('product.outOfStock')}
+            </Button>
+            <Button
+              onClick={handleBuyNow}
+              disabled={!selectedVariant?.availableForSale || isBuyingNow}
+              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 h-12 font-semibold"
+            >
+              {isBuyingNow ? 'Processing...' : 'Buy Now'}
+            </Button>
+            </>
+          )}
         </div>
       </div>
 

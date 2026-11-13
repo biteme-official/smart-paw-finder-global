@@ -5,6 +5,7 @@ import { useProductReviewSummary } from "@/hooks/useProductReview";
 import { useFavoriteAction } from "@/hooks/useFavoriteAction";
 import { useAuthStore } from "@/stores/authStore";
 import { getDisplayDiscountRate } from "@/lib/autoDiscount";
+import { RestockCardButton } from "@/components/product/RestockNotify";
 
 export interface ProductCardBadge {
   label: string;
@@ -51,7 +52,12 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
   // B2B 고객은 도매 할인에 자동 할인을 겹친 합산 할인율 (결제와 같은 계산).
   const minVariant = product.node.variants?.edges?.find(({ node }) => node.price.amount === price.amount)?.node;
   const rate = getDisplayDiscountRate(isB2B, b2bDiscountRate, minVariant?.id);
-  const showDiscount = rate > 0 && !isSoldOut;
+  // 품절이어도 할인가는 보여주고, SALE 배지는 판매 중일 때만
+  const showDiscount = rate > 0;
+  const showSaleBadges = showDiscount && !isSoldOut;
+  const soldOutVariants = (product.node.variants?.edges ?? [])
+    .filter(({ node }) => !node.availableForSale)
+    .map(({ node }) => ({ id: node.id, title: node.title }));
   const saleAmt = (originalAmt * (1 - rate)).toFixed(2);
   const discountPercent = Math.round(rate * 100);
 
@@ -76,14 +82,14 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
         )}
 
         {/* Top-left badges: 기존 배지 + 할인 시 SALE·-N% */}
-        {(badge || showDiscount) && (
+        {(badge || showSaleBadges) && (
           <div className="absolute top-2 left-2 z-10 flex flex-col items-start gap-1">
             {badge && (
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-sm ${badge.className}`}>
                 {badge.label}
               </span>
             )}
-            {showDiscount && (
+            {showSaleBadges && (
               <>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500 text-white leading-tight">
                   SALE
@@ -106,10 +112,13 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
 
         {/* Sold out overlay */}
         {isSoldOut && (
-          <div className="absolute inset-0 flex items-center justify-center z-10">
-            <span className="bg-transparent text-gray-700 text-base font-extrabold uppercase tracking-wider">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-10">
+            <span className="bg-neutral-800 text-white text-sm md:text-base font-extrabold uppercase tracking-wider px-4 py-1.5 rounded-sm">
               Sold Out
             </span>
+            <RestockCardButton
+              product={{ handle: product.node.handle, title: product.node.title, soldOutVariants }}
+            />
           </div>
         )}
       </div>
@@ -123,7 +132,7 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
         </h3>
 
         <div className="flex items-center justify-between gap-1">
-          <div className={`flex flex-wrap items-baseline gap-x-1 gap-y-0.5 min-w-0 ${isSoldOut ? "opacity-40" : ""}`}>
+          <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5 min-w-0">
             {showDiscount ? (
               <>
                 <span className="text-sm font-bold text-red-500 leading-none" translate="no">
