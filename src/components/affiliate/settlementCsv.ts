@@ -8,8 +8,7 @@
 // - PayPal 수수료·결제번호: 주문 응답에 paypalFee·paypalTransactionId가 있으면 채운다.
 // 필드명이 확정되면 위 목록·이름만 맞추면 된다.
 // - 실명(Legal name): 파트너 응답의 profile.firstName·lastName을 "이름 성" 순서로. 없으면(기존 가입자) 빈칸.
-
-import { legalName } from './joinProfile';
+//   가입 시 실명 입력은 별도 PR(feature/bmzoey-affiliate-legal-info), 저장은 PR #199에 요청.
 
 export interface SettlementOrder {
   orderName: string;
@@ -26,8 +25,12 @@ export interface SettlementPartner {
   code: string;
   name: string;
   paypalEmail: string | null;
-  // 가입 시 받은 실명 (PR #199에 저장 요청 중). 기존 가입자는 없음 → 실명 칸 빈칸
   profile?: { firstName?: string; lastName?: string } | null;
+}
+
+// "이름 성" — profile이 없으면 빈 문자열
+function legalName(p: SettlementPartner['profile']): string {
+  return [p?.firstName, p?.lastName].map((v) => (v || '').trim()).filter(Boolean).join(' ');
 }
 
 export const SCHEDULED_PAYOUT_FIELDS = ['scheduledPayoutAt', 'expectedPayoutDate'] as const;
