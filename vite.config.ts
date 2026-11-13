@@ -10,6 +10,7 @@ import { customerProxyMiddleware } from "./server/customer-proxy";
 import { affiliateProxyMiddleware } from "./server/affiliate-proxy";
 import { shippingSheetsProxyMiddleware } from "./server/shipping-sheets-proxy";
 import { popupSubscribeProxyMiddleware } from "./server/popup-subscribe-proxy";
+import { restockProxyMiddleware } from "./server/restock-proxy";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -44,6 +45,7 @@ export default defineConfig(({ mode }) => {
           server.middlewares.use(affiliateProxyMiddleware());
           server.middlewares.use(shippingSheetsProxyMiddleware());
           server.middlewares.use(popupSubscribeProxyMiddleware());
+          server.middlewares.use(restockProxyMiddleware());
         },
       },
     ].filter(Boolean),

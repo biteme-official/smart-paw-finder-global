@@ -44,6 +44,7 @@ const ManageLayout = lazy(() => import("./components/admin/ManageLayout"));
 const B2BAdmin = lazy(() => import("./pages/B2BAdmin"));
 const AffiliateAdmin = lazy(() => import("./pages/AffiliateAdmin"));
 const InternationalShippingAdmin = lazy(() => import("./pages/InternationalShippingAdmin"));
+const RestockAdmin = lazy(() => import("./pages/RestockAdmin"));
 
 const queryClient = new QueryClient();
 
@@ -141,6 +142,7 @@ const App = () => (
             <Route path="b2b" element={<B2BAdmin />} />
             <Route path="affiliate" element={<AffiliateAdmin />} />
             <Route path="international-shipping" element={<InternationalShippingAdmin />} />
+            <Route path="restock" element={<RestockAdmin />} />
           </Route>
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/popup-offline-stores" element={<PopupOffline />} />
