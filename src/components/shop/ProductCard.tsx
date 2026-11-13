@@ -76,7 +76,7 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
           </div>
         )}
 
-        {/* Top-left badges: 기존 배지 + 할인 시 SALE·-N% */}
+        {/* Top-left badges: 기존 배지 + 할인 시 -N% */}
         {(badge || showDiscount) && (
           <div className="absolute top-2 left-2 z-10 flex flex-col items-start gap-1">
             {badge && (
@@ -85,18 +85,18 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
               </span>
             )}
             {showDiscount && (
-              <>
-                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#B2EE2B] text-[#111111] leading-tight">
-                  -{discountPercent}%
-                </span>
-                {isEventDiscount && (
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#111111] text-[#B2EE2B] leading-tight tracking-wide">
-                    {AUTO_DISCOUNT_BADGE}
-                  </span>
-                )}
-              </>
+              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#B2EE2B] text-[#111111] leading-tight">
+                -{discountPercent}%
+              </span>
             )}
           </div>
+        )}
+
+        {/* 행사 배지: 이미지 오른쪽 아래 원형 */}
+        {showDiscount && isEventDiscount && (
+          <span className="absolute bottom-2 right-2 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-[#111111] text-center text-[9px] font-extrabold leading-[1.1] text-[#B2EE2B] md:h-14 md:w-14 md:text-[10px]">
+            {AUTO_DISCOUNT_BADGE.split(' ').map((w) => <span key={w} className="block">{w}</span>)}
+          </span>
         )}
 
         {/* Heart */}

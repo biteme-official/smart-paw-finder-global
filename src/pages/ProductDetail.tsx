@@ -661,9 +661,6 @@ export default function ProductDetail() {
                   <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{option.name}</span>
                   <span className="text-sm font-medium text-foreground">{selectedOptions[option.name]}</span>
                 </div>
-                {showSwatchUI && (
-                  <PriceTag amount={price.amount} currencyCode={price.currencyCode} variantId={selectedVariant?.id} className="text-base font-semibold text-foreground" originalClassName="text-sm" />
-                )}
               </div>
 
               {showSwatchUI ? (
