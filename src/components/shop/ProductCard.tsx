@@ -94,8 +94,8 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
 
         {/* 행사 배지: 이미지 오른쪽 아래 원형 */}
         {showDiscount && isEventDiscount && (
-          <span className="absolute bottom-2 right-2 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-[#111111] text-center text-[9px] font-extrabold leading-[1.1] text-[#B2EE2B] md:h-14 md:w-14 md:text-[10px]">
-            {AUTO_DISCOUNT_BADGE.split(' ').map((w) => <span key={w} className="block">{w}</span>)}
+          <span className="absolute bottom-2 right-2 z-10 flex flex-col h-12 w-12 items-center justify-center rounded-full bg-[#111111] text-center text-[9px] font-extrabold leading-[1.1] text-[#B2EE2B] md:h-14 md:w-14 md:text-[10px]">
+            {AUTO_DISCOUNT_BADGE.split(' ').map((w) => <span key={w}>{w}</span>)}
           </span>
         )}
 
