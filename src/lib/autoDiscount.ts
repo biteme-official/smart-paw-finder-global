@@ -13,7 +13,8 @@ export function getAutoDiscountRate(variantId: string | undefined): number {
   return pct ? pct / 100 : 0;
 }
 
-/** 화면 표시 할인율. 도매 고객은 도매 할인만 표시 (자동 할인 합산 표시는 보류) */
+/** 도매 할인과 자동 할인은 결제에서 겹쳐 적용된다 (정가 × (1−도매) × (1−자동)) */
 export function getDisplayDiscountRate(isB2B: boolean, b2bRate: number, variantId: string | undefined): number {
-  return isB2B ? b2bRate : getAutoDiscountRate(variantId);
+  const auto = getAutoDiscountRate(variantId);
+  return isB2B ? 1 - (1 - b2bRate) * (1 - auto) : auto;
 }

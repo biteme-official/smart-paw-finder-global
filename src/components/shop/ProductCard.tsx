@@ -47,13 +47,13 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
   const price = product.node.priceRange.minVariantPrice;
   const originalAmt = parseFloat(price.amount);
 
-  // 최저가 옵션 기준. 일반 고객(비로그인 포함)은 Shopify 자동 할인(블프 등), B2B 고객은 도매 할인.
+  // 최저가 옵션 기준. 일반 고객(비로그인 포함)은 Shopify 자동 할인(블프 등),
+  // B2B 고객은 도매 할인에 자동 할인을 겹친 합산 할인율 (결제와 같은 계산).
   const minVariant = product.node.variants?.edges?.find(({ node }) => node.price.amount === price.amount)?.node;
   const rate = getDisplayDiscountRate(isB2B, b2bDiscountRate, minVariant?.id);
   const showDiscount = rate > 0 && !isSoldOut;
   const saleAmt = (originalAmt * (1 - rate)).toFixed(2);
   const discountPercent = Math.round(rate * 100);
-  const showSaleBadge = showDiscount && !isB2B;
 
   return (
     <div
@@ -85,11 +85,9 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
             )}
             {showDiscount && (
               <>
-                {showSaleBadge && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500 text-white leading-tight">
-                    SALE
-                  </span>
-                )}
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500 text-white leading-tight">
+                  SALE
+                </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500 text-white leading-tight">
                   -{discountPercent}%
                 </span>
