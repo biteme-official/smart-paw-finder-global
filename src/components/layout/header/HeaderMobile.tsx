@@ -11,7 +11,6 @@ import {
   ShoppingBag,
   Tag,
   Info,
-  Handshake,
   Store,
   type LucideIcon,
 } from "lucide-react";
@@ -38,7 +37,6 @@ const GNB_ICONS: Record<string, LucideIcon> = {
   BLOG: BookOpen,
   "POP-UP": MapPin,
   "ABOUT US": Info,
-  AFFILIATE: Handshake,
   WHOLESALE: Store,
 };
 

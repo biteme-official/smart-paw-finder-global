@@ -29,7 +29,6 @@ export const GNB_LINKS: GnbLinkDef[] = [
   { label: "BLOG", type: "route", path: "/blog" },
   { label: "POP-UP", type: "route", path: "/popup-offline-stores" },
   { label: "ABOUT US", type: "route", path: "/about" },
-  { label: "AFFILIATE", type: "route", path: "/affiliate" },
   // B2C 사이트에는 도매 신청 메뉴를 두지 않는다
   ...(IS_B2C_SITE ? [] : [{ label: "WHOLESALE", type: "route", path: "/mypage/b2b-apply" } as const]),
 ];
