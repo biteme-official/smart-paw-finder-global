@@ -86,14 +86,14 @@ export function ProductCard({ product, badge, onAddToCart, onClick, isSoldOut = 
             )}
             {showDiscount && (
               <>
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#B2EE2B] text-[#111111] leading-tight">
+                  -{discountPercent}%
+                </span>
                 {isEventDiscount && (
                   <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#111111] text-[#B2EE2B] leading-tight tracking-wide">
                     {AUTO_DISCOUNT_BADGE}
                   </span>
                 )}
-                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#B2EE2B] text-[#111111] leading-tight">
-                  -{discountPercent}%
-                </span>
               </>
             )}
           </div>
