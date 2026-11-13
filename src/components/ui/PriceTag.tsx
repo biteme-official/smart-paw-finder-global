@@ -15,7 +15,7 @@ export function PriceTag({ amount, currencyCode, className = '', originalClassNa
   const isB2B = useAuthStore((s) => s.isB2B);
   const discountRate = useAuthStore((s) => s.b2bDiscountRate);
 
-  // 일반 고객(비로그인 포함)은 자동 할인, 도매 고객은 도매 할인 + 자동 할인 합산
+  // 일반 고객(비로그인 포함)은 자동 할인, 도매 고객은 도매 할인
   const rate = getDisplayDiscountRate(isB2B, discountRate, variantId);
 
   if (!rate) {
