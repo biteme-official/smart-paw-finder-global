@@ -1,6 +1,6 @@
 import { formatPrice } from '@/lib/shopify';
 import { useAuthStore } from '@/stores/authStore';
-import { getDisplayDiscountRate } from '@/lib/autoDiscount';
+import { AUTO_DISCOUNT_BADGE, getAutoDiscountRate, getDisplayDiscountRate } from '@/lib/autoDiscount';
 
 interface PriceTagProps {
   amount: string;
@@ -33,7 +33,12 @@ export function PriceTag({ amount, currencyCode, className = '', originalClassNa
       <span className={`line-through text-muted-foreground ${originalClassName}`} translate="no">
         {formatPrice(amount, currencyCode)}
       </span>
-      <span className="inline-flex items-center rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+      {getAutoDiscountRate(variantId) > 0 && (
+        <span className="inline-flex items-center rounded-full bg-[#111111] px-2 py-0.5 text-xs font-extrabold tracking-wide text-[#B2EE2B]">
+          {AUTO_DISCOUNT_BADGE}
+        </span>
+      )}
+      <span className="inline-flex items-center rounded-full bg-[#B2EE2B] px-2 py-0.5 text-xs font-extrabold text-[#111111]">
         -{discountPercent}%
       </span>
     </span>
