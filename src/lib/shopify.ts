@@ -1,8 +1,10 @@
 import { toast } from "sonner";
-import { useAuthStore } from '@/stores/authStore';
 import { hasCustomerSession, initiateLogin } from '@/lib/customer-auth';
+import { createStorefrontCustomerToken, clearStorefrontCustomerToken } from '@/lib/customer-account';
+import { useAuthStore } from '@/stores/authStore';
+import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
 import { IS_B2C_SITE } from '@/lib/site';
-import { createStorefrontCustomerToken, clearStorefrontCustomerToken, fetchCustomerAccount } from '@/lib/customer-account';
+import { getCachedStorefrontCustomerToken, fetchCustomerAccount } from '@/lib/customer-account';
 
 // Shopify API - requests go through the server proxy which handles authentication
 const SHOPIFY_PROXY_URL = '/api/shopify';
