@@ -156,6 +156,11 @@ export function isLoggedIn(): boolean {
   return getAccessToken() !== null;
 }
 
+// 액세스 토큰이 만료돼도 리프레시 토큰이 있으면 로그인 상태로 본다.
+export function hasCustomerSession(): boolean {
+  return getAccessToken() !== null || localStorage.getItem(STORAGE_KEYS.refreshToken) !== null;
+}
+
 export function logout(): void {
   const idToken = localStorage.getItem(STORAGE_KEYS.idToken);
 
