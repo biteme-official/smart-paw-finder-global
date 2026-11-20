@@ -15,6 +15,10 @@
   ],
   "headers": [
     {
+      "source": "/klaviyo-region",
+      "headers": [{ "key": "Cache-Control", "value": "private, no-store" }]
+    },
+    {
       "source": "/(.*)",
       "headers": [
         {
@@ -101,6 +105,23 @@
       ],
       "destination": "/api/shopify?action=og&path=/:path*"
     },
+    {
+      "source": "/klaviyo-region",
+      "has": [
+        {
+          "type": "header",
+          "key": "x-vercel-ip-country",
+          "value": "^(AT|BE|BG|HR|CY|CZ|DK|EE|FI|FR|DE|GR|HU|IE|IT|LV|LT|LU|MT|NL|PL|PT|RO|SK|SI|ES|SE|IS|LI|NO|GB|CH)$"
+        }
+      ],
+      "destination": "/klaviyo-region/blocked.json"
+    },
+    {
+      "source": "/klaviyo-region",
+      "missing": [{ "type": "header", "key": "x-vercel-ip-country" }],
+      "destination": "/klaviyo-region/blocked.json"
+    },
+    { "source": "/klaviyo-region", "destination": "/klaviyo-region/allowed.json" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

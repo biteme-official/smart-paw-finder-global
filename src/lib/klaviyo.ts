@@ -3,7 +3,9 @@
 // Klaviyo↔Shopify 연동으로 이미 들어오므로 여기서 보내지 않는다.
 //
 // - 공개키(VITE_KLAVIYO_PUBLIC_KEY)만 사용한다. 값이 없으면 아무것도 하지 않는다.
-// - EU(EEA)·영국·스위스 방문자는 동의 배너가 없으므로 스크립트를 로드하지 않는다 (api/geo로 국가 확인).
+// - B2C(biteme-us.com)는 미국 외 방문자가 biteme.one으로 리다이렉트되므로 국가 확인 없이 바로 로드한다.
+// - B2B(biteme.one)는 EU(EEA)·영국·스위스 방문자에게 로드하지 않는다(동의 배너가 없어서).
+//   국가 판단은 vercel.json rewrite(/klaviyo-region → public/klaviyo-region/*.json, x-vercel-ip-country 조건)로 한다.
 // - 두 사이트(B2B biteme.one / B2C biteme-us.com)가 같은 Klaviyo 계정을 쓰므로 모든 이벤트에 site 값을 넣는다.
 
 import { IS_B2C_SITE, SITE_URL } from '@/lib/site';
@@ -18,14 +20,7 @@ declare global {
 
 const PUBLIC_KEY: string = import.meta.env.VITE_KLAVIYO_PUBLIC_KEY || '';
 const SITE = IS_B2C_SITE ? 'b2c' : 'b2b';
-const GEO_CACHE_KEY = 'bm_klaviyo_geo_v1';
-
-// EU 27개국 + EEA(아이슬란드·리히텐슈타인·노르웨이) + 영국 + 스위스
-const CONSENT_REQUIRED_COUNTRIES = new Set([
-  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE',
-  'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE',
-  'IS', 'LI', 'NO', 'GB', 'CH',
-]);
+const REGION_CACHE_KEY = 'bm_klaviyo_region_v1';
 
 // pending: 국가 확인 중(명령은 큐에 쌓임) / enabled: 로드됨 / disabled: 키 없음·동의 필요 지역·확인 실패
 let state: 'pending' | 'enabled' | 'disabled' = PUBLIC_KEY ? 'pending' : 'disabled';
@@ -36,22 +31,21 @@ function push(command: KlaviyoCommand) {
   window._klOnsite.push(command);
 }
 
-// 방문 국가가 동의가 필요한 지역인지 확인. 확인에 실패하면 로드하지 않는다(안전한 쪽).
+// 동의가 필요한 지역(EU·EEA·영국·스위스, 국가 불명 포함)인지 확인. 확인에 실패하면 로드하지 않는다(안전한 쪽).
 async function isConsentRequiredRegion(): Promise<boolean> {
-  // 로컬 개발 서버에는 api/geo가 없다
+  // B2C는 미국 방문자만 남으므로 확인하지 않는다
+  if (IS_B2C_SITE) return false;
+  // 로컬 개발 서버에는 Vercel 국가 헤더·rewrite가 없다
   if (import.meta.env.DEV) return false;
   try {
-    const cached = sessionStorage.getItem(GEO_CACHE_KEY);
-    let country = cached;
-    if (cached === null) {
-      const res = await fetch('/api/geo');
-      if (!res.ok) return true;
-      const data: { country?: string | null } = await res.json();
-      country = (data.country || '').toUpperCase();
-      sessionStorage.setItem(GEO_CACHE_KEY, country);
-    }
-    // 국가를 알 수 없으면(헤더 없음) 동의 필요 지역으로 간주
-    return !country || CONSENT_REQUIRED_COUNTRIES.has(country);
+    const cached = sessionStorage.getItem(REGION_CACHE_KEY);
+    if (cached !== null) return cached !== 'allowed';
+    const res = await fetch('/klaviyo-region');
+    // rewrite가 안 걸리면 index.html이 와서 JSON 파싱이 실패 → catch에서 로드 안 함
+    const data: { klaviyo?: boolean } = await res.json();
+    const allowed = res.ok && data.klaviyo === true;
+    sessionStorage.setItem(REGION_CACHE_KEY, allowed ? 'allowed' : 'blocked');
+    return !allowed;
   } catch {
     return true;
   }
