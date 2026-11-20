@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { ShopifyProduct, createStorefrontCheckout } from '@/lib/shopify';
 import { trackAddToCartCapi } from '@/lib/meta-capi';
+import { klaviyoAddedToCart, type KlaviyoCartLine } from '@/lib/klaviyo';
 
 export interface CartItem {
   product: ShopifyProduct;
@@ -76,6 +77,24 @@ export const useCartStore = create<CartStore>()(
             value: parseFloat(item.price.amount) * actualAdded,
             currency: item.price.currencyCode,
           });
+
+          // Klaviyo: Added to Cart — 담은 상품(실제 추가 수량) + 장바구니 전체 목록·합계 (장바구니 이탈 메일용)
+          const toKlaviyoLine = (line: CartItem, quantity: number): KlaviyoCartLine => ({
+            product: {
+              id: line.product.node.id,
+              title: line.product.node.title,
+              handle: line.product.node.handle,
+              vendor: line.product.node.vendor,
+              productType: line.product.node.productType,
+              imageUrl: line.product.node.images.edges[0]?.node.url,
+            },
+            quantity,
+            price: line.price,
+          });
+          klaviyoAddedToCart(
+            toKlaviyoLine(item, actualAdded),
+            get().items.map((line) => toKlaviyoLine(line, line.quantity)),
+          );
         }
       },
 
