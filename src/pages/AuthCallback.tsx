@@ -6,6 +6,7 @@ import { IS_B2C_SITE } from '@/lib/site';
 import { fetchCustomerAccount, createStorefrontCustomerToken } from '@/lib/customer-account';
 import { useAuthStore, fetchB2BDiscountRate } from '@/stores/authStore';
 import { toast } from 'sonner';
+import { klaviyoIdentify } from '@/lib/klaviyo';
 import { isNewSignup, requestPetProfilePrompt, shouldPromptPetProfile } from '@/components/account/PetProfile';
 
 export default function AuthCallback() {
@@ -57,6 +58,8 @@ export default function AuthCallback() {
             displayName: profile.displayName || profile.emailAddress || 'Customer',
             email: profile.emailAddress || undefined,
           });
+          // Klaviyo: 로그인 완료 시 고객 식별
+          if (profile.emailAddress) klaviyoIdentify(profile.emailAddress);
 
           const promptData = {
             customerId: profile.id,

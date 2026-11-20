@@ -15,11 +15,15 @@
   ],
   "headers": [
     {
+      "source": "/klaviyo-region",
+      "headers": [{ "key": "Cache-Control", "value": "private, no-store" }]
+    },
+    {
       "source": "/(.*)",
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' https: data:; media-src 'self' https:; font-src 'self' https://fonts.gstatic.com https: data:; connect-src 'self' https://api.line.me https://access.line.me https://page.line.me https://www.google-analytics.com https://www.googletagmanager.com https://zipcloud.ibsnet.co.jp https://graph.facebook.com; frame-src https://www.instagram.com; object-src 'none'; base-uri 'self';"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://static.klaviyo.com https://static-tracking.klaviyo.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' https: data:; media-src 'self' https:; font-src 'self' https://fonts.gstatic.com https: data:; connect-src 'self' https://api.line.me https://access.line.me https://page.line.me https://www.google-analytics.com https://www.googletagmanager.com https://zipcloud.ibsnet.co.jp https://graph.facebook.com https://a.klaviyo.com https://fast.a.klaviyo.com https://static.klaviyo.com https://static-tracking.klaviyo.com; frame-src https://www.instagram.com; object-src 'none'; base-uri 'self';"
         },
         {
           "key": "X-Content-Type-Options",
@@ -101,6 +105,23 @@
       ],
       "destination": "/api/shopify?action=og&path=/:path*"
     },
+    {
+      "source": "/klaviyo-region",
+      "has": [
+        {
+          "type": "header",
+          "key": "x-vercel-ip-country",
+          "value": "^(AT|BE|BG|HR|CY|CZ|DK|EE|FI|FR|DE|GR|HU|IE|IT|LV|LT|LU|MT|NL|PL|PT|RO|SK|SI|ES|SE|IS|LI|NO|GB|CH)$"
+        }
+      ],
+      "destination": "/klaviyo-region/blocked.json"
+    },
+    {
+      "source": "/klaviyo-region",
+      "missing": [{ "type": "header", "key": "x-vercel-ip-country" }],
+      "destination": "/klaviyo-region/blocked.json"
+    },
+    { "source": "/klaviyo-region", "destination": "/klaviyo-region/allowed.json" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
