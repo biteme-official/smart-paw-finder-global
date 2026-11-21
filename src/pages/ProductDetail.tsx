@@ -23,6 +23,7 @@ import { CartDrawer } from "@/components/cart/CartDrawer";
 import { Footer } from "@/components/layout/Footer";
 import { RecommendedProducts } from "@/components/product/RecommendedProducts";
 import { ReviewWidget } from "@/components/product/ReviewWidget";
+import { GeoDetail, GEO_DETAIL_HANDLES } from "@/components/product/GeoDetail";
 import { ScrollToTop } from "@/components/ui/ScrollToTop";
 import { SITE_URL } from "@/lib/site";
 import { cleanDescriptionHtml, cleanDescriptionText } from "@/lib/product-description";
@@ -140,6 +141,7 @@ export default function ProductDetail() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'detail' | 'review'>('detail');
   const [reviewCount, setReviewCount] = useState<number | null>(null);
+  const [geoLd, setGeoLd] = useState<Record<string, unknown> | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const thumbnailRef = useRef<HTMLDivElement>(null);
@@ -277,13 +279,18 @@ export default function ProductDetail() {
         },
       },
     };
+    // GEO 상세페이지 상품: 업체 원본의 상품 정보(설명·색상·소재·사이즈·스펙)를 덧붙인다. 이름·이미지·가격은 기존 값 유지
+    if (geoLd) {
+      const { '@type': _t, '@context': _c, name: _n, brand: _b, image: _i, offers: _o, ...extra } = geoLd;
+      Object.assign(jsonLd, extra);
+    }
     const script = document.createElement('script');
     script.type = 'application/ld+json';
     script.id = 'product-jsonld';
     script.textContent = JSON.stringify(jsonLd);
     document.head.appendChild(script);
     return () => { document.getElementById('product-jsonld')?.remove(); };
-  }, [product, id]);
+  }, [product, id, geoLd]);
 
   // SEO: 상품마다 제목·설명·대표 주소(canonical)·공유 태그를 상품 기준으로 설정. 페이지를 떠나면 원래 값(홈)으로 되돌린다.
   useEffect(() => {
@@ -844,7 +851,12 @@ export default function ProductDetail() {
               )}
             </button>
           </div>
-          {activeTab === 'detail' && (product.descriptionHtml || product.description) && (
+          {activeTab === 'detail' && id && GEO_DETAIL_HANDLES.has(id) ? (
+            <GeoDetail handle={id} onJsonLd={setGeoLd} fallback={product.descriptionHtml ? (
+              <div className="prose prose-sm max-w-none text-muted-foreground overflow-x-hidden [&_img]:max-w-full [&_img]:h-auto [&_img]:block"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(cleanDescriptionHtml(product.descriptionHtml)) }} />
+            ) : null} />
+          ) : activeTab === 'detail' && (product.descriptionHtml || product.description) && (
             <div>
               {product.descriptionHtml ? (
                 <div
