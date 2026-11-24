@@ -143,7 +143,7 @@ interface PayoutRow {
 }
 
 interface PayoutsData {
-  period: string; payDate: string; minPayout: number; confirmDays: number; paypalEnabled: boolean;
+  period: string; payDate: string; minPayout: number; confirmDays: number; paypalEnabled: boolean; paypalMax: number;
   rows: PayoutRow[];
   payouts: {
     id: string; code: string; partnerName: string; period: string; amount: number; paypalEmail: string; paidAt: string; orderIds: string[];
@@ -543,7 +543,7 @@ function PayoutsPanel({ data, onChanged }: { data: PayoutsData; onChanged: () =>
       </h2>
       <p className="text-sm text-muted-foreground">
         주문 {data.confirmDays}일 뒤 자동 확정 → 지난달 말까지 확정된 커미션(지급 후 환불 차감 포함)을 이번 달 15일 지급. {usd(data.minPayout)} 미만·PayPal 없음은 다음 달로 이월(탈퇴는 미만도 지급).
-        {data.paypalEnabled ? 'PayPal로 송금을 누르면 회사 계정에서 바로 송금됩니다. PayPal에서 직접 보냈다면 Mark as paid만 누르세요.' : 'PayPal에서 송금한 뒤 Mark as paid를 누르세요.'} Ready {ready.length}명 · {usd(ready.reduce((t, r) => t + r.amount, 0))}
+        {data.paypalEnabled ? `PayPal로 송금을 누르면 회사 계정에서 바로 송금됩니다(1건 ${usd(data.paypalMax)}까지). 넘는 건이나 PayPal에서 직접 보낸 건은 Mark as paid만 누르세요.` : 'PayPal에서 송금한 뒤 Mark as paid를 누르세요.'} Ready {ready.length}명 · {usd(ready.reduce((t, r) => t + r.amount, 0))}
       </p>
       <div className="mt-4 overflow-x-auto rounded-xl border">
         <table className="w-full min-w-[820px] text-sm">
@@ -577,7 +577,7 @@ function PayoutsPanel({ data, onChanged }: { data: PayoutsData; onChanged: () =>
                 <td className="px-3 py-3 text-center">
                   {r.block === 'ready' && (
                     <div className="flex justify-center gap-2">
-                      {data.paypalEnabled && <Button size="sm" disabled={saving} onClick={() => setTarget({ row: r, method: 'paypal' })}>PayPal로 송금</Button>}
+                      {data.paypalEnabled && r.amount <= data.paypalMax && <Button size="sm" disabled={saving} onClick={() => setTarget({ row: r, method: 'paypal' })}>PayPal로 송금</Button>}
                       <Button size="sm" variant="outline" disabled={saving} onClick={() => setTarget({ row: r, method: 'manual' })}>Mark as paid</Button>
                     </div>
                   )}

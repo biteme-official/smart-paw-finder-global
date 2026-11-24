@@ -839,6 +839,7 @@ async function handleAdminPayouts(req: VercelRequest, res: VercelResponse) {
     minPayout: MIN_PAYOUT,
     confirmDays: CONFIRM_DAYS,
     paypalEnabled: paypalConfigured(),
+    paypalMax: PAYPAL_MAX,
     rows,
     payouts: payouts.map((x) => ({ ...x, partnerName: names.get(x.code) || '' })),
   });
@@ -849,6 +850,8 @@ async function handleAdminPayouts(req: VercelRequest, res: VercelResponse) {
 
 const PAYPAL_API = process.env.PAYPAL_ENV === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com';
 const paypalConfigured = () => !!(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET);
+// 1건 자동 송금 상한(USD) — 넘으면 PayPal에서 직접 보내고 Mark as paid. 코드 오류·관리자 비번 유출 시 피해를 줄인다
+const PAYPAL_MAX = Number(process.env.AFFILIATE_PAYPAL_MAX) > 0 ? Number(process.env.AFFILIATE_PAYPAL_MAX) : 300;
 // 더 바뀌지 않는 상태 — 이 상태가 되면 다시 조회하지 않는다
 const PAYPAL_FINAL = new Set(['SUCCESS', 'FAILED', 'RETURNED', 'REVERSED', 'BLOCKED', 'REFUNDED', 'DENIED']);
 
@@ -937,6 +940,9 @@ async function handleAdminPayoutMark(req: VercelRequest, res: VercelResponse) {
     const block = payoutBlock(partner, pay.amount);
     if (block !== 'ready') return res.status(409).json({ error: `지급 대상이 아닙니다 (${block})` });
     if (round2(expected) !== pay.amount) return res.status(409).json({ error: `금액이 바뀌었습니다 (${pay.amount}). 새로고침 후 확인하세요.` });
+    if (method === 'paypal' && pay.amount > PAYPAL_MAX) {
+      return res.status(409).json({ error: `자동 송금 상한(USD ${PAYPAL_MAX}) 초과입니다. PayPal에서 직접 보낸 뒤 Mark as paid를 누르세요.` });
+    }
 
     // 지급 id는 (마감 월·파트너·같은 달 몇 번째)로 정한다 — 송금 뒤 기록이 실패해 다시 눌러도 같은 id라 PayPal이 두 번 보내지 않는다
     const prevIds = await kv.zrange<string[]>(K.partnerPayouts(code), 0, -1);
