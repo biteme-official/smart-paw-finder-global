@@ -11,6 +11,7 @@
 // ② 송금 내역 CSV (송금 1건 = 파트너 1명 × 마감 월 = 1줄, 고른 달 = KST 송금일) — 실제 나간 돈·수수료·차감
 
 export interface SettlementOrder {
+  orderId?: string;
   orderName: string;
   createdAt: string;
   code: string;
@@ -41,6 +42,7 @@ export interface SettlementPayout {
   paypalStatus?: string;
   paypalFee?: number | null;
   paypalTransactionId?: string | null;
+  revertedAt?: string | null; // 송금 실패로 지급 취소 — 주문은 다시 확정 상태
 }
 
 export interface SettlementPartner {
@@ -141,8 +143,9 @@ export function buildSettlementCsv(
     .map((o) => {
       const p = byCode.get(o.code);
       const pay = o.payoutId ? byPayout.get(o.payoutId) : undefined;
-      // 수수료는 송금 건당 — 그 송금의 첫 줄에만
-      const fee = pay && pay.paypalFee != null && !feeWritten.has(pay.id) ? pay.paypalFee : '';
+      // 수수료는 송금 건당 — 그 송금의 첫 주문 줄에만 (송금이 여러 주문월에 걸쳐도 월별 CSV를 합칠 때 두 번 세지 않게)
+      const firstOfPayout = pay ? (o.orderId ? pay.orderIds[0] === o.orderId : !feeWritten.has(pay.id)) : false;
+      const fee = pay && pay.paypalFee != null && firstOfPayout ? pay.paypalFee : '';
       if (pay) feeWritten.add(pay.id);
       const carried = carryOver(o, p, today);
       return [
@@ -188,7 +191,7 @@ export function buildPayoutCsv(payouts: SettlementPayout[]): string {
       x.paypalFee ?? '',
       x.paypalTransactionId || '',
       x.method === 'paypal' ? 'PayPal 송금' : '수동(Mark as paid)',
-      x.method === 'paypal' ? x.paypalStatus || '' : '',
+      x.method === 'paypal' ? `${x.paypalStatus || ''}${x.revertedAt ? ' · 지급 취소(다음 지급 대상)' : ''}` : '',
     ].map(cell).join(','));
   return `${BOM}${[PAYOUT_HEADERS.map(cell).join(','), ...rows].join('\r\n')}\r\n`;
 }

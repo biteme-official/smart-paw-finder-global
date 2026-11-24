@@ -141,6 +141,7 @@ export interface Payout {
   paypalStatus?: string; // PayPal transaction_status (PENDING·UNCLAIMED·SUCCESS·FAILED·RETURNED 등)
   paypalFee?: number | null; // 회사 부담 송금 수수료 (USD)
   paypalTransactionId?: string | null;
+  revertedAt?: string | null; // PayPal 송금 실패로 주문을 '확정'으로 되돌린 시각 — 다음 지급 대상에 다시 잡힌다
 }
 
 // ─── KV 키 ────────────────────────────────────────────────────────────────────
@@ -514,6 +515,21 @@ async function handleCopy(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({ ok: true });
 }
 
+// 파트너 기록 수정 — 고객(PayPal 저장)과 관리자(상태 변경)가 동시에 써도 서로 덮어쓰지 않게 잠그고 최신본을 다시 읽는다
+async function updatePartner(code: string, fn: (p: Partner) => Partner): Promise<Partner | 'busy' | null> {
+  const lock = `${K.partner(code)}:lock`;
+  if (!(await kv.set(lock, '1', { nx: true, ex: 10 }))) return 'busy';
+  try {
+    const current = await getPartner(code);
+    if (!current) return null;
+    const next = fn(current);
+    await kv.set(K.partner(code), next);
+    return next;
+  } finally {
+    await kv.del(lock);
+  }
+}
+
 async function handlePaypal(req: VercelRequest, res: VercelResponse) {
   const customer = await getCustomer(req);
   if (!customer) return res.status(401).json({ error: 'Unauthorized' });
@@ -523,9 +539,10 @@ async function handlePaypal(req: VercelRequest, res: VercelResponse) {
   if (!EMAIL_RE.test(email) || email.length > 254) return res.status(400).json({ error: 'Invalid email' });
 
   const now = new Date().toISOString();
+  const updated = await updatePartner(partner.code, (p) => ({ ...p, paypalEmail: email, paypalUpdatedAt: now }));
+  if (updated === 'busy') return res.status(409).json({ error: 'Try again' });
+  if (!updated) return res.status(404).json({ error: 'Not found' });
   await kv.lpush(K.paypalHistory(partner.code), { at: now, from: maskEmail(partner.paypalEmail), to: maskEmail(email) });
-  const updated: Partner = { ...partner, paypalEmail: email, paypalUpdatedAt: now };
-  await kv.set(K.partner(partner.code), updated);
   return res.status(200).json({ partner: publicPartner(updated) });
 }
 
@@ -560,11 +577,11 @@ async function handleClick(req: VercelRequest, res: VercelResponse) {
 
 // ─── 고객: 파트너 대시보드 ────────────────────────────────────────────────────
 
-// 다음 지급일: 지난달까지 확정된 몫이 최소 금액 이상이면 이번 달 15일, 아니면 다음 달 15일
+// 다음 지급일: 지난달까지 확정된 몫이 최소 금액 이상이고 아직 15일 전이면 이번 달 15일, 아니면 다음 달 15일
 function nextPayoutDate(payableNow: number, today = kstDate()): string {
-  const [y, m] = today.split('-').map(Number);
+  const [y, m, d] = today.split('-').map(Number);
   const payDay = (offset: number) => new Date(Date.UTC(y, m - 1 + offset, PAY_DAY)).toISOString().slice(0, 10);
-  return payableNow >= MIN_PAYOUT ? payDay(0) : payDay(1);
+  return payableNow >= MIN_PAYOUT && d <= PAY_DAY ? payDay(0) : payDay(1);
 }
 
 function linkRows(clicks: Record<string, number>, copies: Record<string, number>, orders: Commission[]) {
@@ -779,8 +796,14 @@ async function handleAdminPartnerStatus(req: VercelRequest, res: VercelResponse)
     status,
     statusHistory: [...partner.statusHistory, { at: new Date().toISOString(), from: partner.status, to: status }],
   };
-  await kv.set(K.partner(code), updated);
-  return res.status(200).json({ partner: adminPartner(updated) });
+  const saved = await updatePartner(code, (p) => ({
+    ...p,
+    status,
+    statusHistory: [...p.statusHistory, { at: updated.statusHistory[updated.statusHistory.length - 1].at, from: p.status, to: status }],
+  }));
+  if (saved === 'busy') return res.status(409).json({ error: '잠시 후 다시 시도하세요.' });
+  if (!saved) return res.status(404).json({ error: 'Not found' });
+  return res.status(200).json({ partner: adminPartner(saved) });
 }
 
 // 관리자 수동 무효(Void)·되돌리기 — Shopify 주문을 다시 읽어 바로 재계산한다.
@@ -793,17 +816,24 @@ async function handleAdminVoid(req: VercelRequest, res: VercelResponse) {
   const makeVoid = body.void === true;
   if (existing.manualVoid === makeVoid) return res.status(200).json({ order: existing });
 
-  const data = await adminGraphql<{ order: ShopifyOrderNode | null }>(ORDER_QUERY, { id: orderId });
-  if (!data.order) return res.status(404).json({ error: 'Shopify order not found' });
-  const now = new Date().toISOString();
-  await kv.set(K.order(orderId), {
-    ...existing,
-    manualVoid: makeVoid,
-    updatedAt: now,
-    history: [...existing.history, { at: now, change: makeVoid ? '관리자 무효' : '관리자 무효 취소' }],
-  } satisfies Commission);
-  await upsertCommission(data.order, new Map());
-  return res.status(200).json({ order: await kv.get<Commission>(K.order(orderId)) });
+  // 지급·수집이 같은 주문을 예전 사본으로 덮어쓰지 않게 같은 잠금을 쓴다
+  if (!(await kv.set(K.syncLock, 'void', { nx: true, ex: 120 }))) return res.status(409).json({ error: '주문 수집·지급 처리 중입니다. 잠시 후 다시 시도하세요.' });
+  try {
+    const data = await adminGraphql<{ order: ShopifyOrderNode | null }>(ORDER_QUERY, { id: orderId });
+    if (!data.order) return res.status(404).json({ error: 'Shopify order not found' });
+    const fresh = (await kv.get<Commission>(K.order(orderId))) ?? existing;
+    const now = new Date().toISOString();
+    await kv.set(K.order(orderId), {
+      ...fresh,
+      manualVoid: makeVoid,
+      updatedAt: now,
+      history: [...fresh.history, { at: now, change: makeVoid ? '관리자 무효' : '관리자 무효 취소' }],
+    } satisfies Commission);
+    await upsertCommission(data.order, new Map());
+    return res.status(200).json({ order: await kv.get<Commission>(K.order(orderId)) });
+  } finally {
+    await kv.del(K.syncLock);
+  }
 }
 
 // 정산 현황: 이번 지급 대상(파트너별) + 최근 지급 기록
@@ -879,6 +909,37 @@ const paypalConfigured = () => !!(process.env.PAYPAL_CLIENT_ID && process.env.PA
 const PAYPAL_MAX = Number(process.env.AFFILIATE_PAYPAL_MAX) > 0 ? Number(process.env.AFFILIATE_PAYPAL_MAX) : 300;
 // 더 바뀌지 않는 상태 — 이 상태가 되면 다시 조회하지 않는다
 const PAYPAL_FINAL = new Set(['SUCCESS', 'FAILED', 'RETURNED', 'REVERSED', 'BLOCKED', 'REFUNDED', 'DENIED']);
+// 돈이 파트너에게 가지 않고 끝난 상태 — 지급을 되돌린다 (UNCLAIMED는 30일 뒤 RETURNED가 되면 그때)
+const PAYPAL_FAILED = new Set(['FAILED', 'RETURNED', 'REVERSED', 'BLOCKED', 'REFUNDED', 'DENIED']);
+
+// 송금 실패 → 그 지급에 묶인 주문·차감을 '확정·미반영'으로 되돌린다. 수집·지급과 같은 잠금이 없으면 다음 조회 때 다시 시도
+async function revertFailedPayout(p: Payout): Promise<Payout> {
+  if (p.revertedAt || !(await kv.set(K.syncLock, 'revert', { nx: true, ex: 120 }))) return p;
+  try {
+    const now = new Date().toISOString();
+    for (const o of await getOrders(p.orderIds)) {
+      if (o.payoutId !== p.id) continue;
+      await kv.set(K.order(o.orderId), {
+        ...o,
+        status: 'confirmed',
+        paidAt: null,
+        payoutId: null,
+        paidAmount: null,
+        updatedAt: now,
+        history: [...o.history, { at: now, change: `PayPal 송금 실패(${p.paypalStatus}) — 지급 취소, 다음 지급 대상` }],
+      } satisfies Commission);
+    }
+    const adjustments = (await getAdjustments(p.code)).filter((a) => a.payoutId === p.id);
+    if (adjustments.length) {
+      await kv.hset(K.adjustments(p.code), Object.fromEntries(adjustments.map((a) => [a.id, { ...a, payoutId: null }])));
+    }
+    const next: Payout = { ...p, revertedAt: now };
+    await kv.set(K.payout(p.id), next);
+    return next;
+  } finally {
+    await kv.del(K.syncLock);
+  }
+}
 
 async function paypalFetch<T>(path: string, init: { method: 'GET' | 'POST'; body?: unknown; requestId?: string }): Promise<T> {
   const basic = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`).toString('base64');
@@ -928,7 +989,10 @@ async function paypalSend(id: string, email: string, amount: number): Promise<{ 
 
 // 송금 결과(상태·수수료·결제번호)를 PayPal에서 다시 읽어 지급 기록에 반영
 async function refreshPaypalPayout(p: Payout): Promise<Payout> {
-  if (p.method !== 'paypal' || !p.paypalBatchId || (p.paypalStatus && PAYPAL_FINAL.has(p.paypalStatus))) return p;
+  if (p.method !== 'paypal' || !p.paypalBatchId) return p;
+  // 실패로 끝났는데 아직 되돌리지 못했으면(잠금 충돌) 되돌리기만 다시 시도
+  if (p.paypalStatus && PAYPAL_FAILED.has(p.paypalStatus)) return revertFailedPayout(p);
+  if (p.paypalStatus && PAYPAL_FINAL.has(p.paypalStatus)) return p;
   const data = await paypalFetch<{
     items?: { transaction_status?: string; transaction_id?: string; payout_item_fee?: { value?: string } }[];
   }>(`/v1/payments/payouts/${encodeURIComponent(p.paypalBatchId)}`, { method: 'GET' });
@@ -942,7 +1006,7 @@ async function refreshPaypalPayout(p: Payout): Promise<Payout> {
     paypalTransactionId: item.transaction_id || p.paypalTransactionId || null,
   };
   await kv.set(K.payout(p.id), next);
-  return next;
+  return next.paypalStatus && PAYPAL_FAILED.has(next.paypalStatus) ? revertFailedPayout(next) : next;
 }
 
 // 지급: method=manual은 PayPal에서 사람이 먼저 송금한 뒤 기록, method=paypal은 여기서 Payouts API로 송금하고 기록
@@ -994,7 +1058,8 @@ async function handleAdminPayoutMark(req: VercelRequest, res: VercelResponse) {
       orderIds: pay.items.map((o) => o.orderId),
       adjustmentIds: pay.adjustments.map((a) => a.id),
       method,
-      ...(sent ? { paypalBatchId: sent.batchId, paypalStatus: sent.status, paypalFee: null, paypalTransactionId: null } : {}),
+      // 배치 상태(batch_status)가 SUCCESS여도 항목은 UNCLAIMED·FAILED일 수 있다 — 항목 상태는 조회 때 채운다
+      ...(sent ? { paypalBatchId: sent.batchId, paypalStatus: 'PENDING', paypalFee: null, paypalTransactionId: null } : {}),
     };
     await kv.set(K.payout(id), payout);
     for (const o of pay.items) {

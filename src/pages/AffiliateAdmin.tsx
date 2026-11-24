@@ -150,6 +150,7 @@ interface PayoutsData {
   payouts: {
     id: string; code: string; partnerName: string; period: string; amount: number; paypalEmail: string; paidAt: string; orderIds: string[];
     method?: 'manual' | 'paypal'; paypalStatus?: string; paypalFee?: number | null; paypalTransactionId?: string | null;
+    revertedAt?: string | null;
   }[];
 }
 
@@ -616,6 +617,7 @@ function PayoutsPanel({ data, onChanged }: { data: PayoutsData; onChanged: () =>
                     <td className="py-2 text-right font-semibold">{usd(x.amount)}</td>
                     <td className={cn('py-2 pl-4', x.paypalStatus && PAYPAL_PROBLEM.has(x.paypalStatus) && 'font-semibold text-red-600')}>
                       {x.method === 'paypal' ? `PayPal · ${x.paypalStatus || '—'}` : '수동'}
+                      {x.revertedAt && <div className="text-xs">지급 취소 · 다음 지급 대상</div>}
                     </td>
                     <td className="py-2 text-right">{x.paypalFee != null ? usd(x.paypalFee) : '—'}</td>
                     <td className="py-2 pl-4 font-mono text-xs break-all">{x.paypalTransactionId || '—'}</td>
