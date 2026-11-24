@@ -161,7 +161,7 @@ export function AffiliateJoinSheet({ open, onOpenChange, variant, onConfirm }: P
             <Field id="aff-address2" label="Apt, suite, etc." optional>
               <input id="aff-address2" className={inputCls} autoComplete="address-line2" maxLength={PROFILE_MAX_LENGTH} value={profile.address2} onChange={set('address2')} />
             </Field>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-3">
               <Field id="aff-city" label="City">
                 <input id="aff-city" className={inputCls} autoComplete="address-level2" maxLength={PROFILE_MAX_LENGTH} value={profile.city} onChange={set('city')} />
               </Field>
