@@ -338,14 +338,16 @@ const sum = (list: { commission?: number; amount?: number }[], key: 'commission'
 
 // ─── 정산 ─────────────────────────────────────────────────────────────────────
 
-// 이번 지급 = 지난달 말(KST)까지 확정된 커미션. 지급일은 이번 달 말일
+// 지급일: 매월 15일(KST) — 약관 5번 "월말까지 확정된 커미션은 익월 15일 지급"
+const PAY_DAY = 15;
+
+// 이번 지급 = 지난달 말(KST)까지 확정된 커미션. 지급일은 이번 달 15일
 function payoutWindow(today = kstDate()) {
   const cutoffMs = kstStartMs(`${today.slice(0, 7)}-01`);
-  const [y, m] = today.split('-').map(Number);
   return {
     period: kstDate(cutoffMs - 1).slice(0, 7),
     cutoffMs,
-    payDate: new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10), // 이번 달 말일
+    payDate: `${today.slice(0, 7)}-${PAY_DAY}`,
   };
 }
 
@@ -511,11 +513,11 @@ async function handleClick(req: VercelRequest, res: VercelResponse) {
 
 // ─── 고객: 파트너 대시보드 ────────────────────────────────────────────────────
 
-// 다음 지급일: 지난달까지 확정된 몫이 최소 금액 이상이면 이번 달 말, 아니면 다음 달 말
+// 다음 지급일: 지난달까지 확정된 몫이 최소 금액 이상이면 이번 달 15일, 아니면 다음 달 15일
 function nextPayoutDate(payableNow: number, today = kstDate()): string {
   const [y, m] = today.split('-').map(Number);
-  const monthEnd = (offset: number) => new Date(Date.UTC(y, m + offset, 0)).toISOString().slice(0, 10);
-  return payableNow >= MIN_PAYOUT ? monthEnd(0) : monthEnd(1);
+  const payDay = (offset: number) => new Date(Date.UTC(y, m - 1 + offset, PAY_DAY)).toISOString().slice(0, 10);
+  return payableNow >= MIN_PAYOUT ? payDay(0) : payDay(1);
 }
 
 function linkRows(clicks: Record<string, number>, copies: Record<string, number>, orders: Commission[]) {

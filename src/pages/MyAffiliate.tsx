@@ -283,7 +283,7 @@ function Dashboard({ code }: { code: string }) {
               <Tooltip>
                 <TooltipTrigger aria-label="About commission"><Info className="h-4 w-4" /></TooltipTrigger>
                 <TooltipContent className="max-w-[260px] text-xs">
-                  Commission is pending for {data.confirmDays} days after each order, then confirmed. Confirmed amounts are paid at the end of the next month once they reach ${data.minPayout}. Refunds after payout are deducted from your next payout.
+                  Commission is pending for {data.confirmDays} days after each order, then confirmed. Confirmed amounts are paid on the 15th of the following month once they reach ${data.minPayout}. Refunds after payout are deducted from your next payout.
                 </TooltipContent>
               </Tooltip>
             </div>
