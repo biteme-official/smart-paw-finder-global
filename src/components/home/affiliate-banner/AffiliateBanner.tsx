@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
 import { Camera, ArrowRight } from "lucide-react";
+import { IS_B2C_SITE } from "@/lib/site";
 
 export function AffiliateBanner() {
   return (
     <section className="mt-2 md:mt-6 px-4">
       <Link
-        to="/affiliate"
+        to={IS_B2C_SITE ? "/mypage/affiliate" : "/affiliate"}
         className="group flex items-center gap-2.5 md:gap-4 rounded-2xl bg-orange-500 px-3.5 py-2.5 md:px-6 md:py-5 text-white shadow-sm transition-all hover:bg-orange-600 hover:shadow-md"
       >
         <span className="flex h-9 w-9 md:h-12 md:w-12 shrink-0 items-center justify-center rounded-full bg-white/15">

@@ -17,7 +17,7 @@ export const isExternalHref = (href: string) => /^https?:\/\//.test(href);
 
 export const PROMO_DEFS: PromoDef[] = [
   {
-    title: "First Purchase 15% Off",
+    title: "First Purchase 10% Off",
     href: "/mypage",
     pcImage: promo1Pc,
     mobileImage: promo1Mobile,

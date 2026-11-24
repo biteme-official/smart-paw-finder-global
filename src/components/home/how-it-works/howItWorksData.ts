@@ -6,7 +6,7 @@ export interface StepDef {
 }
 
 export const STEP_DEFS: StepDef[] = [
-  { icon: Tag,   lines: ["Welcome 15% Off", "First-time customers"] },
+  { icon: Tag,   lines: ["Welcome 10% Off", "First-time customers"] },
   { icon: Truck, lines: ["Free Shipping", "Over $75+ only"] },
   { icon: Heart, lines: ["Review Content", "Apply Affiliate"] },
   { icon: Gift,  lines: ["Earn Commission", "10% on all sales!"] },
