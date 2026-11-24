@@ -17,6 +17,7 @@ import Affiliate from "./pages/Affiliate";
 import NotFound from "./pages/NotFound";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
+import AffiliateTerms from "./pages/AffiliateTerms";
 import MyPage from "./pages/MyPage";
 import OrderHistory from "./pages/OrderHistory";
 import StoreCreditHistory from "./pages/StoreCreditHistory";
@@ -127,6 +128,7 @@ const App = () => (
           <Route path="/about" element={<About />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfUse />} />
+          <Route path="/affiliate-terms" element={<AffiliateTerms />} />
           <Route path="/refund-policy" element={<RefundPolicy />} />
           <Route path="/mypage" element={<MyPage />} />
           <Route path="/mypage/order-history" element={<OrderHistory />} />

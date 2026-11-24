@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { IS_B2C_SITE } from "@/lib/site";
 
 export default function PrivacyPolicy() {
   const navigate = useNavigate();
@@ -13,7 +14,7 @@ export default function PrivacyPolicy() {
         <h1 className="text-2xl font-bold mb-6">Privacy Policy</h1>
         <div className="prose prose-sm max-w-none text-muted-foreground space-y-6">
 
-          <p className="text-sm text-muted-foreground">Last updated: June 8, 2026</p>
+          <p className="text-sm text-muted-foreground">Last updated: {IS_B2C_SITE ? "November 23, 2026" : "June 8, 2026"}</p>
 
           <section>
             <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">1. Introduction</h2>
@@ -110,8 +111,38 @@ export default function PrivacyPolicy() {
             </p>
           </section>
 
+          {/* 어필리에이트 프로그램 — B2C 사이트만 (재무·법무 확정 문구, 2026-11-23) */}
+          {IS_B2C_SITE && (
+            <section id="affiliate-program">
+              <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">10. Affiliate Program</h2>
+              <p>
+                When you visit our site through an affiliate link, we store the affiliate's referral ID in your browser using
+                cookies or similar technologies (such as local storage) for up to 30 days so that qualifying purchases can be
+                attributed to that affiliate. Affiliates see only limited order information needed to verify commissions
+                (such as order date and amount) and do not receive your contact or payment details.
+              </p>
+              <p className="mt-2">
+                If you join our Affiliate Program, we collect your name, email address, country of residence, postal address,
+                PayPal account and, where required, tax information. We use this information to manage your participation,
+                calculate and pay commissions, and meet our legal and tax obligations. We process it to perform our agreement
+                with you and to comply with legal obligations.
+              </p>
+              <p className="mt-2">
+                Your information is stored on our own systems and processed by service providers that help us operate our
+                website and store records (such as hosting and cloud storage providers), and payment details are shared with
+                PayPal to process payouts. Because we are based in the Republic of Korea, your information may be transferred
+                to and processed in Korea and other countries where these providers operate, with appropriate safeguards in place.
+              </p>
+              <p className="mt-2">
+                We retain this information for 5 years after your last payout, or, if you never received a payout, for 1 year
+                after you leave the program, unless a longer period is required by law. You can exercise your rights as
+                described in the "Your Rights" section of this policy.
+              </p>
+            </section>
+          )}
+
           <section>
-            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">10. Contact</h2>
+            <h2 className="text-lg font-semibold text-foreground mt-6 mb-3">{IS_B2C_SITE ? 11 : 10}. Contact</h2>
             <p>
               For questions about this Privacy Policy, please visit our{" "}
               <a href="/contact" className="text-primary hover:underline">Contact Us</a> page.

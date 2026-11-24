@@ -13,7 +13,7 @@ export const AFFILIATE_MIN_PAYOUT = 20;
 export const AFFILIATE_JOIN_OPEN = import.meta.env.VITE_AFFILIATE_JOIN_OPEN === 'true';
 export const AFFILIATE_TRACKING_DAYS = 30;
 // D6 법무 검토 후 약관 주소로 교체
-export const AFFILIATE_TERMS_URL = '/terms';
+export const AFFILIATE_TERMS_URL = '/affiliate-terms';
 
 const STORAGE_KEY = 'biteme-aff';
 const TTL_MS = AFFILIATE_TRACKING_DAYS * 24 * 60 * 60 * 1000;
