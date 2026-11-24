@@ -11,10 +11,14 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { ShoppingCart, Minus, Plus, Trash2, ExternalLink, Loader2 } from "lucide-react";
+import { ShoppingCart, Minus, Plus, Trash2, ExternalLink, Loader2, AlertTriangle } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
 import { formatPrice } from "@/lib/shopify";
 import { useAuthStore } from "@/stores/authStore";
+import { getAutoDiscountRate } from "@/lib/autoDiscount";
+
+// Shopify 'business' 자동 할인 최소 금액 (Checkout.tsx와 동일)
+const B2B_MIN_ORDER = 300;
 import { ThresholdBanner } from "./ThresholdBanner";
 import { useTranslation } from "@/hooks/useTranslation";
 import { safeNavigate } from "@/lib/browser-utils";
@@ -66,7 +70,7 @@ export const CartDrawer = ({ open: controlledOpen, onOpenChange, showTrigger = t
   const currencyCode = items[0]?.price.currencyCode || 'USD';
 
   // Calculate total price from selected items only (or all if none selected)
-  const { totalPrice, selectedCount } = useMemo(() => {
+  const { totalPrice, autoDiscountedTotal, selectedCount } = useMemo(() => {
     const itemsToCalculate = selectedItems.size > 0
       ? items.filter(item => selectedItems.has(item.variantId))
       : items;
@@ -77,8 +81,15 @@ export const CartDrawer = ({ open: controlledOpen, onOpenChange, showTrigger = t
       return sum + (price * qty);
     }, 0);
 
+    // Shopify는 도매 최소 금액을 자동 할인(블프 등)을 뺀 금액으로 판단한다
+    const autoTotal = itemsToCalculate.reduce((sum, item) => {
+      const price = parseFloat(item.price.amount) || 0;
+      return sum + price * (1 - getAutoDiscountRate(item.variantId)) * (item.quantity || 0);
+    }, 0);
+
     return {
       totalPrice: total,
+      autoDiscountedTotal: autoTotal,
       selectedCount: selectedItems.size > 0 ? selectedItems.size : items.length
     };
   }, [items, selectedItems]);
@@ -336,6 +347,15 @@ export const CartDrawer = ({ open: controlledOpen, onOpenChange, showTrigger = t
               </div>
 
               <div className="flex-shrink-0 space-y-4 pt-4 border-t mt-4">
+                {useAuthStore.getState().isB2B && autoDiscountedTotal < B2B_MIN_ORDER && (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5 text-amber-600" />
+                    <p className="text-xs text-amber-700">
+                      Wholesale pricing applies to orders of {formatPrice(B2B_MIN_ORDER.toString(), currencyCode)} or more.
+                      Add {formatPrice((B2B_MIN_ORDER - autoDiscountedTotal).toFixed(2), currencyCode)} more to get your wholesale discount at checkout.
+                    </p>
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold">
                     {t('cart.total')} ({selectedCount} {t('cart.itemCount') || 'items'})

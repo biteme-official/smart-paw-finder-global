@@ -10,6 +10,7 @@ import {
   EmailPopupConfig,
 } from "@/lib/shopify";
 import { useAuthStore } from "@/stores/authStore";
+import { klaviyoIdentify } from "@/lib/klaviyo";
 import biteMeLogo from "@/assets/bite-me-logo.png";
 
 // B2C 첫구매 쿠폰 팝업 (zeoy 설계안 11/4, 아비브식). App에서 IS_B2C_SITE일 때만 렌더링한다.
@@ -196,6 +197,8 @@ export function EmailPopup() {
       }
       write({ revealed: true });
       track("popup_submit");
+      // Klaviyo: 이메일을 아는 순간 고객 식별 (이후 상품 조회·장바구니 기록이 이 고객에 연결됨)
+      klaviyoIdentify(value);
       // 코드를 복사하지 않고 닫아도 결제에 붙도록 공개 시점에 바로 저장한다 (팝업은 이 브라우저에서 다시 안 뜸)
       applyCode();
       setStep("code");

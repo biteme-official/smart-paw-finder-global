@@ -178,23 +178,24 @@ export function HeroBanner() {
                     </div>
                   </div>
                 ) : (
-                  // 텍스트 필드가 모두 비어있으면 이미지 원본 비율 그대로 전체 폭 표시
-                  <>
+                  // 텍스트 필드가 모두 비어있어도 다른 배너와 같은 틀(모바일 9:10, PC 2:1)에 맞춘다
+                  // — 원본 비율로 두면 슬라이드마다 높이가 달라진다
+                  <div className="relative aspect-[9/10] w-full overflow-hidden md:aspect-[2/1]">
                     <img
                       src={banner.mobileImage!.url}
                       alt={banner.mobileImage!.altText || "Main banner"}
                       onClick={() => handleBannerClick(banner.linkUrl)}
-                      className={cn("block h-auto w-full md:hidden", banner.linkUrl && "cursor-pointer")}
+                      className={cn("absolute inset-0 h-full w-full object-cover md:hidden", banner.linkUrl && "cursor-pointer")}
                       loading="lazy"
                     />
                     <img
                       src={banner.pcImage!.url}
                       alt={banner.pcImage!.altText || "Main banner"}
                       onClick={() => handleBannerClick(banner.linkUrl)}
-                      className={cn("hidden h-auto w-full md:block", banner.linkUrl && "cursor-pointer")}
+                      className={cn("absolute inset-0 hidden h-full w-full object-cover md:block", banner.linkUrl && "cursor-pointer")}
                       loading="lazy"
                     />
-                  </>
+                  </div>
                 )}
               </div>
             );

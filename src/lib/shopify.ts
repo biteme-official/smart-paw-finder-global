@@ -1,4 +1,6 @@
 import { toast } from "sonner";
+import { hasCustomerSession, initiateLogin } from '@/lib/customer-auth';
+import { createStorefrontCustomerToken, clearStorefrontCustomerToken } from '@/lib/customer-account';
 import { useAuthStore } from '@/stores/authStore';
 import { isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-auth';
 import { IS_B2C_SITE } from '@/lib/site';
@@ -1371,6 +1373,13 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
    return createStorefrontCheckoutWithDiscount(items, discountCode);
  }
 
+ // 로그인 세션이 끊겨 결제 페이지로 고객 정보를 못 넘길 때 — 비회원 결제 대신 다시 로그인시킨다.
+ async function reloginForCheckout(): Promise<never> {
+   toast.info('Please sign in again to keep your member pricing.', { position: 'top-center' });
+   await initiateLogin(window.location.pathname + window.location.search);
+   throw new Error('Re-login required before checkout');
+ }
+
  // Create checkout with optional discount code for B2B members
  export async function createStorefrontCheckoutWithDiscount(
    items: { variantId: string; quantity: number }[],
@@ -1394,28 +1403,34 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
    }
 
    // B2C 사이트는 고객 정보를 넘기지 않는다 — 넘기면 B2B 태그 고객에게 Shopify 자동 도매 할인이 붙는다.
-   try {
-     if (isCustomerLoggedIn() && !IS_B2C_SITE) {
-       const storefrontToken = getCachedStorefrontCustomerToken();
-       if (storefrontToken) {
-         input.buyerIdentity = {
-           customerAccessToken: storefrontToken,
-         };
-       }
-     }
-   } catch { /* continue without buyer identity */ }
+   // B2B 사이트에서 로그인한 고객은 결제 페이지에도 로그인 상태로 넘겨야 도매 할인이 붙는다.
+   // 토큰을 못 얻으면 비회원 결제로 보내지 않고 다시 로그인시킨다.
+   const withCustomer = hasCustomerSession() && !IS_B2C_SITE;
+   if (withCustomer) {
+     const storefrontToken = await createStorefrontCustomerToken();
+     if (!storefrontToken) return reloginForCheckout();
+     input.buyerIdentity = { customerAccessToken: storefrontToken };
+   }
 
    let data = await storefrontApiRequest(CART_CREATE_MUTATION, { input });
 
-   // If customer token is expired/invalid, retry without it
    const tokenError = data?.data?.cartCreate?.userErrors?.some(
      (e: { field: string[]; message: string }) =>
        e.field?.includes('customerAccessToken') || e.message?.includes('invalid')
    );
-   if (tokenError || !data?.data?.cartCreate?.cart) {
-     console.warn('[Checkout] Customer token invalid, retrying without token');
-     delete input.buyerIdentity;
+   if (withCustomer && (tokenError || !data?.data?.cartCreate?.cart)) {
+     // 저장해 둔 토큰이 Shopify에서 만료됐을 수 있다 — 새로 받아 한 번만 다시 시도
+     console.warn('[Checkout] Customer token rejected, retrying with a fresh token');
+     clearStorefrontCustomerToken();
+     const freshToken = await createStorefrontCustomerToken();
+     if (!freshToken) return reloginForCheckout();
+     input.buyerIdentity = { customerAccessToken: freshToken };
      data = await storefrontApiRequest(CART_CREATE_MUTATION, { input });
+     const stillTokenError = data?.data?.cartCreate?.userErrors?.some(
+       (e: { field: string[]; message: string }) =>
+         e.field?.includes('customerAccessToken') || e.message?.includes('invalid')
+     );
+     if (stillTokenError) return reloginForCheckout();
    }
 
   if (!data) {

@@ -45,7 +45,6 @@ import { EmailPopup } from "./components/email-popup/EmailPopup";
 const ManageLayout = lazy(() => import("./components/admin/ManageLayout"));
 const B2BAdmin = lazy(() => import("./pages/B2BAdmin"));
 const AffiliateAdmin = lazy(() => import("./pages/AffiliateAdmin"));
-const InternationalShippingAdmin = lazy(() => import("./pages/InternationalShippingAdmin"));
 
 const queryClient = new QueryClient();
 
@@ -146,7 +145,6 @@ const App = () => (
             <Route index element={<Navigate to="b2b" replace />} />
             <Route path="b2b" element={<B2BAdmin />} />
             <Route path="affiliate" element={<AffiliateAdmin />} />
-            <Route path="international-shipping" element={<InternationalShippingAdmin />} />
           </Route>
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/popup-offline-stores" element={<PopupOffline />} />

@@ -13,6 +13,7 @@ import { fetchProductByHandle, formatPrice, createStorefrontCheckout, ShopifyPro
 import { PriceTag } from "@/components/ui/PriceTag";
 import { trackViewItem, trackAddToCart, shopifyToGA4Item } from "@/lib/ga4-ecommerce";
 import { trackViewContentCapi } from "@/lib/meta-capi";
+import { klaviyoViewedProduct } from "@/lib/klaviyo";
 import { useCartStore } from "@/stores/cartStore";
 import { useFavoriteAction } from "@/hooks/useFavoriteAction";
 import { toast } from "sonner";
@@ -163,6 +164,16 @@ export default function ProductDetail() {
         if (data) {
           const variant = data.variants.edges[0]?.node;
           trackViewItem(shopifyToGA4Item(data, variant));
+
+          // Klaviyo: Viewed Product + 최근 본 상품 (최근 본 상품 자동 메일용)
+          klaviyoViewedProduct({
+            id: data.id,
+            title: data.title,
+            handle: data.handle,
+            vendor: data.vendor,
+            productType: data.productType,
+            imageUrl: variant?.image?.url || data.images.edges[0]?.node.url,
+          }, variant?.price);
 
           // Meta CAPI: ViewContent — 커스텀 프론트엔드라 Shopify 자동 픽셀이
           // 닿지 않는 페이지라 서버사이드로 직접 전송 (content_id는 상품 피드의 g:id와 동일한 variant 숫자 id)
@@ -619,7 +630,7 @@ export default function ProductDetail() {
           </nav>
           <h1 className="text-xl font-bold text-foreground mb-2">{product.title}</h1>
           <div className="flex items-baseline gap-2">
-            <PriceTag amount={price.amount} currencyCode={price.currencyCode} className="text-2xl font-bold text-foreground" originalClassName="text-base" />
+            <PriceTag amount={price.amount} currencyCode={price.currencyCode} variantId={selectedVariant?.id} className="text-2xl font-bold text-foreground" originalClassName="text-base" />
           </div>
         </div>
 
@@ -667,9 +678,6 @@ export default function ProductDetail() {
                   <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{option.name}</span>
                   <span className="text-sm font-medium text-foreground">{selectedOptions[option.name]}</span>
                 </div>
-                {showSwatchUI && (
-                  <PriceTag amount={price.amount} currencyCode={price.currencyCode} className="text-base font-semibold text-foreground" originalClassName="text-sm" />
-                )}
               </div>
 
               {showSwatchUI ? (
