@@ -9,6 +9,8 @@ import type { AffiliateJoinProfile } from '@/components/affiliate/joinProfile';
 
 export const AFFILIATE_RATE = 0.1;
 export const AFFILIATE_MIN_PAYOUT = 20;
+// 신규 가입 입구 — 약관 게시 후 Vercel env VITE_AFFILIATE_JOIN_OPEN=true로 연다 (서버도 같은 값으로 가입을 막는다)
+export const AFFILIATE_JOIN_OPEN = import.meta.env.VITE_AFFILIATE_JOIN_OPEN === 'true';
 export const AFFILIATE_TRACKING_DAYS = 30;
 // D6 법무 검토 후 약관 주소로 교체
 export const AFFILIATE_TERMS_URL = '/terms';
@@ -150,7 +152,7 @@ export function fetchMyPartner(): Promise<{ partner: AffiliatePartner | null; re
   return call('me', { method: 'GET', auth: true });
 }
 
-// profile(이름·거주 국가·주소)은 서버가 아직 저장하지 않는다 — api/affiliate-program.ts handleJoin에서 body.profile을 읽도록 연결 예정
+// profile(실명·거주 국가·주소)은 서버 파트너 기록에 저장된다
 export function joinAffiliate(profile: AffiliateJoinProfile): Promise<{ partner: AffiliatePartner; created: boolean }> {
   return call('join', { method: 'POST', auth: true, body: { age18: true, terms: true, profile } });
 }

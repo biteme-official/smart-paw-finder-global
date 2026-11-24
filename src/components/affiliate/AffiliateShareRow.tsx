@@ -15,7 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { initiateLogin } from '@/lib/customer-auth';
-import { buildAffiliateLink, estimateCommission, formatUsd, recordLinkCopy } from '@/lib/affiliate';
+import { AFFILIATE_JOIN_OPEN, AffiliateApiError, buildAffiliateLink, estimateCommission, formatUsd, recordLinkCopy } from '@/lib/affiliate';
 import { AffiliateJoinSheet } from './AffiliateJoinSheet';
 import type { AffiliateJoinProfile } from './joinProfile';
 import { copyText } from './copy-text';
@@ -43,7 +43,7 @@ export function AffiliateShareRow({ handle, minPrice }: { handle: string; minPri
     const next = new URLSearchParams(params);
     next.delete(SHARE_PARAM);
     setParams(next, { replace: true });
-    if (!partner && !removed) setJoinOpen(true);
+    if (!partner && !removed && AFFILIATE_JOIN_OPEN) setJoinOpen(true);
   }, [params, setParams, isLoggedIn, ready, partner, removed]);
 
   const markCopied = () => {
@@ -81,8 +81,9 @@ export function AffiliateShareRow({ handle, minPrice }: { handle: string; minPri
     const copied = await copyText(link).then(() => true, () => false);
     try {
       await joined;
-    } catch {
-      toast.error('Something went wrong. Please try again.', { position: 'top-center' });
+    } catch (e) {
+      const notEligible = e instanceof AffiliateApiError && e.message === 'Country not eligible';
+      toast.error(notEligible ? 'The affiliate program isn’t available for residents of your country.' : 'Something went wrong. Please try again.', { position: 'top-center' });
       return;
     }
     setJoinOpen(false);
@@ -91,6 +92,8 @@ export function AffiliateShareRow({ handle, minPrice }: { handle: string; minPri
   };
 
   const earn = estimateCommission(minPrice);
+  // 가입 입구가 닫혀 있으면 이미 가입한 파트너에게만 보인다
+  if (!AFFILIATE_JOIN_OPEN && !partner) return null;
 
   return (
     <>

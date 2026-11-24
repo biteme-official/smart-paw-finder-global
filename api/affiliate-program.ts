@@ -54,6 +54,37 @@ export interface Partner {
   paypalEmail: string | null;
   paypalUpdatedAt: string | null;
   statusHistory: { at: string; from: PartnerStatus; to: PartnerStatus }[];
+  profile?: PartnerProfile; // 가입 때 받은 실명·거주 국가·주소 (약관 2번). 11/24 이전 가입자는 없음
+}
+
+export interface PartnerProfile {
+  firstName: string;
+  lastName: string;
+  country: string; // ISO 3166-1 alpha-2, KR 제외
+  address1: string;
+  address2: string;
+  city: string;
+  province: string;
+  zip: string;
+}
+
+// 약관 게시 전까지 가입 입구를 닫는다 — 화면과 같은 env(VITE_AFFILIATE_JOIN_OPEN=true)로 연다
+const JOIN_OPEN = process.env.VITE_AFFILIATE_JOIN_OPEN === 'true';
+// 국내 거주자는 원천징수 처리 대상이라 가입 제한 (마케팅팀 11/16 결정)
+const BLOCKED_COUNTRIES = new Set(['KR']);
+const PROFILE_MAX = 100;
+
+function parseProfile(v: unknown): PartnerProfile | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  const f = (k: string) => (typeof o[k] === 'string' ? (o[k] as string).trim() : '');
+  const p: PartnerProfile = {
+    firstName: f('firstName'), lastName: f('lastName'), country: f('country').toUpperCase(),
+    address1: f('address1'), address2: f('address2'), city: f('city'), province: f('province'), zip: f('zip'),
+  };
+  if (!p.firstName || !p.lastName || !p.address1 || !p.city || !/^[A-Z]{2}$/.test(p.country)) return null;
+  if (Object.values(p).some((s) => s.length > PROFILE_MAX)) return null;
+  return p;
 }
 
 // 대기 → (주문 + CONFIRM_DAYS) 확정 → (관리자 Mark as paid) 지급. 제외·무효는 커미션 0
@@ -415,7 +446,7 @@ async function handleMe(req: VercelRequest, res: VercelResponse) {
 async function handleJoin(req: VercelRequest, res: VercelResponse) {
   const customer = await getCustomer(req);
   if (!customer) return res.status(401).json({ error: 'Unauthorized' });
-  const body = (req.body ?? {}) as { age18?: unknown; terms?: unknown };
+  const body = (req.body ?? {}) as { age18?: unknown; terms?: unknown; profile?: unknown };
   if (body.age18 !== true || body.terms !== true) return res.status(400).json({ error: 'Consent required' });
 
   const existing = await getPartnerByCustomer(customer.id);
@@ -423,6 +454,11 @@ async function handleJoin(req: VercelRequest, res: VercelResponse) {
     if (isOut(existing.status)) return res.status(403).json({ error: 'Not available' });
     return res.status(200).json({ partner: publicPartner(existing), created: false });
   }
+  // 새 가입만 막는다 — 이미 가입한 파트너는 위에서 그대로 돌려준다
+  if (!JOIN_OPEN) return res.status(403).json({ error: 'Join closed' });
+  const profile = parseProfile(body.profile);
+  if (!profile) return res.status(400).json({ error: 'Profile required' });
+  if (BLOCKED_COUNTRIES.has(profile.country)) return res.status(403).json({ error: 'Country not eligible' });
 
   // 같은 고객이 동시에 두 번 눌러도 코드 하나만 — 고객 키를 먼저 잡는다
   const lockKey = `${K.byCustomer(customer.id)}:lock`;
@@ -450,6 +486,7 @@ async function handleJoin(req: VercelRequest, res: VercelResponse) {
         paypalEmail: null,
         paypalUpdatedAt: null,
         statusHistory: [],
+        profile,
       };
       if (!(await kv.set(K.partner(code), partner, { nx: true }))) continue; // 코드 중복 → 다시 뽑기
       await kv.set(K.byCustomer(customer.id), code);
@@ -676,6 +713,7 @@ function adminPartner(p: Partner) {
     joinedAt: p.joinedAt,
     paypalEmail: p.paypalEmail,
     paypalUpdatedAt: p.paypalUpdatedAt,
+    profile: p.profile ?? null,
   };
 }
 

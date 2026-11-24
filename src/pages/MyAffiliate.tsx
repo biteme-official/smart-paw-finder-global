@@ -16,7 +16,7 @@ import { initiateLogin, isLoggedIn as isCustomerLoggedIn } from '@/lib/customer-
 import { IS_B2C_SITE } from '@/lib/site';
 import { fetchProductsByHandles } from '@/lib/shopify';
 import {
-  AffiliateApiError, buildAffiliateLink, displayAffiliateLink, estimateCommission,
+  AFFILIATE_JOIN_OPEN, AffiliateApiError, buildAffiliateLink, displayAffiliateLink, estimateCommission,
   fetchAffiliateDashboard, formatUsd, recordLinkCopy, savePaypalEmail, type AffiliateLinkRow,
 } from '@/lib/affiliate';
 import { AffiliateJoinSheet, AffiliateStats } from '@/components/affiliate/AffiliateJoinSheet';
@@ -80,6 +80,7 @@ function BackToMyPage() {
 // ─── 가입 안내 (파트너 아님) ──────────────────────────────────────────────────
 
 function JoinIntro({ onStart }: { onStart: () => void }) {
+  const closed = !AFFILIATE_JOIN_OPEN;
   const steps = [
     { title: 'Join in seconds', desc: 'No review, link right away' },
     { title: 'Share your link', desc: 'Stories, bio, blog, anywhere' },
@@ -104,7 +105,7 @@ function JoinIntro({ onStart }: { onStart: () => void }) {
           ))}
         </ol>
       </Card>
-      <Button onClick={onStart} className="mt-6 h-12 w-full rounded-2xl text-base font-bold">Start now</Button>
+      <Button onClick={onStart} disabled={closed} className="mt-6 h-12 w-full rounded-2xl text-base font-bold">{closed ? 'Coming soon' : 'Start now'}</Button>
       <p className="mt-3 text-center text-xs text-muted-foreground">Free · No review</p>
     </div>
   );
@@ -373,6 +374,14 @@ function Dashboard({ code }: { code: string }) {
 
 // ─── 페이지 ───────────────────────────────────────────────────────────────────
 
+// 가입 실패 안내 — 서버 error 값별로 나눈다
+function joinErrorMessage(e: unknown): string {
+  if (!(e instanceof AffiliateApiError) || e.status !== 403) return 'Something went wrong. Please try again.';
+  if (e.message === 'Country not eligible') return 'The affiliate program isn’t available for residents of your country.';
+  if (e.message === 'Join closed') return 'The affiliate program is opening soon.';
+  return 'This account can’t join the program. Please contact us.';
+}
+
 export default function MyAffiliate() {
   const loggedIn = isCustomerLoggedIn();
   const { partner, removed, ready, isLoading, isError, join } = useAffiliatePartner();
@@ -385,7 +394,7 @@ export default function MyAffiliate() {
     const next = new URLSearchParams(params);
     next.delete(JOIN_PARAM);
     setParams(next, { replace: true });
-    if (!partner && !removed) setJoinOpen(true);
+    if (!partner && !removed && AFFILIATE_JOIN_OPEN) setJoinOpen(true);
   }, [params, setParams, loggedIn, ready, partner, removed]);
 
   if (!IS_B2C_SITE) return <Navigate to="/mypage" replace />;
@@ -396,8 +405,7 @@ export default function MyAffiliate() {
     try {
       await joined;
     } catch (e) {
-      const removed = e instanceof AffiliateApiError && e.status === 403;
-      toast.error(removed ? 'This account can’t join the program. Please contact us.' : 'Something went wrong. Please try again.', { position: 'top-center' });
+      toast.error(joinErrorMessage(e), { position: 'top-center' });
       return;
     }
     setJoinOpen(false);

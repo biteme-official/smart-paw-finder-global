@@ -74,7 +74,12 @@ interface Summary {
 }
 
 interface PartnerDetail {
-  partner: PartnerRow & { consent: { at: string }; statusHistory: { at: string; from: PartnerStatus; to: PartnerStatus }[] };
+  partner: PartnerRow & {
+    consent: { at: string };
+    statusHistory: { at: string; from: PartnerStatus; to: PartnerStatus }[];
+    // 가입 때 받은 실명·거주 국가·주소 — 11/24 이전 가입자는 null
+    profile: { firstName: string; lastName: string; country: string; address1: string; address2: string; city: string; province: string; zip: string } | null;
+  };
   performance: { clicks: number; copies: number; orders: number; sales: number; commission: number };
   links: { handle: string; clicks: number; copies: number; orders: number; commission: number }[];
   orders: Order[];
@@ -283,6 +288,16 @@ function PartnerSheet({ code, range, confirmDays, onClose, onChanged }: {
               <div><dt className="text-muted-foreground">Country (default shipping)</dt><dd>{p.country || '—'}</dd></div>
               <div><dt className="text-muted-foreground">Joined</dt><dd>{kstDate(p.joinedAt)}</dd></div>
               <div><dt className="text-muted-foreground">PayPal email</dt><dd>{p.paypalEmail ? maskEmail(p.paypalEmail) : <span className="text-red-600">Missing</span>}</dd></div>
+              <div><dt className="text-muted-foreground">Legal name</dt><dd>{p.profile ? `${p.profile.firstName} ${p.profile.lastName}` : '—'}</dd></div>
+              <div><dt className="text-muted-foreground">Country of residence</dt><dd>{p.profile?.country || '—'}</dd></div>
+              <div className="md:col-span-2">
+                <dt className="text-muted-foreground">Address</dt>
+                <dd className="break-words">
+                  {p.profile
+                    ? [p.profile.address1, p.profile.address2, p.profile.city, p.profile.province, p.profile.zip].filter(Boolean).join(', ')
+                    : '—'}
+                </dd>
+              </div>
               <div className="md:col-span-2">
                 <dt className="text-muted-foreground">Partner link</dt>
                 <dd className="flex items-center gap-2 break-all">
