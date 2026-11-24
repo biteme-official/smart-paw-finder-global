@@ -43,6 +43,7 @@ interface Order {
   manualVoid: boolean;
   history: { at: string; change: string }[];
   partnerName?: string;
+  partnerTest?: boolean;
   confirmedAt?: string | null;
   paidAt?: string | null;
   paidAmount?: number | null;
@@ -57,6 +58,7 @@ interface PartnerRow {
   status: PartnerStatus;
   joinedAt: string;
   paypalEmail: string | null;
+  test?: boolean;
   clicks: number;
   copies: number;
   orders: number;
@@ -180,6 +182,11 @@ const PARTNER_STATUS_CLS: Record<PartnerStatus, string> = {
   left: 'border-gray-200 bg-gray-100 text-gray-500',
   removed: 'border-red-200 bg-red-50 text-red-600',
 };
+// 내부 테스트 파트너 — 통계·CSV·지급에서 빠진다
+function TestBadge() {
+  return <span className="inline-flex rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-xs font-semibold text-violet-700">테스트</span>;
+}
+
 function PartnerBadge({ status }: { status: PartnerStatus }) {
   return (
     <span className={cn('inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize', PARTNER_STATUS_CLS[status])}>{status}</span>
@@ -265,6 +272,21 @@ function PartnerSheet({ code, range, confirmDays, onClose, onChanged }: {
     }
   };
 
+  const toggleTest = async (test: boolean) => {
+    if (!code) return;
+    setSaving(true);
+    try {
+      await api('admin-partner-test', { body: { code, test } });
+      toast.success(test ? '테스트 파트너로 표시했습니다. 통계·CSV·지급에서 빠집니다.' : '테스트 표시를 해제했습니다.');
+      await refetch();
+      onChanged();
+    } catch (e) {
+      toast.error(`저장 실패: ${(e as Error).message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const p = data?.partner;
   const link = code ? `${B2C_SITE_URL}/a/${code}` : '';
   const CONFIRM_TEXT: Record<PartnerStatus, { title: string; desc: string; action: string }> = {
@@ -282,12 +304,13 @@ function PartnerSheet({ code, range, confirmDays, onClose, onChanged }: {
         ) : (
           <div className="space-y-6">
             <SheetHeader className="space-y-1 text-left">
-              <SheetTitle className="flex items-center gap-2 text-2xl">{p.name || '(이름 없음)'} <PartnerBadge status={p.status} /></SheetTitle>
+              <SheetTitle className="flex items-center gap-2 text-2xl">{p.name || '(이름 없음)'} <PartnerBadge status={p.status} />{p.test && <TestBadge />}</SheetTitle>
               <SheetDescription className="font-mono">{p.code}</SheetDescription>
             </SheetHeader>
 
             <div className="flex flex-wrap gap-2">
               {p.status === 'active' && <Button variant="outline" disabled={saving} onClick={() => setConfirm('suspended')}>Suspend</Button>}
+              <Button variant="outline" disabled={saving} onClick={() => toggleTest(!p.test)}>{p.test ? '테스트 해제' : '테스트 파트너로 표시'}</Button>
               {p.status !== 'active' && <Button variant="outline" disabled={saving} onClick={() => setConfirm('active')}>Activate</Button>}
               {p.status !== 'left' && p.status !== 'removed' && <Button variant="outline" disabled={saving} onClick={() => setConfirm('left')}>탈퇴 처리</Button>}
               {p.status !== 'removed' && <Button variant="outline" disabled={saving} onClick={() => setConfirm('removed')}>Remove (부정)</Button>}
@@ -418,7 +441,7 @@ type SortKey = 'clicks' | 'orders' | 'sales' | 'commission' | 'joinedAt';
 const PAGE_SIZE = 20;
 
 function PartnersTable({ partners, onOpen }: { partners: PartnerRow[]; onOpen: (code: string) => void }) {
-  const [tab, setTab] = useState<'all' | PartnerStatus>('all');
+  const [tab, setTab] = useState<'all' | 'test' | PartnerStatus>('all');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<SortKey>('sales');
   const [page, setPage] = useState(0);
@@ -429,12 +452,13 @@ function PartnersTable({ partners, onOpen }: { partners: PartnerRow[]; onOpen: (
     suspended: partners.filter((p) => p.status === 'suspended').length,
     left: partners.filter((p) => p.status === 'left').length,
     removed: partners.filter((p) => p.status === 'removed').length,
+    test: partners.filter((p) => p.test).length,
   }), [partners]);
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return partners
-      .filter((p) => tab === 'all' || p.status === tab)
+      .filter((p) => tab === 'all' || (tab === 'test' ? p.test : p.status === tab))
       .filter((p) => !q || p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))
       .sort((a, b) => (sort === 'joinedAt' ? b.joinedAt.localeCompare(a.joinedAt) : b[sort] - a[sort]));
   }, [partners, tab, search, sort]);
@@ -457,7 +481,7 @@ function PartnersTable({ partners, onOpen }: { partners: PartnerRow[]; onOpen: (
       <p className="text-sm text-muted-foreground">클릭·주문·매출·커미션은 선택 기간 기준(봇 제외). 열 이름을 누르면 정렬, 행을 누르면 상세.</p>
       <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center">
         <div className="flex flex-wrap gap-1 rounded-xl bg-gray-100 p-1">
-          {(['all', 'active', 'suspended', 'left', 'removed'] as const).map((t) => (
+          {(['all', 'active', 'suspended', 'left', 'removed', 'test'] as const).map((t) => (
             <button key={t} type="button" onClick={() => setTab(t)}
               className={cn('rounded-lg px-3 py-1.5 text-sm capitalize', tab === t ? 'bg-white font-semibold shadow-sm' : 'text-muted-foreground')}>
               {t} ({counts[t]})
@@ -500,7 +524,7 @@ function PartnersTable({ partners, onOpen }: { partners: PartnerRow[]; onOpen: (
                     ? <CheckCircle2 className="mx-auto h-5 w-5 text-green-600" aria-label="등록됨" />
                     : <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-600">Missing</span>}
                 </td>
-                <td className="px-3 py-3 text-center"><PartnerBadge status={p.status} /></td>
+                <td className="px-3 py-3 text-center"><PartnerBadge status={p.status} />{p.test && <span className="ml-1"><TestBadge /></span>}</td>
               </tr>
             ))}
           </tbody>
@@ -915,7 +939,7 @@ export default function AffiliateAdmin() {
                         <td className="px-3 py-3">
                           <button type="button" className="text-left hover:underline" onClick={() => setOpenCode(o.code)}>
                             <div className="font-mono text-xs">{o.code}</div>
-                            <div className="text-muted-foreground">{o.partnerName || '—'}</div>
+                            <div className="text-muted-foreground">{o.partnerName || '—'}{o.partnerTest && <span className="ml-1"><TestBadge /></span>}</div>
                           </button>
                         </td>
                         <td className="px-3 py-3 text-right">{usd(o.baseAmount)}</td>

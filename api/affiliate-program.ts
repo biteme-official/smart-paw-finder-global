@@ -55,6 +55,7 @@ export interface Partner {
   paypalUpdatedAt: string | null;
   statusHistory: { at: string; from: PartnerStatus; to: PartnerStatus }[];
   profile?: PartnerProfile; // 가입 때 받은 실명·거주 국가·주소 (약관 2번). 11/24 이전 가입자는 없음
+  test?: boolean; // 내부 테스트 파트너 — 통계·정산 CSV·지급 대상에서 뺀다 (가입·링크·귀속·대시보드는 실제와 같이 동작)
 }
 
 export interface PartnerProfile {
@@ -640,12 +641,16 @@ async function handleDashboard(req: VercelRequest, res: VercelResponse) {
 
 function adminOrder(o: Commission, partners: Map<string, Partner>) {
   const p = partners.get(o.code);
-  return { ...o, partnerName: p?.name || '', partnerEmail: p?.email || '' };
+  return { ...o, partnerName: p?.name || '', partnerEmail: p?.email || '', partnerTest: !!p?.test };
 }
 
 async function handleAdminSummary(req: VercelRequest, res: VercelResponse) {
   const range = readRange(req);
-  const [partners, orders] = await Promise.all([getAllPartners(), getOrdersInRange(K.orders, range)]);
+  const [allPartners, allOrders] = await Promise.all([getAllPartners(), getOrdersInRange(K.orders, range)]);
+  // 테스트 파트너와 그 주문은 통계에서 뺀다
+  const testCodes = new Set(allPartners.filter((p) => p.test).map((p) => p.code));
+  const partners = allPartners.filter((p) => !p.test);
+  const orders = allOrders.filter((o) => !testCodes.has(o.code));
 
   let clicks = 0;
   let copies = 0;
@@ -736,6 +741,7 @@ function adminPartner(p: Partner) {
     paypalEmail: p.paypalEmail,
     paypalUpdatedAt: p.paypalUpdatedAt,
     profile: p.profile ?? null,
+    test: !!p.test,
   };
 }
 
@@ -779,6 +785,17 @@ async function handleAdminPartner(req: VercelRequest, res: VercelResponse) {
     orders: allOrders, // 전체 기간
     paypalHistory,
   });
+}
+
+async function handleAdminPartnerTest(req: VercelRequest, res: VercelResponse) {
+  const body = (req.body ?? {}) as { code?: unknown; test?: unknown };
+  const code = normalizeCode(body.code);
+  if (!code || typeof body.test !== 'boolean') return res.status(400).json({ error: 'Invalid request' });
+  const test = body.test;
+  const saved = await updatePartner(code, (p) => ({ ...p, test }));
+  if (saved === 'busy') return res.status(409).json({ error: '잠시 후 다시 시도하세요.' });
+  if (!saved) return res.status(404).json({ error: 'Not found' });
+  return res.status(200).json({ partner: adminPartner(saved) });
 }
 
 async function handleAdminPartnerStatus(req: VercelRequest, res: VercelResponse) {
@@ -842,7 +859,7 @@ async function handleAdminPayouts(req: VercelRequest, res: VercelResponse) {
   const partners = await getAllPartners();
   const rows = (
     await Promise.all(
-      partners.map(async (p) => {
+      partners.filter((p) => !p.test).map(async (p) => {
         const [orders, adjustments] = await Promise.all([getAllPartnerOrders(p.code), getAdjustments(p.code)]);
         const pay = splitPayable(orders, adjustments, win.cutoffMs);
         if (!pay.items.length && !pay.adjustments.length) return null;
@@ -883,7 +900,7 @@ async function handleAdminPayoutList(req: VercelRequest, res: VercelResponse) {
   const picked = month ? stored.filter((p) => kstDate(p.paidAt).startsWith(month)) : stored;
   const partners = new Map((await getAllPartners()).map((p) => [p.code, p]));
   const payouts = await Promise.all(
-    picked.map(async (raw) => {
+    picked.filter((x) => !partners.get(x.code)?.test).map(async (raw) => {
       const p = await refreshPaypalPayout(raw).catch(() => raw);
       const [orders, adjustments] = await Promise.all([getOrders(p.orderIds), getAdjustments(p.code)]);
       const partner = partners.get(p.code);
@@ -1026,6 +1043,7 @@ async function handleAdminPayoutMark(req: VercelRequest, res: VercelResponse) {
     const win = payoutWindow();
     const [orders, adjustments] = await Promise.all([getAllPartnerOrders(code), getAdjustments(code)]);
     const pay = splitPayable(orders, adjustments, win.cutoffMs);
+    if (partner.test) return res.status(409).json({ error: '테스트 파트너는 지급 대상이 아닙니다.' });
     const block = payoutBlock(partner, pay.amount);
     if (block !== 'ready') return res.status(409).json({ error: `지급 대상이 아닙니다 (${block})` });
     if (round2(expected) !== pay.amount) return res.status(409).json({ error: `금액이 바뀌었습니다 (${pay.amount}). 새로고침 후 확인하세요.` });
@@ -1378,6 +1396,7 @@ const ADMIN_ROUTES: Record<string, { method: 'GET' | 'POST'; fn: Handler }> = {
   'admin-void': { method: 'POST', fn: handleAdminVoid },
   'admin-payouts': { method: 'GET', fn: handleAdminPayouts },
   'admin-payout-mark': { method: 'POST', fn: handleAdminPayoutMark },
+  'admin-partner-test': { method: 'POST', fn: handleAdminPartnerTest },
   'admin-payout-list': { method: 'GET', fn: handleAdminPayoutList },
 };
 

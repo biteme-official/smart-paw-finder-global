@@ -49,6 +49,7 @@ export interface SettlementPartner {
   code: string;
   name: string;
   status?: string; // active | suspended | left | removed
+  test?: boolean; // 테스트 파트너 — CSV에서 뺀다
   paypalEmail: string | null;
   profile?: { firstName?: string; lastName?: string } | null;
 }
@@ -138,7 +139,8 @@ export function buildSettlementCsv(
   const byCode = new Map(partners.map((p) => [p.code, p]));
   const byPayout = new Map(payouts.map((x) => [x.id, x]));
   const feeWritten = new Set<string>();
-  const rows = [...orders]
+  const rows = orders
+    .filter((o) => !byCode.get(o.code)?.test)
     .sort((a, b) => a.code.localeCompare(b.code) || a.createdAt.localeCompare(b.createdAt))
     .map((o) => {
       const p = byCode.get(o.code);
