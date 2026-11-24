@@ -133,9 +133,14 @@ export interface Payout {
   period: string; // 확정 마감 월 YYYY-MM (이 달 말까지 확정된 커미션)
   amount: number;
   paypalEmail: string;
-  paidAt: string;
+  paidAt: string; // 수동: 지급 기록 시각, PayPal: 송금 요청 시각
   orderIds: string[];
   adjustmentIds: string[];
+  method?: 'manual' | 'paypal'; // 11/24 이전 기록은 없음 = manual
+  paypalBatchId?: string;
+  paypalStatus?: string; // PayPal transaction_status (PENDING·UNCLAIMED·SUCCESS·FAILED·RETURNED 등)
+  paypalFee?: number | null; // 회사 부담 송금 수수료 (USD)
+  paypalTransactionId?: string | null;
 }
 
 // ─── KV 키 ────────────────────────────────────────────────────────────────────
@@ -825,20 +830,98 @@ async function handleAdminPayouts(req: VercelRequest, res: VercelResponse) {
   rows.sort((a, b) => b.amount - a.amount);
 
   const ids = await kv.zrange<string[]>(K.payouts, 0, 49, { rev: true });
-  const payouts = ids.length ? (await kv.mget<(Payout | null)[]>(...ids.map((id) => K.payout(String(id))))).filter((x): x is Payout => !!x) : [];
+  const stored = ids.length ? (await kv.mget<(Payout | null)[]>(...ids.map((id) => K.payout(String(id))))).filter((x): x is Payout => !!x) : [];
+  // PayPal 송금 중인 건은 열 때마다 상태·수수료·결제번호를 다시 읽는다 (조회 실패는 다음에 다시)
+  const payouts = await Promise.all(stored.map((p) => refreshPaypalPayout(p).catch(() => p)));
   const names = new Map(partners.map((p) => [p.code, p.name]));
   return res.status(200).json({
     ...win,
     minPayout: MIN_PAYOUT,
     confirmDays: CONFIRM_DAYS,
+    paypalEnabled: paypalConfigured(),
     rows,
     payouts: payouts.map((x) => ({ ...x, partnerName: names.get(x.code) || '' })),
   });
 }
 
-// 지급 완료 기록 (실제 송금은 PayPal에서 사람이 먼저 한다)
+// ─── PayPal Payouts ───────────────────────────────────────────────────────────
+// 회사 계정(비즈니스)에서 파트너 PayPal 이메일로 USD 송금. 송금 수수료는 회사 부담(약관 5번)
+
+const PAYPAL_API = process.env.PAYPAL_ENV === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com';
+const paypalConfigured = () => !!(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET);
+// 더 바뀌지 않는 상태 — 이 상태가 되면 다시 조회하지 않는다
+const PAYPAL_FINAL = new Set(['SUCCESS', 'FAILED', 'RETURNED', 'REVERSED', 'BLOCKED', 'REFUNDED', 'DENIED']);
+
+async function paypalFetch<T>(path: string, init: { method: 'GET' | 'POST'; body?: unknown; requestId?: string }): Promise<T> {
+  const basic = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`).toString('base64');
+  const tokenRes = await fetch(`${PAYPAL_API}/v1/oauth2/token`, {
+    method: 'POST',
+    headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=client_credentials',
+  });
+  if (!tokenRes.ok) throw new Error(`PayPal 인증 실패 (${tokenRes.status})`);
+  const { access_token } = (await tokenRes.json()) as { access_token: string };
+  const r = await fetch(`${PAYPAL_API}${path}`, {
+    method: init.method,
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+      'Content-Type': 'application/json',
+      // 같은 지급 id로 다시 보내면 PayPal이 새로 송금하지 않고 처음 결과를 돌려준다
+      ...(init.requestId ? { 'PayPal-Request-Id': init.requestId } : {}),
+    },
+    body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+  });
+  const data = (await r.json().catch(() => ({}))) as T & { name?: string; message?: string };
+  if (!r.ok) throw new Error(`PayPal ${r.status} ${data.name || ''} ${data.message || ''}`.trim());
+  return data;
+}
+
+async function paypalSend(id: string, email: string, amount: number): Promise<{ batchId: string; status: string }> {
+  const data = await paypalFetch<{ batch_header: { payout_batch_id: string; batch_status: string } }>('/v1/payments/payouts', {
+    method: 'POST',
+    requestId: id,
+    body: {
+      sender_batch_header: {
+        sender_batch_id: id,
+        email_subject: 'You have a payout from BITE ME',
+        email_message: 'Thanks for sharing BITE ME. Here is your affiliate commission.',
+      },
+      items: [{
+        recipient_type: 'EMAIL',
+        amount: { value: amount.toFixed(2), currency: 'USD' },
+        receiver: email,
+        note: 'BITE ME affiliate commission',
+        sender_item_id: id,
+      }],
+    },
+  });
+  return { batchId: data.batch_header.payout_batch_id, status: data.batch_header.batch_status };
+}
+
+// 송금 결과(상태·수수료·결제번호)를 PayPal에서 다시 읽어 지급 기록에 반영
+async function refreshPaypalPayout(p: Payout): Promise<Payout> {
+  if (p.method !== 'paypal' || !p.paypalBatchId || (p.paypalStatus && PAYPAL_FINAL.has(p.paypalStatus))) return p;
+  const data = await paypalFetch<{
+    items?: { transaction_status?: string; transaction_id?: string; payout_item_fee?: { value?: string } }[];
+  }>(`/v1/payments/payouts/${encodeURIComponent(p.paypalBatchId)}`, { method: 'GET' });
+  const item = data.items?.[0];
+  if (!item) return p;
+  const fee = item.payout_item_fee?.value;
+  const next: Payout = {
+    ...p,
+    paypalStatus: item.transaction_status || p.paypalStatus,
+    paypalFee: fee !== undefined ? round2(Number(fee)) : p.paypalFee ?? null,
+    paypalTransactionId: item.transaction_id || p.paypalTransactionId || null,
+  };
+  await kv.set(K.payout(p.id), next);
+  return next;
+}
+
+// 지급: method=manual은 PayPal에서 사람이 먼저 송금한 뒤 기록, method=paypal은 여기서 Payouts API로 송금하고 기록
 async function handleAdminPayoutMark(req: VercelRequest, res: VercelResponse) {
-  const body = (req.body ?? {}) as { code?: unknown; amount?: unknown };
+  const body = (req.body ?? {}) as { code?: unknown; amount?: unknown; method?: unknown };
+  const method = body.method === 'paypal' ? 'paypal' : 'manual';
+  if (method === 'paypal' && !paypalConfigured()) return res.status(400).json({ error: 'PayPal 키가 설정되지 않았습니다.' });
   const code = normalizeCode(body.code);
   const expected = Number(body.amount);
   if (!code || !Number.isFinite(expected)) return res.status(400).json({ error: 'Invalid request' });
@@ -855,8 +938,21 @@ async function handleAdminPayoutMark(req: VercelRequest, res: VercelResponse) {
     if (block !== 'ready') return res.status(409).json({ error: `지급 대상이 아닙니다 (${block})` });
     if (round2(expected) !== pay.amount) return res.status(409).json({ error: `금액이 바뀌었습니다 (${pay.amount}). 새로고침 후 확인하세요.` });
 
+    // 지급 id는 (마감 월·파트너·같은 달 몇 번째)로 정한다 — 송금 뒤 기록이 실패해 다시 눌러도 같은 id라 PayPal이 두 번 보내지 않는다
+    const prevIds = await kv.zrange<string[]>(K.partnerPayouts(code), 0, -1);
+    const prev = prevIds.length ? await kv.mget<(Payout | null)[]>(...prevIds.map((x) => K.payout(String(x)))) : [];
+    const id = `${win.period}-${code}-${prev.filter((x) => x?.period === win.period).length + 1}`;
+    let sent: { batchId: string; status: string } | null = null;
+    if (method === 'paypal') {
+      try {
+        sent = await paypalSend(id, partner.paypalEmail!, pay.amount);
+      } catch (e) {
+        // 송금 요청이 거절되면 아무것도 바꾸지 않는다
+        return res.status(502).json({ error: `PayPal 송금 실패: ${(e as Error).message}` });
+      }
+    }
+
     const now = new Date().toISOString();
-    const id = `${win.period}-${code}-${Date.now().toString(36)}`;
     const payout: Payout = {
       id,
       code,
@@ -866,6 +962,8 @@ async function handleAdminPayoutMark(req: VercelRequest, res: VercelResponse) {
       paidAt: now,
       orderIds: pay.items.map((o) => o.orderId),
       adjustmentIds: pay.adjustments.map((a) => a.id),
+      method,
+      ...(sent ? { paypalBatchId: sent.batchId, paypalStatus: sent.status, paypalFee: null, paypalTransactionId: null } : {}),
     };
     await kv.set(K.payout(id), payout);
     for (const o of pay.items) {

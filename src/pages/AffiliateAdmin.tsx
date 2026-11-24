@@ -143,10 +143,17 @@ interface PayoutRow {
 }
 
 interface PayoutsData {
-  period: string; payDate: string; minPayout: number; confirmDays: number;
+  period: string; payDate: string; minPayout: number; confirmDays: number; paypalEnabled: boolean;
   rows: PayoutRow[];
-  payouts: { id: string; code: string; partnerName: string; period: string; amount: number; paypalEmail: string; paidAt: string; orderIds: string[] }[];
+  payouts: {
+    id: string; code: string; partnerName: string; period: string; amount: number; paypalEmail: string; paidAt: string; orderIds: string[];
+    method?: 'manual' | 'paypal'; paypalStatus?: string; paypalFee?: number | null; paypalTransactionId?: string | null;
+  }[];
 }
+
+type PayMethod = 'manual' | 'paypal';
+// PayPal 송금이 돈을 돌려받는 쪽으로 끝난 상태 — 관리자가 확인해야 한다
+const PAYPAL_PROBLEM = new Set(['FAILED', 'RETURNED', 'REVERSED', 'BLOCKED', 'REFUNDED', 'DENIED', 'UNCLAIMED']);
 
 function StatusBadge({ order }: { order: Order }) {
   if (order.status === 'pending') {
@@ -511,15 +518,15 @@ function PartnersTable({ partners, onOpen }: { partners: PartnerRow[]; onOpen: (
 
 function PayoutsPanel({ data, onChanged }: { data: PayoutsData; onChanged: () => void }) {
   const api = useAdminApi();
-  const [target, setTarget] = useState<PayoutRow | null>(null);
+  const [target, setTarget] = useState<{ row: PayoutRow; method: PayMethod } | null>(null);
   const [saving, setSaving] = useState(false);
   const ready = data.rows.filter((r) => r.block === 'ready');
 
-  const markPaid = async (row: PayoutRow) => {
+  const markPaid = async (row: PayoutRow, method: PayMethod) => {
     setSaving(true);
     try {
-      await api('admin-payout-mark', { body: { code: row.code, amount: row.amount } });
-      toast.success(`${row.name || row.code} 지급 완료로 기록했습니다.`);
+      await api('admin-payout-mark', { body: { code: row.code, amount: row.amount, method } });
+      toast.success(method === 'paypal' ? `${row.name || row.code}에게 PayPal 송금을 요청했습니다.` : `${row.name || row.code} 지급 완료로 기록했습니다.`);
       onChanged();
     } catch (e) {
       toast.error(`실패: ${(e as Error).message}`);
@@ -535,8 +542,8 @@ function PayoutsPanel({ data, onChanged }: { data: PayoutsData; onChanged: () =>
         Payouts <span className="font-normal text-muted-foreground">· {data.period} 확정분 · 지급일 {data.payDate}</span>
       </h2>
       <p className="text-sm text-muted-foreground">
-        주문 {data.confirmDays}일 뒤 자동 확정 → 지난달 말까지 확정된 커미션(지급 후 환불 차감 포함)을 이번 달 말 지급. {usd(data.minPayout)} 미만·PayPal 없음은 다음 달로 이월.
-        PayPal에서 송금한 뒤 Mark as paid를 누르세요. Ready {ready.length}명 · {usd(ready.reduce((t, r) => t + r.amount, 0))}
+        주문 {data.confirmDays}일 뒤 자동 확정 → 지난달 말까지 확정된 커미션(지급 후 환불 차감 포함)을 이번 달 15일 지급. {usd(data.minPayout)} 미만·PayPal 없음은 다음 달로 이월(탈퇴는 미만도 지급).
+        {data.paypalEnabled ? 'PayPal로 송금을 누르면 회사 계정에서 바로 송금됩니다. PayPal에서 직접 보냈다면 Mark as paid만 누르세요.' : 'PayPal에서 송금한 뒤 Mark as paid를 누르세요.'} Ready {ready.length}명 · {usd(ready.reduce((t, r) => t + r.amount, 0))}
       </p>
       <div className="mt-4 overflow-x-auto rounded-xl border">
         <table className="w-full min-w-[820px] text-sm">
@@ -569,7 +576,10 @@ function PayoutsPanel({ data, onChanged }: { data: PayoutsData; onChanged: () =>
                 </td>
                 <td className="px-3 py-3 text-center">
                   {r.block === 'ready' && (
-                    <Button size="sm" variant="outline" disabled={saving} onClick={() => setTarget(r)}>Mark as paid</Button>
+                    <div className="flex justify-center gap-2">
+                      {data.paypalEnabled && <Button size="sm" disabled={saving} onClick={() => setTarget({ row: r, method: 'paypal' })}>PayPal로 송금</Button>}
+                      <Button size="sm" variant="outline" disabled={saving} onClick={() => setTarget({ row: r, method: 'manual' })}>Mark as paid</Button>
+                    </div>
                   )}
                 </td>
               </tr>
@@ -582,11 +592,12 @@ function PayoutsPanel({ data, onChanged }: { data: PayoutsData; onChanged: () =>
         <div className="mt-6">
           <h3 className="font-bold">최근 지급 기록</h3>
           <div className="mt-2 overflow-x-auto">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full min-w-[960px] text-sm">
               <thead className="text-left text-muted-foreground">
                 <tr className="border-b">
                   <th className="py-2 font-medium">Paid</th><th className="py-2 font-medium">Partner</th><th className="py-2 font-medium">Period</th>
                   <th className="py-2 font-medium">PayPal</th><th className="py-2 text-right font-medium">Orders</th><th className="py-2 text-right font-medium">Amount</th>
+                  <th className="py-2 pl-4 font-medium">Method · Status</th><th className="py-2 text-right font-medium">Fee</th><th className="py-2 pl-4 font-medium">Transaction ID</th>
                 </tr>
               </thead>
               <tbody>
@@ -598,6 +609,11 @@ function PayoutsPanel({ data, onChanged }: { data: PayoutsData; onChanged: () =>
                     <td className="py-2 break-all">{x.paypalEmail}</td>
                     <td className="py-2 text-right">{x.orderIds.length}</td>
                     <td className="py-2 text-right font-semibold">{usd(x.amount)}</td>
+                    <td className={cn('py-2 pl-4', x.paypalStatus && PAYPAL_PROBLEM.has(x.paypalStatus) && 'font-semibold text-red-600')}>
+                      {x.method === 'paypal' ? `PayPal · ${x.paypalStatus || '—'}` : '수동'}
+                    </td>
+                    <td className="py-2 text-right">{x.paypalFee != null ? usd(x.paypalFee) : '—'}</td>
+                    <td className="py-2 pl-4 font-mono text-xs break-all">{x.paypalTransactionId || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -611,14 +627,19 @@ function PayoutsPanel({ data, onChanged }: { data: PayoutsData; onChanged: () =>
           {target && (
             <>
               <AlertDialogHeader>
-                <AlertDialogTitle>{target.name || target.code} · {usd(target.amount)} 지급 완료로 기록할까요?</AlertDialogTitle>
+                <AlertDialogTitle>
+                  {target.row.name || target.row.code} · {usd(target.row.amount)} {target.method === 'paypal' ? 'PayPal로 송금할까요?' : '지급 완료로 기록할까요?'}
+                </AlertDialogTitle>
                 <AlertDialogDescription>
-                  PayPal({target.paypalEmail}) 송금을 먼저 마쳤는지 확인하세요. 확정 주문 {target.orders}건이 Paid로 바뀌고{target.adjustments ? `, 차감 ${target.adjustments}건이 함께 반영됩니다` : '니다'}. 되돌릴 수 없어요.
+                  {target.method === 'paypal'
+                    ? `회사 PayPal 계정에서 ${target.row.paypalEmail}로 ${usd(target.row.amount)}가 실제로 송금됩니다(수수료 회사 부담). `
+                    : `PayPal(${target.row.paypalEmail}) 송금을 먼저 마쳤는지 확인하세요. `}
+                  확정 주문 {target.row.orders}건이 Paid로 바뀌고{target.row.adjustments ? `, 차감 ${target.row.adjustments}건이 함께 반영됩니다` : '니다'}. 되돌릴 수 없어요.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>취소</AlertDialogCancel>
-                <AlertDialogAction onClick={() => markPaid(target)}>Mark as paid</AlertDialogAction>
+                <AlertDialogAction onClick={() => markPaid(target.row, target.method)}>{target.method === 'paypal' ? '송금' : 'Mark as paid'}</AlertDialogAction>
               </AlertDialogFooter>
             </>
           )}
