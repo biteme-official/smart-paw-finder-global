@@ -146,7 +146,7 @@ export function buildSettlementCsv(
       const p = byCode.get(o.code);
       const pay = o.payoutId ? byPayout.get(o.payoutId) : undefined;
       // 수수료는 송금 건당 — 그 송금의 첫 주문 줄에만 (송금이 여러 주문월에 걸쳐도 월별 CSV를 합칠 때 두 번 세지 않게)
-      const firstOfPayout = pay ? (o.orderId ? pay.orderIds[0] === o.orderId : !feeWritten.has(pay.id)) : false;
+      const firstOfPayout = pay ? (o.orderId && pay.orderIds.length ? pay.orderIds[0] === o.orderId : !feeWritten.has(pay.id)) : false;
       const fee = pay && pay.paypalFee != null && firstOfPayout ? pay.paypalFee : '';
       if (pay) feeWritten.add(pay.id);
       const carried = carryOver(o, p, today);

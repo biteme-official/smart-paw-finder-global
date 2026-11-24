@@ -540,10 +540,14 @@ async function handlePaypal(req: VercelRequest, res: VercelResponse) {
   if (!EMAIL_RE.test(email) || email.length > 254) return res.status(400).json({ error: 'Invalid email' });
 
   const now = new Date().toISOString();
-  const updated = await updatePartner(partner.code, (p) => ({ ...p, paypalEmail: email, paypalUpdatedAt: now }));
+  let previous: string | null = partner.paypalEmail;
+  const updated = await updatePartner(partner.code, (p) => {
+    previous = p.paypalEmail;
+    return { ...p, paypalEmail: email, paypalUpdatedAt: now };
+  });
   if (updated === 'busy') return res.status(409).json({ error: 'Try again' });
   if (!updated) return res.status(404).json({ error: 'Not found' });
-  await kv.lpush(K.paypalHistory(partner.code), { at: now, from: maskEmail(partner.paypalEmail), to: maskEmail(email) });
+  await kv.lpush(K.paypalHistory(partner.code), { at: now, from: maskEmail(previous), to: maskEmail(email) });
   return res.status(200).json({ partner: publicPartner(updated) });
 }
 
@@ -808,16 +812,9 @@ async function handleAdminPartnerStatus(req: VercelRequest, res: VercelResponse)
   const partner = await getPartner(code);
   if (!partner) return res.status(404).json({ error: 'Not found' });
   if (partner.status === status) return res.status(200).json({ partner: adminPartner(partner) });
-  const updated: Partner = {
-    ...partner,
-    status,
-    statusHistory: [...partner.statusHistory, { at: new Date().toISOString(), from: partner.status, to: status }],
-  };
-  const saved = await updatePartner(code, (p) => ({
-    ...p,
-    status,
-    statusHistory: [...p.statusHistory, { at: updated.statusHistory[updated.statusHistory.length - 1].at, from: p.status, to: status }],
-  }));
+  const saved = await updatePartner(code, (p) =>
+    p.status === status ? p : { ...p, status, statusHistory: [...p.statusHistory, { at: new Date().toISOString(), from: p.status, to: status }] },
+  );
   if (saved === 'busy') return res.status(409).json({ error: '잠시 후 다시 시도하세요.' });
   if (!saved) return res.status(404).json({ error: 'Not found' });
   return res.status(200).json({ partner: adminPartner(saved) });
@@ -857,6 +854,13 @@ async function handleAdminVoid(req: VercelRequest, res: VercelResponse) {
 async function handleAdminPayouts(req: VercelRequest, res: VercelResponse) {
   const win = payoutWindow();
   const partners = await getAllPartners();
+  const testCodes = new Set(partners.filter((p) => p.test).map((p) => p.code));
+  // PayPal 송금 중인 건을 먼저 하나씩 갱신한다 — 실패로 되돌린 주문이 아래 지급 대상에 바로 잡히게
+  const ids = await kv.zrange<string[]>(K.payouts, 0, 49, { rev: true });
+  const stored = ids.length ? (await kv.mget<(Payout | null)[]>(...ids.map((id) => K.payout(String(id))))).filter((x): x is Payout => !!x) : [];
+  const payouts: Payout[] = [];
+  for (const p of stored.filter((x) => !testCodes.has(x.code))) payouts.push(await refreshPaypalPayout(p).catch(() => p));
+
   const rows = (
     await Promise.all(
       partners.filter((p) => !p.test).map(async (p) => {
@@ -875,11 +879,6 @@ async function handleAdminPayouts(req: VercelRequest, res: VercelResponse) {
     )
   ).filter((r): r is NonNullable<typeof r> => !!r);
   rows.sort((a, b) => b.amount - a.amount);
-
-  const ids = await kv.zrange<string[]>(K.payouts, 0, 49, { rev: true });
-  const stored = ids.length ? (await kv.mget<(Payout | null)[]>(...ids.map((id) => K.payout(String(id))))).filter((x): x is Payout => !!x) : [];
-  // PayPal 송금 중인 건은 열 때마다 상태·수수료·결제번호를 다시 읽는다 (조회 실패는 다음에 다시)
-  const payouts = await Promise.all(stored.map((p) => refreshPaypalPayout(p).catch(() => p)));
   const names = new Map(partners.map((p) => [p.code, p.name]));
   return res.status(200).json({
     ...win,
@@ -899,16 +898,19 @@ async function handleAdminPayoutList(req: VercelRequest, res: VercelResponse) {
   const stored = ids.length ? (await kv.mget<(Payout | null)[]>(...ids.map((id) => K.payout(String(id))))).filter((x): x is Payout => !!x) : [];
   const picked = month ? stored.filter((p) => kstDate(p.paidAt).startsWith(month)) : stored;
   const partners = new Map((await getAllPartners()).map((p) => [p.code, p]));
+  const refreshed: Payout[] = [];
+  for (const raw of picked.filter((x) => !partners.get(x.code)?.test)) refreshed.push(await refreshPaypalPayout(raw).catch(() => raw));
   const payouts = await Promise.all(
-    picked.filter((x) => !partners.get(x.code)?.test).map(async (raw) => {
-      const p = await refreshPaypalPayout(raw).catch(() => raw);
+    refreshed.map(async (p) => {
       const [orders, adjustments] = await Promise.all([getOrders(p.orderIds), getAdjustments(p.code)]);
       const partner = partners.get(p.code);
       return {
         ...p,
         partnerName: partner?.name || '',
         profile: partner?.profile ?? null,
-        commissionTotal: round2(orders.reduce((t, o) => t + (o.paidAmount ?? o.commission), 0)),
+        // 실제로 나간 돈만 — 송금 실패로 되돌린 지급은 0 (주문은 다음 지급에 다시 잡힌다)
+        amount: p.revertedAt ? 0 : p.amount,
+        commissionTotal: round2(orders.filter((o) => o.payoutId === p.id).reduce((t, o) => t + (o.paidAmount ?? o.commission), 0)),
         adjustmentTotal: round2(sum(adjustments.filter((a) => a.payoutId === p.id), 'amount')),
       };
     }),
@@ -930,26 +932,38 @@ const PAYPAL_FINAL = new Set(['SUCCESS', 'FAILED', 'RETURNED', 'REVERSED', 'BLOC
 const PAYPAL_FAILED = new Set(['FAILED', 'RETURNED', 'REVERSED', 'BLOCKED', 'REFUNDED', 'DENIED']);
 
 // 송금 실패 → 그 지급에 묶인 주문·차감을 '확정·미반영'으로 되돌린다. 수집·지급과 같은 잠금이 없으면 다음 조회 때 다시 시도
-async function revertFailedPayout(p: Payout): Promise<Payout> {
-  if (p.revertedAt || !(await kv.set(K.syncLock, 'revert', { nx: true, ex: 120 }))) return p;
+async function revertFailedPayout(stale: Payout): Promise<Payout> {
+  if (stale.revertedAt || !(await kv.set(K.syncLock, 'revert', { nx: true, ex: 120 }))) return stale;
   try {
+    // 다른 요청이 먼저 되돌렸을 수 있다 — 잠금 안에서 최신 기록을 다시 읽는다
+    const p = (await kv.get<Payout>(K.payout(stale.id))) ?? stale;
+    if (p.revertedAt) return p;
     const now = new Date().toISOString();
+    const all = await getAdjustments(p.code);
+    const revertedOrders = new Set<string>();
     for (const o of await getOrders(p.orderIds)) {
       if (o.payoutId !== p.id) continue;
+      revertedOrders.add(o.orderId);
+      // commission은 지금 받을 몫(환불 반영)이라 그대로 두고, 지급 후 차감은 없던 일로 (돈이 안 갔으므로)
       await kv.set(K.order(o.orderId), {
         ...o,
         status: 'confirmed',
         paidAt: null,
         payoutId: null,
         paidAmount: null,
+        clawback: 0,
+        reason: null,
         updatedAt: now,
         history: [...o.history, { at: now, change: `PayPal 송금 실패(${p.paypalStatus}) — 지급 취소, 다음 지급 대상` }],
       } satisfies Commission);
     }
-    const adjustments = (await getAdjustments(p.code)).filter((a) => a.payoutId === p.id);
-    if (adjustments.length) {
-      await kv.hset(K.adjustments(p.code), Object.fromEntries(adjustments.map((a) => [a.id, { ...a, payoutId: null }])));
+    // 이 지급에 반영됐던 예전 차감은 다음 지급으로 되돌리고, 되돌린 주문에서 생긴 미반영 차감은 지운다
+    const relink = all.filter((a) => a.payoutId === p.id);
+    if (relink.length) {
+      await kv.hset(K.adjustments(p.code), Object.fromEntries(relink.map((a) => [a.id, { ...a, payoutId: null }])));
     }
+    const drop = all.filter((a) => !a.payoutId && revertedOrders.has(a.orderId)).map((a) => a.id);
+    if (drop.length) await kv.hdel(K.adjustments(p.code), ...drop);
     const next: Payout = { ...p, revertedAt: now };
     await kv.set(K.payout(p.id), next);
     return next;
@@ -1016,8 +1030,9 @@ async function refreshPaypalPayout(p: Payout): Promise<Payout> {
   const item = data.items?.[0];
   if (!item) return p;
   const fee = item.payout_item_fee?.value;
+  const fresh = (await kv.get<Payout>(K.payout(p.id))) ?? p;
   const next: Payout = {
-    ...p,
+    ...fresh,
     paypalStatus: item.transaction_status || p.paypalStatus,
     paypalFee: fee !== undefined ? round2(Number(fee)) : p.paypalFee ?? null,
     paypalTransactionId: item.transaction_id || p.paypalTransactionId || null,
