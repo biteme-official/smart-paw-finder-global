@@ -23,7 +23,7 @@ import { ManagePageHeader, useManageAuth } from '@/components/admin/ManageLayout
 
 // ─── 타입 (api/affiliate-program.ts 응답) ─────────────────────────────────────
 
-type PartnerStatus = 'active' | 'suspended' | 'removed';
+type PartnerStatus = 'active' | 'suspended' | 'left' | 'removed';
 type CommissionStatus = 'pending' | 'confirmed' | 'paid' | 'excluded' | 'void';
 
 interface Order {
@@ -129,7 +129,7 @@ const REASON_LABEL: Record<string, string> = {
 // 정산: 지급 대상이 아닌 이유
 type PayoutBlock = 'ready' | 'below-min' | 'no-paypal' | 'suspended' | 'removed';
 const BLOCK_LABEL: Record<PayoutBlock, string> = {
-  ready: 'Ready', 'below-min': '최소 금액 미만 · 이월', 'no-paypal': 'PayPal 없음 · 이월', suspended: '정지 · 보류', removed: '제거 · 보류',
+  ready: 'Ready', 'below-min': '최소 금액 미만 · 이월', 'no-paypal': 'PayPal 없음 · 이월', suspended: '정지 · 보류', removed: '부정 제거 · 미지급',
 };
 
 interface PayoutRow {
@@ -162,7 +162,8 @@ function StatusBadge({ order }: { order: Order }) {
 const PARTNER_STATUS_CLS: Record<PartnerStatus, string> = {
   active: 'border-green-200 bg-green-50 text-green-700',
   suspended: 'border-amber-200 bg-amber-50 text-amber-700',
-  removed: 'border-gray-200 bg-gray-100 text-gray-500',
+  left: 'border-gray-200 bg-gray-100 text-gray-500',
+  removed: 'border-red-200 bg-red-50 text-red-600',
 };
 function PartnerBadge({ status }: { status: PartnerStatus }) {
   return (
@@ -253,7 +254,8 @@ function PartnerSheet({ code, range, confirmDays, onClose, onChanged }: {
   const link = code ? `${B2C_SITE_URL}/a/${code}` : '';
   const CONFIRM_TEXT: Record<PartnerStatus, { title: string; desc: string; action: string }> = {
     suspended: { title: '파트너를 정지할까요?', desc: '링크 클릭이 집계되지 않고, 정지 이후 새 주문은 커미션 0(Excluded)으로 기록됩니다. 다시 활성화할 수 있어요.', action: 'Suspend' },
-    removed: { title: '파트너를 제거할까요?', desc: '파트너 화면이 닫히고 같은 계정으로 다시 가입할 수 없어요. 기존 기록은 남습니다.', action: 'Remove' },
+    left: { title: '탈퇴 처리할까요?', desc: '본인 요청 탈퇴입니다. 파트너 화면이 닫히고, 이미 확정된 커미션은 최소 금액 미만이어도 다음 지급일에 지급됩니다.', action: '탈퇴 처리' },
+    removed: { title: '부정·약관 위반으로 제거할까요?', desc: '파트너 화면이 닫히고 같은 계정으로 다시 가입할 수 없어요. 아직 지급하지 않은 커미션은 지급하지 않습니다(약관 7번). 기존 기록은 남습니다.', action: 'Remove' },
     active: { title: '다시 활성화할까요?', desc: '이후 클릭·주문부터 다시 집계됩니다.', action: 'Activate' },
   };
 
@@ -272,7 +274,8 @@ function PartnerSheet({ code, range, confirmDays, onClose, onChanged }: {
             <div className="flex flex-wrap gap-2">
               {p.status === 'active' && <Button variant="outline" disabled={saving} onClick={() => setConfirm('suspended')}>Suspend</Button>}
               {p.status !== 'active' && <Button variant="outline" disabled={saving} onClick={() => setConfirm('active')}>Activate</Button>}
-              {p.status !== 'removed' && <Button variant="outline" disabled={saving} onClick={() => setConfirm('removed')}>Remove</Button>}
+              {p.status !== 'left' && p.status !== 'removed' && <Button variant="outline" disabled={saving} onClick={() => setConfirm('left')}>탈퇴 처리</Button>}
+              {p.status !== 'removed' && <Button variant="outline" disabled={saving} onClick={() => setConfirm('removed')}>Remove (부정)</Button>}
             </div>
 
             <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm md:grid-cols-2">
@@ -399,6 +402,7 @@ function PartnersTable({ partners, onOpen }: { partners: PartnerRow[]; onOpen: (
     all: partners.length,
     active: partners.filter((p) => p.status === 'active').length,
     suspended: partners.filter((p) => p.status === 'suspended').length,
+    left: partners.filter((p) => p.status === 'left').length,
     removed: partners.filter((p) => p.status === 'removed').length,
   }), [partners]);
 
@@ -428,7 +432,7 @@ function PartnersTable({ partners, onOpen }: { partners: PartnerRow[]; onOpen: (
       <p className="text-sm text-muted-foreground">클릭·주문·매출·커미션은 선택 기간 기준(봇 제외). 열 이름을 누르면 정렬, 행을 누르면 상세.</p>
       <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center">
         <div className="flex flex-wrap gap-1 rounded-xl bg-gray-100 p-1">
-          {(['all', 'active', 'suspended', 'removed'] as const).map((t) => (
+          {(['all', 'active', 'suspended', 'left', 'removed'] as const).map((t) => (
             <button key={t} type="button" onClick={() => setTab(t)}
               className={cn('rounded-lg px-3 py-1.5 text-sm capitalize', tab === t ? 'bg-white font-semibold shadow-sm' : 'text-muted-foreground')}>
               {t} ({counts[t]})

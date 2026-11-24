@@ -36,7 +36,11 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // ─── 타입 ─────────────────────────────────────────────────────────────────────
 
-export type PartnerStatus = 'active' | 'suspended' | 'removed';
+// left = 본인 탈퇴(확정분은 최소 금액 미만이어도 다음 지급), removed = 부정·약관 위반 제거(미지급분 몰수) — 약관 7번
+export type PartnerStatus = 'active' | 'suspended' | 'left' | 'removed';
+
+// 프로그램에서 나간 파트너(탈퇴·제거) — 화면·가입·링크는 둘 다 닫는다
+const isOut = (s: PartnerStatus) => s === 'left' || s === 'removed';
 
 export interface Partner {
   code: string;
@@ -368,7 +372,8 @@ type PayoutBlock = 'ready' | 'below-min' | 'no-paypal' | 'suspended' | 'removed'
 function payoutBlock(p: Partner, amount: number): PayoutBlock {
   if (p.status === 'removed') return 'removed';
   if (p.status === 'suspended') return 'suspended';
-  if (amount < MIN_PAYOUT) return 'below-min';
+  // 탈퇴는 최소 금액 미만이어도 지급 (0 이하는 지급할 몫 없음)
+  if (p.status === 'left' ? amount <= 0 : amount < MIN_PAYOUT) return 'below-min';
   if (!p.paypalEmail) return 'no-paypal';
   return 'ready';
 }
@@ -403,7 +408,7 @@ async function handleMe(req: VercelRequest, res: VercelResponse) {
   const customer = await getCustomer(req);
   if (!customer) return res.status(401).json({ error: 'Unauthorized' });
   const partner = await getPartnerByCustomer(customer.id);
-  if (partner?.status === 'removed') return res.status(200).json({ partner: null, removed: true });
+  if (partner && isOut(partner.status)) return res.status(200).json({ partner: null, removed: true });
   return res.status(200).json({ partner: partner ? publicPartner(partner) : null, removed: false });
 }
 
@@ -415,7 +420,7 @@ async function handleJoin(req: VercelRequest, res: VercelResponse) {
 
   const existing = await getPartnerByCustomer(customer.id);
   if (existing) {
-    if (existing.status === 'removed') return res.status(403).json({ error: 'Not available' });
+    if (isOut(existing.status)) return res.status(403).json({ error: 'Not available' });
     return res.status(200).json({ partner: publicPartner(existing), created: false });
   }
 
@@ -427,7 +432,7 @@ async function handleJoin(req: VercelRequest, res: VercelResponse) {
     // 잠금을 잡기 직전에 다른 요청이 가입을 끝냈을 수 있다 — 잡은 뒤 한 번 더 확인
     const joined = await getPartnerByCustomer(customer.id);
     if (joined) {
-      if (joined.status === 'removed') return res.status(403).json({ error: 'Not available' });
+      if (isOut(joined.status)) return res.status(403).json({ error: 'Not available' });
       return res.status(200).json({ partner: publicPartner(joined), created: false });
     }
     const now = new Date().toISOString();
@@ -471,7 +476,7 @@ async function handlePaypal(req: VercelRequest, res: VercelResponse) {
   const customer = await getCustomer(req);
   if (!customer) return res.status(401).json({ error: 'Unauthorized' });
   const partner = await getPartnerByCustomer(customer.id);
-  if (!partner || partner.status === 'removed') return res.status(403).json({ error: 'Not a partner' });
+  if (!partner || isOut(partner.status)) return res.status(403).json({ error: 'Not a partner' });
   const email = String((req.body ?? {}).email || '').trim().toLowerCase();
   if (!EMAIL_RE.test(email) || email.length > 254) return res.status(400).json({ error: 'Invalid email' });
 
@@ -537,7 +542,7 @@ async function handleDashboard(req: VercelRequest, res: VercelResponse) {
   const customer = await getCustomer(req);
   if (!customer) return res.status(401).json({ error: 'Unauthorized' });
   const partner = await getPartnerByCustomer(customer.id);
-  if (!partner || partner.status === 'removed') return res.status(403).json({ error: 'Not a partner' });
+  if (!partner || isOut(partner.status)) return res.status(403).json({ error: 'Not a partner' });
 
   const range = readRange(req);
   const [clickHash, copyHash, orders, allOrders, adjustments] = await Promise.all([
@@ -630,7 +635,7 @@ async function handleAdminSummary(req: VercelRequest, res: VercelResponse) {
       clicks,
       copies,
       conversion: clicks ? round2((perf.orders / clicks) * 100) : 0,
-      partners: partners.filter((p) => p.status !== 'removed').length,
+      partners: partners.filter((p) => !isOut(p.status)).length,
       newPartners: partners.filter((p) => inRange(kstDate(p.joinedAt), range)).length,
       clickingPartners, // 기간 안에 링크 클릭이 1번 이상
       activePartners: activeCodes.size, // 기간 안에 커미션 주문이 1건 이상
@@ -720,7 +725,7 @@ async function handleAdminPartnerStatus(req: VercelRequest, res: VercelResponse)
   const body = (req.body ?? {}) as { code?: unknown; status?: unknown };
   const code = normalizeCode(body.code);
   const status = body.status;
-  if (!code || (status !== 'active' && status !== 'suspended' && status !== 'removed')) {
+  if (!code || (status !== 'active' && status !== 'suspended' && status !== 'left' && status !== 'removed')) {
     return res.status(400).json({ error: 'Invalid request' });
   }
   const partner = await getPartner(code);

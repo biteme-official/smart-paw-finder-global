@@ -87,7 +87,7 @@ export function formatUsd(n: number): string {
 
 export interface AffiliatePartner {
   code: string;
-  status: 'active' | 'suspended' | 'removed';
+  status: 'active' | 'suspended' | 'left' | 'removed';
   joinedAt: string;
   paypalEmail: string | null;
   paypalUpdatedAt: string | null;
