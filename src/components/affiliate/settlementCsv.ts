@@ -2,6 +2,7 @@
 //
 // ① 월별 정산 CSV (주문 1건 = 1줄, 고른 달 = KST 주문일)
 // - 지급 예정일: 확정·지급 주문만 — 확정된 달의 다음 달 15일 (월말 마감 → 익월 15일, 약관 5번)
+//   그 날이 지났는데 아직 확정(미지급)이면 이월 — 상태에 이유를 붙이고 예정일을 다음 지급일로 민다
 // - 실 지급일자: 주문의 paidAt (Mark as paid / PayPal 송금 시각)
 // - PayPal 수수료·결제번호: 주문이 들어간 송금 기록(payoutId)에서. 수수료는 송금 1건에 붙으므로
 //   그 송금의 첫 주문 줄에만 적는다 (줄마다 적으면 합계가 부풀어 오른다)
@@ -45,6 +46,7 @@ export interface SettlementPayout {
 export interface SettlementPartner {
   code: string;
   name: string;
+  status?: string; // active | suspended | left | removed
   paypalEmail: string | null;
   profile?: { firstName?: string; lastName?: string } | null;
 }
@@ -97,6 +99,23 @@ export function scheduledPayoutDate(order: SettlementOrder): string {
   return new Date(Date.UTC(y, m, PAY_DAY)).toISOString().slice(0, 10);
 }
 
+// 오늘(KST) 이후 첫 지급일 — 오늘이 15일 이전이면 이번 달 15일, 지났으면 다음 달 15일
+function nextPayDay(today: string): string {
+  const [y, m, d] = today.split('-').map(Number);
+  return new Date(Date.UTC(y, d <= PAY_DAY ? m - 1 : m, PAY_DAY)).toISOString().slice(0, 10);
+}
+
+// 예정일이 지났는데 아직 확정(미지급)인 주문 — 이유와 다음 지급일 (관리자 지급 패널의 판정과 같은 기준)
+function carryOver(order: SettlementOrder, partner: SettlementPartner | undefined, today: string): { reason: string; date: string } | null {
+  const due = scheduledPayoutDate(order);
+  if (order.status !== 'confirmed' || !due || due >= today) return null;
+  if (partner?.status === 'removed') return { reason: '미지급: 부정 제거', date: '' };
+  if (partner?.status === 'suspended') return { reason: '보류: 파트너 정지', date: '' };
+  if (!partner?.paypalEmail) return { reason: '이월: PayPal 없음', date: nextPayDay(today) };
+  if (partner.status === 'left') return { reason: '이월', date: nextPayDay(today) };
+  return { reason: '이월: $20 미만', date: nextPayDay(today) };
+}
+
 export function payoutDate(order: SettlementOrder): string {
   return order.paidAt ? kstDate(order.paidAt) : '';
 }
@@ -108,7 +127,12 @@ function cell(value: string | number): string {
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
-export function buildSettlementCsv(orders: SettlementOrder[], partners: SettlementPartner[], payouts: SettlementPayout[]): string {
+export function buildSettlementCsv(
+  orders: SettlementOrder[],
+  partners: SettlementPartner[],
+  payouts: SettlementPayout[],
+  today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }),
+): string {
   const byCode = new Map(partners.map((p) => [p.code, p]));
   const byPayout = new Map(payouts.map((x) => [x.id, x]));
   const feeWritten = new Set<string>();
@@ -120,6 +144,7 @@ export function buildSettlementCsv(orders: SettlementOrder[], partners: Settleme
       // 수수료는 송금 건당 — 그 송금의 첫 줄에만
       const fee = pay && pay.paypalFee != null && !feeWritten.has(pay.id) ? pay.paypalFee : '';
       if (pay) feeWritten.add(pay.id);
+      const carried = carryOver(o, p, today);
       return [
         o.code,
         o.partnerName || p?.name || '',
@@ -129,8 +154,8 @@ export function buildSettlementCsv(orders: SettlementOrder[], partners: Settleme
         kstDate(o.createdAt),
         o.baseAmount,
         o.commission,
-        statusLabel(o.status, o.reason),
-        scheduledPayoutDate(o),
+        carried ? `확정(${carried.reason})` : statusLabel(o.status, o.reason),
+        carried ? carried.date : scheduledPayoutDate(o),
         payoutDate(o),
         fee,
         pay?.paypalTransactionId || '',
