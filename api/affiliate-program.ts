@@ -845,6 +845,31 @@ async function handleAdminPayouts(req: VercelRequest, res: VercelResponse) {
   });
 }
 
+// 송금 내역 (송금 CSV·정산 CSV용) — 송금 1건 = 파트너 1명 × 마감 월. month(YYYY-MM, 송금일 KST)를 주면 그 달만
+async function handleAdminPayoutList(req: VercelRequest, res: VercelResponse) {
+  const month = typeof req.query.month === 'string' && /^\d{4}-\d{2}$/.test(req.query.month) ? req.query.month : null;
+  const ids = await kv.zrange<string[]>(K.payouts, 0, -1);
+  const stored = ids.length ? (await kv.mget<(Payout | null)[]>(...ids.map((id) => K.payout(String(id))))).filter((x): x is Payout => !!x) : [];
+  const picked = month ? stored.filter((p) => kstDate(p.paidAt).startsWith(month)) : stored;
+  const partners = new Map((await getAllPartners()).map((p) => [p.code, p]));
+  const payouts = await Promise.all(
+    picked.map(async (raw) => {
+      const p = await refreshPaypalPayout(raw).catch(() => raw);
+      const [orders, adjustments] = await Promise.all([getOrders(p.orderIds), getAdjustments(p.code)]);
+      const partner = partners.get(p.code);
+      return {
+        ...p,
+        partnerName: partner?.name || '',
+        profile: partner?.profile ?? null,
+        commissionTotal: round2(orders.reduce((t, o) => t + (o.paidAmount ?? o.commission), 0)),
+        adjustmentTotal: round2(sum(adjustments.filter((a) => a.payoutId === p.id), 'amount')),
+      };
+    }),
+  );
+  payouts.sort((a, b) => a.paidAt.localeCompare(b.paidAt));
+  return res.status(200).json({ month, payouts });
+}
+
 // ─── PayPal Payouts ───────────────────────────────────────────────────────────
 // 회사 계정(비즈니스)에서 파트너 PayPal 이메일로 USD 송금. 송금 수수료는 회사 부담(약관 5번)
 
@@ -1288,6 +1313,7 @@ const ADMIN_ROUTES: Record<string, { method: 'GET' | 'POST'; fn: Handler }> = {
   'admin-void': { method: 'POST', fn: handleAdminVoid },
   'admin-payouts': { method: 'GET', fn: handleAdminPayouts },
   'admin-payout-mark': { method: 'POST', fn: handleAdminPayoutMark },
+  'admin-payout-list': { method: 'GET', fn: handleAdminPayoutList },
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

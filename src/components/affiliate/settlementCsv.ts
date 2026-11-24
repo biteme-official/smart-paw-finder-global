@@ -1,14 +1,13 @@
-// B2C 어필리에이트 월별 정산 CSV (관리자 /manage/affiliate)
-// 기존 관리자 API(admin-orders·admin-partners) 응답만으로 만든다 — api/ 변경 없음.
+// B2C 어필리에이트 CSV (관리자 /manage/affiliate) — 재무 회신 양식(affiliate-settlement-2026-10_SAMPLE) 기준
 //
-// 확정·지급 상태와 지급일은 api에 추가 예정이다.
-// - 상태: 응답의 status 값을 그대로 라벨로 바꾼다. confirmed/paid 등이 오면 자동으로 표시된다.
-// - 지급 예정일: 확정 상태일 때만, 주문 응답에 SCHEDULED_PAYOUT_FIELDS 중 하나가 있으면 채운다 (지급 주기 미정 — 계산하지 않음).
-// - 실 지급일자: 주문 응답에 PAYOUT_DATE_FIELDS 중 하나가 있으면 채운다.
-// - PayPal 수수료·결제번호: 주문 응답에 paypalFee·paypalTransactionId가 있으면 채운다.
-// 필드명이 확정되면 위 목록·이름만 맞추면 된다.
-// - 실명(Legal name): 파트너 응답의 profile.firstName·lastName을 "이름 성" 순서로. 없으면(기존 가입자) 빈칸.
-//   가입 시 실명 입력은 별도 PR(feature/bmzoey-affiliate-legal-info), 저장은 PR #199에 요청.
+// ① 월별 정산 CSV (주문 1건 = 1줄, 고른 달 = KST 주문일)
+// - 지급 예정일: 확정·지급 주문만 — 확정된 달의 다음 달 15일 (월말 마감 → 익월 15일, 약관 5번)
+// - 실 지급일자: 주문의 paidAt (Mark as paid / PayPal 송금 시각)
+// - PayPal 수수료·결제번호: 주문이 들어간 송금 기록(payoutId)에서. 수수료는 송금 1건에 붙으므로
+//   그 송금의 첫 주문 줄에만 적는다 (줄마다 적으면 합계가 부풀어 오른다)
+// - 실명(Legal name): 파트너 profile.firstName·lastName을 "이름 성" 순서로. 없으면(11/24 이전 가입자) 빈칸
+//
+// ② 송금 내역 CSV (송금 1건 = 파트너 1명 × 마감 월 = 1줄, 고른 달 = KST 송금일) — 실제 나간 돈·수수료·차감
 
 export interface SettlementOrder {
   orderName: string;
@@ -19,6 +18,28 @@ export interface SettlementOrder {
   status: string;
   reason: string | null;
   partnerName?: string;
+  confirmedAt?: string | null;
+  paidAt?: string | null;
+  payoutId?: string | null;
+}
+
+// 송금 기록 (api admin-payout-list)
+export interface SettlementPayout {
+  id: string;
+  code: string;
+  partnerName: string;
+  profile?: { firstName?: string; lastName?: string } | null;
+  period: string;
+  amount: number;
+  paypalEmail: string;
+  paidAt: string;
+  orderIds: string[];
+  commissionTotal: number;
+  adjustmentTotal: number;
+  method?: 'manual' | 'paypal';
+  paypalStatus?: string;
+  paypalFee?: number | null;
+  paypalTransactionId?: string | null;
 }
 
 export interface SettlementPartner {
@@ -33,10 +54,9 @@ function legalName(p: SettlementPartner['profile']): string {
   return [p?.firstName, p?.lastName].map((v) => (v || '').trim()).filter(Boolean).join(' ');
 }
 
-export const SCHEDULED_PAYOUT_FIELDS = ['scheduledPayoutAt', 'expectedPayoutDate'] as const;
-export const PAYOUT_DATE_FIELDS = ['paidAt', 'payoutDate'] as const;
-// 지급 예정일을 보여주는 상태 (대기·취소·제외는 빈칸)
-const SCHEDULED_STATUSES = new Set(['confirmed', 'approved']);
+// 지급 예정일을 보여주는 상태 (대기·취소·제외는 빈칸) — 재무 샘플처럼 지급된 주문도 예정일을 남긴다
+const SCHEDULED_STATUSES = new Set(['confirmed', 'paid']);
+const PAY_DAY = 15;
 
 const STATUS_LABEL: Record<string, string> = {
   pending: '대기',
@@ -53,6 +73,7 @@ const REASON_LABEL: Record<string, string> = {
   'partner-suspended': '파트너 정지',
   cancelled: '주문 취소',
   manual: '관리자 무효',
+  clawback: '지급 후 차감',
 };
 
 const BOM = String.fromCharCode(0xfeff);
@@ -68,33 +89,16 @@ export function statusLabel(status: string, reason: string | null): string {
   return reason ? `${base}(${REASON_LABEL[reason] || reason})` : base;
 }
 
-function dateField(order: object, fields: readonly string[]): string {
-  const record = order as Record<string, unknown>;
-  for (const field of fields) {
-    const v = record[field];
-    if (typeof v === 'string' && v) return kstDate(v);
-  }
-  return '';
-}
-
+// 확정된 달(KST)의 다음 달 15일
 export function scheduledPayoutDate(order: SettlementOrder): string {
-  return SCHEDULED_STATUSES.has(order.status) ? dateField(order, SCHEDULED_PAYOUT_FIELDS) : '';
+  if (!SCHEDULED_STATUSES.has(order.status) || !order.confirmedAt) return '';
+  const [y, m] = kstDate(order.confirmedAt).split('-').map(Number);
+  if (!y || !m) return '';
+  return new Date(Date.UTC(y, m, PAY_DAY)).toISOString().slice(0, 10);
 }
 
-export function payoutDate(order: object): string {
-  return dateField(order, PAYOUT_DATE_FIELDS);
-}
-
-// 숫자 또는 숫자 문자열이면 금액, 아니면 빈칸
-export function paypalFee(order: object): number | '' {
-  const v = (order as Record<string, unknown>).paypalFee;
-  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
-  return Number.isFinite(n) ? n : '';
-}
-
-export function paypalTransactionId(order: object): string {
-  const v = (order as Record<string, unknown>).paypalTransactionId;
-  return typeof v === 'string' ? v.trim() : '';
+export function payoutDate(order: SettlementOrder): string {
+  return order.paidAt ? kstDate(order.paidAt) : '';
 }
 
 // 엑셀이 수식으로 실행하지 않도록 =, +, -, @ 등으로 시작하는 문자열 앞에 ' 를 붙인다 (파트너 이름은 고객 입력값)
@@ -104,12 +108,18 @@ function cell(value: string | number): string {
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
-export function buildSettlementCsv(orders: SettlementOrder[], partners: SettlementPartner[]): string {
+export function buildSettlementCsv(orders: SettlementOrder[], partners: SettlementPartner[], payouts: SettlementPayout[]): string {
   const byCode = new Map(partners.map((p) => [p.code, p]));
+  const byPayout = new Map(payouts.map((x) => [x.id, x]));
+  const feeWritten = new Set<string>();
   const rows = [...orders]
     .sort((a, b) => a.code.localeCompare(b.code) || a.createdAt.localeCompare(b.createdAt))
     .map((o) => {
       const p = byCode.get(o.code);
+      const pay = o.payoutId ? byPayout.get(o.payoutId) : undefined;
+      // 수수료는 송금 건당 — 그 송금의 첫 줄에만
+      const fee = pay && pay.paypalFee != null && !feeWritten.has(pay.id) ? pay.paypalFee : '';
+      if (pay) feeWritten.add(pay.id);
       return [
         o.code,
         o.partnerName || p?.name || '',
@@ -122,12 +132,40 @@ export function buildSettlementCsv(orders: SettlementOrder[], partners: Settleme
         statusLabel(o.status, o.reason),
         scheduledPayoutDate(o),
         payoutDate(o),
-        paypalFee(o),
-        paypalTransactionId(o),
+        fee,
+        pay?.paypalTransactionId || '',
       ].map(cell).join(',');
     });
   // BOM — 엑셀에서 한글이 깨지지 않게
   return `${BOM}${[HEADERS.map(cell).join(','), ...rows].join('\r\n')}\r\n`;
+}
+
+const PAYOUT_HEADERS = [
+  '송금일(KST)', '어필리에이트 코드', '파트너 이름', '실명(Legal name)', 'PayPal 이메일', '대상 확정 월', '주문 수',
+  '커미션 합계', '지급 후 차감', '송금액', 'PayPal 수수료', 'PayPal 결제번호', '송금 방법', '송금 상태',
+];
+
+// ② 송금 내역 — 송금액 = 커미션 합계 + 차감(음수). 수수료는 회사 부담(약관 5번)이라 송금액에 포함하지 않는다
+export function buildPayoutCsv(payouts: SettlementPayout[]): string {
+  const rows = [...payouts]
+    .sort((a, b) => a.paidAt.localeCompare(b.paidAt))
+    .map((x) => [
+      kstDate(x.paidAt),
+      x.code,
+      x.partnerName,
+      legalName(x.profile),
+      x.paypalEmail,
+      x.period,
+      String(x.orderIds.length),
+      x.commissionTotal,
+      x.adjustmentTotal,
+      x.amount,
+      x.paypalFee ?? '',
+      x.paypalTransactionId || '',
+      x.method === 'paypal' ? 'PayPal 송금' : '수동(Mark as paid)',
+      x.method === 'paypal' ? x.paypalStatus || '' : '',
+    ].map(cell).join(','));
+  return `${BOM}${[PAYOUT_HEADERS.map(cell).join(','), ...rows].join('\r\n')}\r\n`;
 }
 
 // "YYYY-MM" → 그 달 1일 ~ 말일 (KST 날짜 문자열)

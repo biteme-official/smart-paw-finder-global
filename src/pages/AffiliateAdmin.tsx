@@ -18,10 +18,10 @@ import { cn } from '@/lib/utils';
 import { B2C_SITE_URL } from '@/lib/site';
 import { fetchProductsByHandles } from '@/lib/shopify';
 import { ManagePageHeader, useManageAuth } from '@/components/admin/ManageLayout';
-import { buildSettlementCsv, downloadCsv, monthRange } from '@/components/affiliate/settlementCsv';
+import { buildPayoutCsv, buildSettlementCsv, downloadCsv, monthRange, type SettlementPayout } from '@/components/affiliate/settlementCsv';
 
 // B2C 어필리에이트 관리자 (biteme.one /manage/affiliate) — 조이 님 11/4 목업 ①~⑤.
-// ⑥ 정산: 주문 + N일 자동 확정 → 지난달 확정분을 이번 달 말 지급(Mark as paid). 월별 정산 CSV는 상단 버튼. 날짜는 모두 KST.
+// ⑥ 정산: 주문 + N일 자동 확정 → 지난달 확정분을 이번 달 15일 지급(PayPal 송금 또는 Mark as paid). 월별 정산 CSV는 상단, 송금 내역 CSV는 Payouts 패널. 날짜는 모두 KST.
 
 // ─── 타입 (api/affiliate-program.ts 응답) ─────────────────────────────────────
 
@@ -540,9 +540,12 @@ function PayoutsPanel({ data, onChanged }: { data: PayoutsData; onChanged: () =>
 
   return (
     <Panel>
-      <h2 className="text-lg font-bold">
-        Payouts <span className="font-normal text-muted-foreground">· {data.period} 확정분 · 지급일 {data.payDate}</span>
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-bold">
+          Payouts <span className="font-normal text-muted-foreground">· {data.period} 확정분 · 지급일 {data.payDate}</span>
+        </h2>
+        <SettlementCsvButton kind="payouts" />
+      </div>
       <p className="text-sm text-muted-foreground">
         주문 {data.confirmDays}일 뒤 자동 확정 → 지난달 말까지 확정된 커미션(지급 후 환불 차감 포함)을 이번 달 15일 지급. {usd(data.minPayout)} 미만·PayPal 없음은 다음 달로 이월(탈퇴는 미만도 지급).
         {data.paypalEnabled ? `PayPal로 송금을 누르면 회사 계정에서 바로 송금됩니다(1건 ${usd(data.paypalMax)}까지). 넘는 건이나 PayPal에서 직접 보낸 건은 Mark as paid만 누르세요.` : 'PayPal에서 송금한 뒤 Mark as paid를 누르세요.'} Ready {ready.length}명 · {usd(ready.reduce((t, r) => t + r.amount, 0))}
@@ -655,8 +658,8 @@ function PayoutsPanel({ data, onChanged }: { data: PayoutsData; onChanged: () =>
 
 const lastMonthKst = () => shiftDays(`${kstToday().slice(0, 7)}-01`, -1).slice(0, 7);
 
-// 상단 "정산 CSV" 버튼 → 작은 팝업에서 월 선택 후 다운로드 (기본값: 지난달)
-function SettlementCsvButton() {
+// "정산 CSV"(주문 단위·주문월) / "송금 내역 CSV"(송금 단위·송금월) 버튼 → 작은 팝업에서 월 선택 후 다운로드 (기본값: 지난달)
+function SettlementCsvButton({ kind = 'orders' }: { kind?: 'orders' | 'payouts' }) {
   const api = useAdminApi();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -672,13 +675,22 @@ function SettlementCsvButton() {
     if (!/^\d{4}-\d{2}$/.test(month)) return;
     setBusy(true);
     try {
+      if (kind === 'payouts') {
+        const r = await api<{ payouts: SettlementPayout[] }>('admin-payout-list', { query: { month } });
+        downloadCsv(`affiliate-payouts-${month}.csv`, buildPayoutCsv(r.payouts));
+        toast.success(`${month} 송금 내역 CSV · ${r.payouts.length}건`);
+        setOpen(false);
+        return;
+      }
       // 위 표와 같은 조회 키 — 이미 불러온 기간이면 다시 요청하지 않는다
       const q = monthRange(month);
-      const [o, p] = await Promise.all([
+      const [o, p, x] = await Promise.all([
         queryClient.fetchQuery({ queryKey: ['aff-admin-orders', q], queryFn: () => api<{ orders: Order[] }>('admin-orders', { query: q }) }),
         queryClient.fetchQuery({ queryKey: ['aff-admin-partners', q], queryFn: () => api<{ partners: PartnerRow[] }>('admin-partners', { query: q }) }),
+        // 수수료·결제번호는 송금 기록에서 (그 달 주문이 나중 달에 송금되므로 전체를 읽는다)
+        api<{ payouts: SettlementPayout[] }>('admin-payout-list'),
       ]);
-      downloadCsv(`affiliate-settlement-${month}.csv`, buildSettlementCsv(o.orders, p.partners));
+      downloadCsv(`affiliate-settlement-${month}.csv`, buildSettlementCsv(o.orders, p.partners, x.payouts));
       toast.success(`${month} 정산 CSV · 주문 ${o.orders.length}건`);
       setOpen(false);
     } catch (e) {
@@ -692,13 +704,17 @@ function SettlementCsvButton() {
     <Popover open={open} onOpenChange={(v) => !busy && setOpen(v)}>
       <PopoverTrigger asChild>
         <Button variant="outline" className="rounded-full">
-          <Download className="mr-1.5 h-4 w-4" />정산 CSV
+          <Download className="mr-1.5 h-4 w-4" />{kind === 'payouts' ? '송금 내역 CSV' : '정산 CSV'}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 space-y-3">
         <div>
-          <p className="font-semibold">월별 정산 CSV</p>
-          <p className="text-xs text-muted-foreground">고른 달(KST 주문일)의 귀속 주문 전체 · 제외·취소 포함</p>
+          <p className="font-semibold">{kind === 'payouts' ? '월별 송금 내역 CSV' : '월별 정산 CSV'}</p>
+          <p className="text-xs text-muted-foreground">
+            {kind === 'payouts'
+              ? '고른 달(KST 송금일)에 나간 송금 · 송금액·PayPal 수수료·결제번호·지급 후 차감'
+              : '고른 달(KST 주문일)의 귀속 주문 전체 · 제외·취소 포함'}
+          </p>
         </div>
         <Input type="month" aria-label="정산 월" value={month} max={kstToday().slice(0, 7)} onChange={(e) => setMonth(e.target.value)} />
         <Button onClick={download} disabled={busy || !month} className="w-full">
