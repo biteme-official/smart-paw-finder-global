@@ -37,7 +37,8 @@ import RefundPolicy from "./pages/RefundPolicy";
 import About from "./pages/About";
 import AffiliateLink from "./pages/AffiliateLink";
 import MyAffiliate from "./pages/MyAffiliate";
-import { WhatsAppButton } from "./components/layout/WhatsAppButton";
+// 왓츠앱 버튼은 첫구매 쿠폰 팝업 라이브 후 정리 예정 — 파일은 남겨두고 Chat 버튼으로 교체
+import { ChatButton } from "./components/layout/ChatButton";
 import { AnnouncementBar } from "./components/layout/AnnouncementBar";
 import { PetProfilePrompt } from "./components/account/PetProfile";
 import { EmailPopup } from "./components/email-popup/EmailPopup";
@@ -159,7 +160,7 @@ const App = () => (
           <Route path="/collections" element={<Navigate to="/" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
-        <WhatsAppButton />
+        <ChatButton />
         <PetProfilePrompt />
         {/* 첫구매 쿠폰 · 이메일 수집 팝업 — B2C 사이트 전용 */}
         {IS_B2C_SITE && <EmailPopup />}

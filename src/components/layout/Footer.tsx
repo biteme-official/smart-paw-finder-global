@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { IS_B2C_SITE } from "@/lib/site";
-
-const WHATSAPP_URL = "https://wa.me/15559433437";
+import { SUPPORT_CHAT_URL } from "@/lib/support-chat";
 
 const SUPPORT_LINKS = [
   { label: "Shipping & Returns", to: "/refund-policy" },
@@ -87,8 +86,8 @@ function AboutContactColumn() {
           Business Inquiry: mates@biteme.co.kr
           <br />
           Consumer Inquiry:{" "}
-          <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">
-            Chat with us on Whatsapp
+          <a href={SUPPORT_CHAT_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">
+            Chat with us
           </a>
           <br />
           We're here M–F 10am – 7pm KST
