@@ -1,0 +1,1441 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { kv } from '@vercel/kv';
+import { randomInt } from 'crypto';
+
+// B2C 어필리에이트 (biteme-us.com) — 가입·클릭·파트너 대시보드·관리자·주문 수집을 한 함수에서 처리한다.
+// 기존 biteme.one 어필리에이트 신청 폼(api/affiliate.ts, 15% 코드)과는 별개이며 KV 키도 affp: 로 분리한다.
+//
+// 규칙 (이슈 본문 D1~D8)
+// - 커미션 = 주문 전체 상품의 할인 후 금액(배송비·세금 제외) × 10%, 요율은 주문 시점 값으로 고정
+// - 귀속 = 링크만. 화면이 결제 생성 시 주문 속성 _aff(코드)·_aff_p(상품)·_aff_at(클릭 시각)을 붙인다
+// - 본인 구매(고객 ID·이메일·기본 배송지 일치)와 B2B 태그 고객 주문은 커미션 0 (excluded)
+// - 날짜 집계는 한국 시간(KST)
+//
+// 실행 위치: 고객용(me/join/copy/click/dashboard/paypal)은 B2C 사이트에서만, 관리자·주문 수집은 어느 사이트든
+// 같은 KV를 보므로 동작한다(관리자 화면은 biteme.one /manage, 정기 수집은 biteme.one cron).
+
+const API_VERSION = '2025-07';
+const SHOP_ID = process.env.VITE_SHOPIFY_SHOP_ID;
+const CUSTOMER_ACCOUNT_ENDPOINT = `https://shopify.com/${SHOP_ID}/account/customer/api/${API_VERSION}/graphql`;
+
+export const COMMISSION_RATE = 0.1;
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 헷갈리는 0/O/1/I 제외
+const CLICK_DEDUPE_SECONDS = 30 * 60; // 같은 브라우저가 같은 링크를 30분 안에 다시 눌러도 1번
+const CLICK_IP_DAILY_CAP = 20; // 방문자 ID는 지우면 새로 생기므로, 같은 IP에서 하루 최대 20회까지만 센다
+const BOT_UA = /bot|crawl|spider|slurp|facebookexternalhit|embedly|preview|headless|lighthouse|pingdom|monitor/i;
+const SYNC_START = '2026-11-01T00:00:00Z'; // 첫 수집 시작 시점
+const SYNC_OVERLAP_MS = 10 * 60 * 1000; // 직전 수집과 10분 겹쳐 읽어 경계에 걸친 주문을 놓치지 않는다
+const TRACKING_DAYS = 30; // 링크 클릭 후 귀속 기한
+const DAY_MS = 24 * 60 * 60 * 1000;
+// 주문 후 확정까지 일수 (반품 14일 + 해외 배송 약 2주). 환경변수로 바꿀 수 있다
+const CONFIRM_DAYS = Math.max(1, Math.floor(Number(process.env.AFFILIATE_CONFIRM_DAYS)) || 30);
+const MIN_PAYOUT = 20; // 지급 최소 금액(USD) — 미만이면 다음 달로 이월
+const CLOCK_SKEW_MS = 10 * 60 * 1000; // 고객 기기 시계 오차 허용
+const MAX_RANGE_DAYS = 366; // 기간 조회 최대 길이
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// ─── 타입 ─────────────────────────────────────────────────────────────────────
+
+// left = 본인 탈퇴(확정분은 최소 금액 미만이어도 다음 지급), removed = 부정·약관 위반 제거(미지급분 몰수) — 약관 7번
+export type PartnerStatus = 'active' | 'suspended' | 'left' | 'removed';
+
+// 프로그램에서 나간 파트너(탈퇴·제거) — 화면·가입·링크는 둘 다 닫는다
+const isOut = (s: PartnerStatus) => s === 'left' || s === 'removed';
+
+export interface Partner {
+  code: string;
+  customerId: string;
+  email: string;
+  name: string;
+  country: string | null; // 가입 시 기본 배송지 국가
+  status: PartnerStatus;
+  joinedAt: string;
+  consent: { age18: boolean; terms: boolean; at: string };
+  paypalEmail: string | null;
+  paypalUpdatedAt: string | null;
+  statusHistory: { at: string; from: PartnerStatus; to: PartnerStatus }[];
+  profile?: PartnerProfile; // 가입 때 받은 실명·거주 국가·주소 (약관 2번). 11/24 이전 가입자는 없음
+  test?: boolean; // 내부 테스트 파트너 — 통계·정산 CSV·지급 대상에서 뺀다 (가입·링크·귀속·대시보드는 실제와 같이 동작)
+}
+
+export interface PartnerProfile {
+  firstName: string;
+  lastName: string;
+  country: string; // ISO 3166-1 alpha-2, KR 제외
+  address1: string;
+  address2: string;
+  city: string;
+  province: string;
+  zip: string;
+}
+
+// 약관 게시 전까지 가입 입구를 닫는다 — 화면과 같은 env(VITE_AFFILIATE_JOIN_OPEN=true)로 연다
+const JOIN_OPEN = process.env.VITE_AFFILIATE_JOIN_OPEN === 'true';
+// 국내 거주자는 원천징수 처리 대상이라 가입 제한 (마케팅팀 11/16 결정)
+const BLOCKED_COUNTRIES = new Set(['KR']);
+const PROFILE_MAX = 100;
+
+function parseProfile(v: unknown): PartnerProfile | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  const f = (k: string) => (typeof o[k] === 'string' ? (o[k] as string).trim() : '');
+  const p: PartnerProfile = {
+    firstName: f('firstName'), lastName: f('lastName'), country: f('country').toUpperCase(),
+    address1: f('address1'), address2: f('address2'), city: f('city'), province: f('province'), zip: f('zip'),
+  };
+  if (!p.firstName || !p.lastName || !p.address1 || !p.city || !/^[A-Z]{2}$/.test(p.country)) return null;
+  if (Object.values(p).some((s) => s.length > PROFILE_MAX)) return null;
+  return p;
+}
+
+// 대기 → (주문 + CONFIRM_DAYS) 확정 → (관리자 Mark as paid) 지급. 제외·무효는 커미션 0
+export type CommissionStatus = 'pending' | 'confirmed' | 'paid' | 'excluded' | 'void';
+
+export interface Commission {
+  orderId: string;
+  orderName: string;
+  createdAt: string;
+  code: string;
+  handle: string | null; // 고객이 들어온 링크의 상품
+  clickedAt: string | null;
+  customerEmail: string | null;
+  guest: boolean; // 비회원 주문
+  baseAmount: number; // 할인 후 상품 금액 (배송비·세금 제외, 환불 반영)
+  currency: string;
+  rate: number;
+  commission: number;
+  status: CommissionStatus;
+  reason: string | null; // excluded: self | b2b | partner-suspended / void: cancelled | manual / paid: clawback
+  manualVoid: boolean;
+  updatedAt: string;
+  history: { at: string; change: string }[];
+  confirmedAt?: string | null; // 확정 시각 (주문 + CONFIRM_DAYS)
+  paidAt?: string | null;
+  payoutId?: string | null;
+  paidAmount?: number | null; // 실제 지급한 커미션
+  clawback?: number; // 지급 후 환불·취소로 차감한 누적 금액 (0 이하)
+}
+
+// 지급 후 환불·차지백 등으로 생긴 차감(또는 차감 되돌림). 다음 지급분에 더해진다
+export interface Adjustment {
+  id: string;
+  code: string;
+  orderId: string;
+  orderName: string;
+  amount: number; // 차감은 음수
+  at: string;
+  note: string;
+  payoutId: string | null; // 반영된 지급
+}
+
+export interface Payout {
+  id: string;
+  code: string;
+  period: string; // 확정 마감 월 YYYY-MM (이 달 말까지 확정된 커미션)
+  amount: number;
+  paypalEmail: string;
+  paidAt: string; // 수동: 지급 기록 시각, PayPal: 송금 요청 시각
+  orderIds: string[];
+  adjustmentIds: string[];
+  method?: 'manual' | 'paypal'; // 11/24 이전 기록은 없음 = manual
+  paypalBatchId?: string;
+  paypalStatus?: string; // PayPal transaction_status (PENDING·UNCLAIMED·SUCCESS·FAILED·RETURNED 등)
+  paypalFee?: number | null; // 회사 부담 송금 수수료 (USD)
+  paypalTransactionId?: string | null;
+  revertedAt?: string | null; // PayPal 송금 실패로 주문을 '확정'으로 되돌린 시각 — 다음 지급 대상에 다시 잡힌다
+}
+
+// ─── KV 키 ────────────────────────────────────────────────────────────────────
+
+const K = {
+  partner: (code: string) => `affp:partner:${code}`,
+  byCustomer: (customerId: string) => `affp:customer:${customerId}`,
+  partners: 'affp:partners',
+  clicks: (code: string) => `affp:clicks:${code}`, // hash  "YYYY-MM-DD|handle" → count
+  copies: (code: string) => `affp:copies:${code}`, // hash  "YYYY-MM-DD|handle" → count
+  clickDedupe: (code: string, handle: string, who: string) => `affp:clk:${code}:${handle}:${who}`,
+  clickIpDaily: (code: string, ip: string, day: string) => `affp:clkip:${code}:${ip}:${day}`,
+  order: (orderId: string) => `affp:order:${orderId}`,
+  orders: 'affp:orders', // zset score = 주문 시각(ms)
+  partnerOrders: (code: string) => `affp:partner-orders:${code}`,
+  paypalHistory: (code: string) => `affp:paypal-history:${code}`,
+  adjustments: (code: string) => `affp:adjust:${code}`, // hash  id → Adjustment
+  payout: (id: string) => `affp:payout:${id}`,
+  payouts: 'affp:payouts', // zset score = 지급 시각(ms)
+  partnerPayouts: (code: string) => `affp:partner-payouts:${code}`,
+  syncCursor: 'affp:sync:cursor',
+  syncLock: 'affp:sync:lock',
+};
+
+// ─── 날짜 (KST) ───────────────────────────────────────────────────────────────
+
+export function kstDate(d: Date | string | number = new Date()): string {
+  return new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+}
+
+// KST 날짜 YYYY-MM-DD의 시작 시각(ms)
+function kstStartMs(date: string): number {
+  return new Date(`${date}T00:00:00+09:00`).getTime();
+}
+
+function isDate(s: unknown): s is string {
+  return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+// 기간 파라미터 (기본: 이번 달 1일 ~ 오늘, KST)
+function readRange(req: VercelRequest): { from: string; to: string } {
+  const today = kstDate();
+  const from = isDate(req.query.from) ? req.query.from : `${today.slice(0, 7)}-01`;
+  const to = isDate(req.query.to) ? req.query.to : today;
+  const r = from <= to ? { from, to } : { from: to, to: from };
+  // 일별 행을 날짜마다 만들므로 최대 366일로 자른다
+  const minFrom = kstDate(kstStartMs(r.to) - MAX_RANGE_DAYS * 24 * 60 * 60 * 1000);
+  return r.from < minFrom ? { from: minFrom, to: r.to } : r;
+}
+
+function inRange(date: string, r: { from: string; to: string }): boolean {
+  return date >= r.from && date <= r.to;
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+// ─── Shopify ──────────────────────────────────────────────────────────────────
+
+let cachedAdminToken: string | null = null;
+let adminTokenExpiresAt = 0;
+
+async function getAdminToken(): Promise<string> {
+  const now = Date.now();
+  if (cachedAdminToken && now < adminTokenExpiresAt - 5 * 60 * 1000) return cachedAdminToken;
+  const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN;
+  const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: process.env.VITE_SHOPIFY_CLIENT_ID!,
+      client_secret: process.env.SHOPIFY_CLIENT_SECRET!,
+    }),
+  });
+  if (!res.ok) throw new Error(`Token request failed (${res.status})`);
+  const data = (await res.json()) as { access_token: string; expires_in: number };
+  cachedAdminToken = data.access_token;
+  adminTokenExpiresAt = now + data.expires_in * 1000;
+  return cachedAdminToken!;
+}
+
+async function adminGraphql<T>(query: string, variables: Record<string, unknown>): Promise<T> {
+  const shop = process.env.VITE_SHOPIFY_STORE_DOMAIN;
+  const res = await fetch(`https://${shop}/admin/api/${API_VERSION}/graphql.json`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': await getAdminToken() },
+    body: JSON.stringify({ query, variables }),
+  });
+  const json = (await res.json().catch(() => null)) as { data?: unknown; errors?: unknown } | null;
+  if (!res.ok || !json || json.errors) {
+    throw new Error(`Admin API error (${res.status}): ${JSON.stringify(json?.errors ?? json)}`);
+  }
+  return json.data as T;
+}
+
+interface CustomerIdentity {
+  id: string;
+  email: string;
+  name: string;
+  country: string | null;
+}
+
+// 고객 토큰으로 본인 확인 — 화면이 보낸 이메일·ID는 믿지 않는다
+async function getCustomer(req: VercelRequest): Promise<CustomerIdentity | null> {
+  const auth = req.headers.authorization;
+  if (!auth) return null;
+  const res = await fetch(CUSTOMER_ACCOUNT_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: auth },
+    body: JSON.stringify({ query: '{ customer { id firstName displayName emailAddress { emailAddress } defaultAddress { territoryCode } } }' }),
+  });
+  if (!res.ok) return null;
+  type CustomerResponse = {
+    data?: {
+      customer?: {
+        id: string;
+        firstName: string | null;
+        displayName: string | null;
+        emailAddress: { emailAddress: string | null } | null;
+        defaultAddress: { territoryCode: string | null } | null;
+      } | null;
+    };
+  };
+  const data = (await res.json().catch(() => null)) as CustomerResponse | null;
+  const c = data?.data?.customer;
+  if (!c?.id) return null;
+  return {
+    id: c.id,
+    email: String(c.emailAddress?.emailAddress || '').toLowerCase(),
+    name: c.firstName || c.displayName || '',
+    country: c.defaultAddress?.territoryCode || null,
+  };
+}
+
+// ─── 공통 ─────────────────────────────────────────────────────────────────────
+
+function isAdmin(req: VercelRequest): boolean {
+  const expected = process.env.B2B_ADMIN_PASSWORD;
+  if (!expected) return false;
+  return req.headers['x-admin-key'] === expected;
+}
+
+function clientIp(req: VercelRequest): string {
+  return String(req.headers['x-real-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+}
+
+// 다른 사이트 브라우저에서 보낸 요청 거절 (Origin이 있으면 우리 주소와 같아야 함)
+function isCrossOrigin(req: VercelRequest): boolean {
+  const origin = String(req.headers.origin || '');
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '');
+  if (!origin || !host) return false;
+  try {
+    return new URL(origin).host !== host;
+  } catch {
+    return true;
+  }
+}
+
+function maskEmail(email: string | null): string | null {
+  if (!email) return null;
+  const [user, domain] = email.split('@');
+  if (!domain) return '***';
+  return `${user.slice(0, 1)}***@${domain}`;
+}
+
+function normalizeHandle(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const h = raw.trim().toLowerCase();
+  return /^[a-z0-9][a-z0-9-]{0,199}$/.test(h) ? h : null;
+}
+
+function normalizeCode(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const c = raw.trim().toUpperCase();
+  return /^[A-Z0-9]{6}$/.test(c) ? c : null;
+}
+
+async function getPartner(code: string): Promise<Partner | null> {
+  return (await kv.get<Partner>(K.partner(code))) ?? null;
+}
+
+async function getPartnerByCustomer(customerId: string): Promise<Partner | null> {
+  const code = await kv.get<string>(K.byCustomer(customerId));
+  return code ? getPartner(code) : null;
+}
+
+async function getAllPartners(): Promise<Partner[]> {
+  const codes = await kv.smembers(K.partners);
+  if (!codes.length) return [];
+  const list = await kv.mget<(Partner | null)[]>(...codes.map((c) => K.partner(String(c))));
+  return list.filter((p): p is Partner => !!p);
+}
+
+async function getOrders(ids: string[]): Promise<Commission[]> {
+  if (!ids.length) return [];
+  const out: Commission[] = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100);
+    const rows = await kv.mget<(Commission | null)[]>(...chunk.map((id) => K.order(id)));
+    rows.forEach((r) => r && out.push(r));
+  }
+  return out;
+}
+
+// 기간(KST 날짜) 안의 주문 — zset 점수(주문 시각)로 범위 조회
+async function getOrdersInRange(key: string, r: { from: string; to: string }): Promise<Commission[]> {
+  const min = kstStartMs(r.from);
+  const max = kstStartMs(r.to) + 24 * 60 * 60 * 1000 - 1;
+  const ids = await kv.zrange<string[]>(key, min, max, { byScore: true });
+  return getOrders(ids.map(String));
+}
+
+// hash "YYYY-MM-DD|handle" → count 를 기간으로 걸러 합산
+function sumCounts(hash: Record<string, unknown> | null, r: { from: string; to: string }) {
+  const byHandle: Record<string, number> = {};
+  const byDate: Record<string, number> = {};
+  let total = 0;
+  for (const [field, value] of Object.entries(hash || {})) {
+    const [date, handle] = field.split('|');
+    if (!inRange(date, r)) continue;
+    const n = Number(value) || 0;
+    total += n;
+    byHandle[handle] = (byHandle[handle] || 0) + n;
+    byDate[date] = (byDate[date] || 0) + n;
+  }
+  return { total, byHandle, byDate };
+}
+
+// 커미션이 실제로 생기는 주문 (대기·확정·지급). 제외·무효, 지급 후 전액 취소된 주문은 빼고 센다
+const counts = (o: Commission) =>
+  o.status === 'pending' || o.status === 'confirmed' || (o.status === 'paid' && o.commission > 0);
+
+const sum = (list: { commission?: number; amount?: number }[], key: 'commission' | 'amount') =>
+  round2(list.reduce((t, x) => t + (x[key] || 0), 0));
+
+// ─── 정산 ─────────────────────────────────────────────────────────────────────
+
+// 지급일: 매월 15일(KST) — 약관 5번 "월말까지 확정된 커미션은 익월 15일 지급"
+const PAY_DAY = 15;
+
+// 이번 지급 = 지난달 말(KST)까지 확정된 커미션. 지급일은 이번 달 15일
+function payoutWindow(today = kstDate()) {
+  const cutoffMs = kstStartMs(`${today.slice(0, 7)}-01`);
+  return {
+    period: kstDate(cutoffMs - 1).slice(0, 7),
+    cutoffMs,
+    payDate: `${today.slice(0, 7)}-${PAY_DAY}`,
+  };
+}
+
+async function getAdjustments(code: string): Promise<Adjustment[]> {
+  const hash = await kv.hgetall<Record<string, Adjustment>>(K.adjustments(code));
+  return Object.values(hash || {});
+}
+
+// 이번에 지급할 몫: 마감 전에 확정됐고 아직 지급 안 된 주문 + 반영 안 된 차감
+function splitPayable(orders: Commission[], adjustments: Adjustment[], cutoffMs: number) {
+  const items = orders.filter((o) => o.status === 'confirmed' && !o.payoutId && !!o.confirmedAt && Date.parse(o.confirmedAt) < cutoffMs);
+  const adj = adjustments.filter((a) => !a.payoutId);
+  return { items, adjustments: adj, amount: round2(sum(items, 'commission') + sum(adj, 'amount')) };
+}
+
+type PayoutBlock = 'ready' | 'below-min' | 'no-paypal' | 'suspended' | 'removed';
+
+function payoutBlock(p: Partner, amount: number): PayoutBlock {
+  if (p.status === 'removed') return 'removed';
+  if (p.status === 'suspended') return 'suspended';
+  // 탈퇴는 최소 금액 미만이어도 지급 (0 이하는 지급할 몫 없음)
+  if (p.status === 'left' ? amount <= 0 : amount < MIN_PAYOUT) return 'below-min';
+  if (!p.paypalEmail) return 'no-paypal';
+  return 'ready';
+}
+
+async function getAllPartnerOrders(code: string): Promise<Commission[]> {
+  const ids = await kv.zrange<string[]>(K.partnerOrders(code), 0, -1);
+  return getOrders(ids.map(String));
+}
+
+function summarizeOrders(orders: Commission[]) {
+  const live = orders.filter(counts);
+  return {
+    orders: live.length,
+    sales: round2(live.reduce((s, o) => s + o.baseAmount, 0)),
+    commission: round2(live.reduce((s, o) => s + o.commission, 0)),
+  };
+}
+
+// ─── 고객: 가입·내 정보 ───────────────────────────────────────────────────────
+
+function publicPartner(p: Partner) {
+  return {
+    code: p.code,
+    status: p.status,
+    joinedAt: p.joinedAt,
+    paypalEmail: maskEmail(p.paypalEmail),
+    paypalUpdatedAt: p.paypalUpdatedAt,
+  };
+}
+
+async function handleMe(req: VercelRequest, res: VercelResponse) {
+  const customer = await getCustomer(req);
+  if (!customer) return res.status(401).json({ error: 'Unauthorized' });
+  const partner = await getPartnerByCustomer(customer.id);
+  if (partner && isOut(partner.status)) return res.status(200).json({ partner: null, removed: true });
+  return res.status(200).json({ partner: partner ? publicPartner(partner) : null, removed: false });
+}
+
+async function handleJoin(req: VercelRequest, res: VercelResponse) {
+  const customer = await getCustomer(req);
+  if (!customer) return res.status(401).json({ error: 'Unauthorized' });
+  const body = (req.body ?? {}) as { age18?: unknown; terms?: unknown; profile?: unknown };
+  if (body.age18 !== true || body.terms !== true) return res.status(400).json({ error: 'Consent required' });
+
+  const existing = await getPartnerByCustomer(customer.id);
+  if (existing) {
+    if (isOut(existing.status)) return res.status(403).json({ error: 'Not available' });
+    return res.status(200).json({ partner: publicPartner(existing), created: false });
+  }
+  // 새 가입만 막는다 — 이미 가입한 파트너는 위에서 그대로 돌려준다
+  if (!JOIN_OPEN) return res.status(403).json({ error: 'Join closed' });
+  const profile = parseProfile(body.profile);
+  if (!profile) return res.status(400).json({ error: 'Profile required' });
+  if (BLOCKED_COUNTRIES.has(profile.country)) return res.status(403).json({ error: 'Country not eligible' });
+
+  // 같은 고객이 동시에 두 번 눌러도 코드 하나만 — 고객 키를 먼저 잡는다
+  const lockKey = `${K.byCustomer(customer.id)}:lock`;
+  if (!(await kv.set(lockKey, '1', { nx: true, ex: 30 }))) return res.status(409).json({ error: 'Try again' });
+
+  try {
+    // 잠금을 잡기 직전에 다른 요청이 가입을 끝냈을 수 있다 — 잡은 뒤 한 번 더 확인
+    const joined = await getPartnerByCustomer(customer.id);
+    if (joined) {
+      if (isOut(joined.status)) return res.status(403).json({ error: 'Not available' });
+      return res.status(200).json({ partner: publicPartner(joined), created: false });
+    }
+    const now = new Date().toISOString();
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const code = Array.from({ length: 6 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join('');
+      const partner: Partner = {
+        code,
+        customerId: customer.id,
+        email: customer.email,
+        name: customer.name,
+        country: customer.country,
+        status: 'active',
+        joinedAt: now,
+        consent: { age18: true, terms: true, at: now },
+        paypalEmail: null,
+        paypalUpdatedAt: null,
+        statusHistory: [],
+        profile,
+      };
+      if (!(await kv.set(K.partner(code), partner, { nx: true }))) continue; // 코드 중복 → 다시 뽑기
+      await kv.set(K.byCustomer(customer.id), code);
+      await kv.sadd(K.partners, code);
+      return res.status(200).json({ partner: publicPartner(partner), created: true });
+    }
+    throw new Error('code generation failed');
+  } finally {
+    await kv.del(lockKey);
+  }
+}
+
+async function handleCopy(req: VercelRequest, res: VercelResponse) {
+  const customer = await getCustomer(req);
+  if (!customer) return res.status(401).json({ error: 'Unauthorized' });
+  const partner = await getPartnerByCustomer(customer.id);
+  if (!partner || partner.status !== 'active') return res.status(403).json({ error: 'Not a partner' });
+  const handle = normalizeHandle((req.body ?? {}).handle) || '_home';
+  await kv.hincrby(K.copies(partner.code), `${kstDate()}|${handle}`, 1);
+  return res.status(200).json({ ok: true });
+}
+
+// 파트너 기록 수정 — 고객(PayPal 저장)과 관리자(상태 변경)가 동시에 써도 서로 덮어쓰지 않게 잠그고 최신본을 다시 읽는다
+async function updatePartner(code: string, fn: (p: Partner) => Partner): Promise<Partner | 'busy' | null> {
+  const lock = `${K.partner(code)}:lock`;
+  if (!(await kv.set(lock, '1', { nx: true, ex: 10 }))) return 'busy';
+  try {
+    const current = await getPartner(code);
+    if (!current) return null;
+    const next = fn(current);
+    await kv.set(K.partner(code), next);
+    return next;
+  } finally {
+    await kv.del(lock);
+  }
+}
+
+async function handlePaypal(req: VercelRequest, res: VercelResponse) {
+  const customer = await getCustomer(req);
+  if (!customer) return res.status(401).json({ error: 'Unauthorized' });
+  const partner = await getPartnerByCustomer(customer.id);
+  if (!partner || isOut(partner.status)) return res.status(403).json({ error: 'Not a partner' });
+  const email = String((req.body ?? {}).email || '').trim().toLowerCase();
+  if (!EMAIL_RE.test(email) || email.length > 254) return res.status(400).json({ error: 'Invalid email' });
+
+  const now = new Date().toISOString();
+  let previous: string | null = partner.paypalEmail;
+  const updated = await updatePartner(partner.code, (p) => {
+    previous = p.paypalEmail;
+    return { ...p, paypalEmail: email, paypalUpdatedAt: now };
+  });
+  if (updated === 'busy') return res.status(409).json({ error: 'Try again' });
+  if (!updated) return res.status(404).json({ error: 'Not found' });
+  await kv.lpush(K.paypalHistory(partner.code), { at: now, from: maskEmail(previous), to: maskEmail(email) });
+  return res.status(200).json({ partner: publicPartner(updated) });
+}
+
+// ─── 고객: 링크 클릭 ──────────────────────────────────────────────────────────
+
+async function handleClick(req: VercelRequest, res: VercelResponse) {
+  const body = (req.body ?? {}) as { code?: unknown; handle?: unknown; vid?: unknown };
+  const code = normalizeCode(body.code);
+  if (!code) return res.status(400).json({ error: 'Invalid code' });
+  const handle = normalizeHandle(body.handle) || '_home';
+
+  // 봇·미리보기는 집계하지 않는다 (코드 저장은 화면에서 이미 끝남)
+  const ua = String(req.headers['user-agent'] || '');
+  if (!ua || BOT_UA.test(ua)) return res.status(200).json({ ok: true, counted: false });
+
+  const partner = await getPartner(code);
+  if (!partner || partner.status !== 'active') return res.status(200).json({ ok: true, valid: false });
+
+  const ip = clientIp(req) || 'unknown';
+  // 중복 기준: 브라우저 방문자 ID (없으면 IP)
+  const vid = typeof body.vid === 'string' && /^[a-z0-9-]{8,64}$/i.test(body.vid) ? `v:${body.vid}` : `ip:${ip}`;
+  const fresh = await kv.set(K.clickDedupe(code, handle, vid), '1', { nx: true, ex: CLICK_DEDUPE_SECONDS });
+  if (!fresh) return res.status(200).json({ ok: true, valid: true, counted: false });
+  const day = kstDate();
+  const ipKey = K.clickIpDaily(code, ip, day);
+  const ipCount = await kv.incr(ipKey);
+  if (ipCount === 1) await kv.expire(ipKey, 2 * 24 * 60 * 60);
+  if (ipCount > CLICK_IP_DAILY_CAP) return res.status(200).json({ ok: true, valid: true, counted: false });
+  await kv.hincrby(K.clicks(code), `${day}|${handle}`, 1);
+  return res.status(200).json({ ok: true, valid: true, counted: true });
+}
+
+// ─── 고객: 파트너 대시보드 ────────────────────────────────────────────────────
+
+// 다음 지급일: 지난달까지 확정된 몫이 최소 금액 이상이고 아직 15일 전이면 이번 달 15일, 아니면 다음 달 15일
+function nextPayoutDate(payableNow: number, today = kstDate()): string {
+  const [y, m, d] = today.split('-').map(Number);
+  const payDay = (offset: number) => new Date(Date.UTC(y, m - 1 + offset, PAY_DAY)).toISOString().slice(0, 10);
+  return payableNow >= MIN_PAYOUT && d <= PAY_DAY ? payDay(0) : payDay(1);
+}
+
+function linkRows(clicks: Record<string, number>, copies: Record<string, number>, orders: Commission[]) {
+  const rows: Record<string, { handle: string; clicks: number; copies: number; orders: number; commission: number }> = {};
+  const row = (h: string) => (rows[h] ||= { handle: h, clicks: 0, copies: 0, orders: 0, commission: 0 });
+  Object.entries(clicks).forEach(([h, n]) => (row(h).clicks += n));
+  Object.entries(copies).forEach(([h, n]) => (row(h).copies += n));
+  orders.filter(counts).forEach((o) => {
+    const r = row(o.handle || '_home');
+    r.orders += 1;
+    r.commission = round2(r.commission + o.commission);
+  });
+  return Object.values(rows).sort((a, b) => b.clicks - a.clicks || b.orders - a.orders || b.copies - a.copies);
+}
+
+async function handleDashboard(req: VercelRequest, res: VercelResponse) {
+  const customer = await getCustomer(req);
+  if (!customer) return res.status(401).json({ error: 'Unauthorized' });
+  const partner = await getPartnerByCustomer(customer.id);
+  if (!partner || isOut(partner.status)) return res.status(403).json({ error: 'Not a partner' });
+
+  const range = readRange(req);
+  const [clickHash, copyHash, orders, allOrders, adjustments] = await Promise.all([
+    kv.hgetall<Record<string, number>>(K.clicks(partner.code)),
+    kv.hgetall<Record<string, number>>(K.copies(partner.code)),
+    getOrdersInRange(K.partnerOrders(partner.code), range),
+    getAllPartnerOrders(partner.code),
+    getAdjustments(partner.code),
+  ]);
+  const clicks = sumCounts(clickHash, range);
+  const copies = sumCounts(copyHash, range);
+  const perf = summarizeOrders(orders);
+
+  // 금액은 기간과 상관없는 잔액: 대기 / 확정(미지급, 차감 반영) / 지급 누계(차감 전 지급액)
+  const unpaidAdjustments = sum(adjustments.filter((a) => !a.payoutId), 'amount');
+  const payableNow = splitPayable(allOrders, adjustments, payoutWindow().cutoffMs).amount;
+
+  return res.status(200).json({
+    partner: publicPartner(partner),
+    range,
+    rate: COMMISSION_RATE,
+    performance: { clicks: clicks.total, orders: perf.orders, sales: perf.sales, commission: perf.commission },
+    confirmDays: CONFIRM_DAYS,
+    minPayout: MIN_PAYOUT,
+    month: {
+      pending: sum(allOrders.filter((o) => o.status === 'pending'), 'commission'),
+      confirmed: Math.max(0, round2(sum(allOrders.filter((o) => o.status === 'confirmed' && !o.payoutId), 'commission') + unpaidAdjustments)),
+      paid: round2(allOrders.reduce((t, o) => t + (o.paidAmount || 0), 0) + sum(adjustments.filter((a) => !!a.payoutId), 'amount')),
+      nextPayout: nextPayoutDate(payableNow),
+    },
+    links: linkRows(clicks.byHandle, copies.byHandle, orders),
+  });
+}
+
+// ─── 관리자 ───────────────────────────────────────────────────────────────────
+
+function adminOrder(o: Commission, partners: Map<string, Partner>) {
+  const p = partners.get(o.code);
+  return { ...o, partnerName: p?.name || '', partnerEmail: p?.email || '', partnerTest: !!p?.test };
+}
+
+async function handleAdminSummary(req: VercelRequest, res: VercelResponse) {
+  const range = readRange(req);
+  const [allPartners, allOrders] = await Promise.all([getAllPartners(), getOrdersInRange(K.orders, range)]);
+  // 테스트 파트너와 그 주문은 통계에서 뺀다
+  const testCodes = new Set(allPartners.filter((p) => p.test).map((p) => p.code));
+  const partners = allPartners.filter((p) => !p.test);
+  const orders = allOrders.filter((o) => !testCodes.has(o.code));
+
+  let clicks = 0;
+  let copies = 0;
+  let clickingPartners = 0;
+  const clicksByDate: Record<string, number> = {};
+  await Promise.all(
+    partners.map(async (p) => {
+      const [c, cp] = await Promise.all([
+        kv.hgetall<Record<string, number>>(K.clicks(p.code)),
+        kv.hgetall<Record<string, number>>(K.copies(p.code)),
+      ]);
+      const cs = sumCounts(c, range);
+      clicks += cs.total;
+      if (cs.total > 0) clickingPartners += 1;
+      copies += sumCounts(cp, range).total;
+      Object.entries(cs.byDate).forEach(([d, n]) => (clicksByDate[d] = (clicksByDate[d] || 0) + n));
+    }),
+  );
+
+  // 일별 매출(GMV)·주문 수 — 기간의 모든 날짜를 0으로 채운다
+  const daily: { date: string; gmv: number; orders: number; commission: number; clicks: number }[] = [];
+  for (let t = kstStartMs(range.from); t <= kstStartMs(range.to); t += 24 * 60 * 60 * 1000) {
+    const date = kstDate(t);
+    daily.push({ date, gmv: 0, orders: 0, commission: 0, clicks: clicksByDate[date] || 0 });
+  }
+  const byDate = new Map(daily.map((d) => [d.date, d]));
+  orders.filter(counts).forEach((o) => {
+    const d = byDate.get(kstDate(o.createdAt));
+    if (!d) return;
+    d.gmv = round2(d.gmv + o.baseAmount);
+    d.orders += 1;
+    d.commission = round2(d.commission + o.commission);
+  });
+
+  const perf = summarizeOrders(orders);
+  const activeCodes = new Set(orders.filter(counts).map((o) => o.code));
+  return res.status(200).json({
+    range,
+    confirmDays: CONFIRM_DAYS,
+    totals: {
+      gmv: perf.sales,
+      orders: perf.orders,
+      commission: perf.commission,
+      pendingCommission: sum(orders.filter((o) => o.status === 'pending'), 'commission'),
+      confirmedCommission: sum(orders.filter((o) => o.status === 'confirmed' || o.status === 'paid'), 'commission'),
+      clicks,
+      copies,
+      conversion: clicks ? round2((perf.orders / clicks) * 100) : 0,
+      partners: partners.filter((p) => !isOut(p.status)).length,
+      newPartners: partners.filter((p) => inRange(kstDate(p.joinedAt), range)).length,
+      clickingPartners, // 기간 안에 링크 클릭이 1번 이상
+      activePartners: activeCodes.size, // 기간 안에 커미션 주문이 1건 이상
+      excluded: orders.filter((o) => o.status === 'excluded').length,
+      excludedAmount: round2(orders.filter((o) => o.status === 'excluded').reduce((t, o) => t + o.baseAmount, 0)),
+      void: orders.filter((o) => o.status === 'void').length,
+    },
+    daily,
+  });
+}
+
+async function handleAdminOrders(req: VercelRequest, res: VercelResponse) {
+  const range = readRange(req);
+  const [partners, orders] = await Promise.all([getAllPartners(), getOrdersInRange(K.orders, range)]);
+  const map = new Map(partners.map((p) => [p.code, p]));
+  orders.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return res.status(200).json({ range, orders: orders.map((o) => adminOrder(o, map)) });
+}
+
+async function partnerStats(p: Partner, range: { from: string; to: string }) {
+  const [c, cp, orders] = await Promise.all([
+    kv.hgetall<Record<string, number>>(K.clicks(p.code)),
+    kv.hgetall<Record<string, number>>(K.copies(p.code)),
+    getOrdersInRange(K.partnerOrders(p.code), range),
+  ]);
+  const clicks = sumCounts(c, range);
+  const copies = sumCounts(cp, range);
+  return { clicks, copies, orders, perf: summarizeOrders(orders) };
+}
+
+function adminPartner(p: Partner) {
+  return {
+    code: p.code,
+    name: p.name,
+    email: p.email,
+    country: p.country ?? null,
+    status: p.status,
+    joinedAt: p.joinedAt,
+    paypalEmail: p.paypalEmail,
+    paypalUpdatedAt: p.paypalUpdatedAt,
+    profile: p.profile ?? null,
+    test: !!p.test,
+  };
+}
+
+async function handleAdminPartners(req: VercelRequest, res: VercelResponse) {
+  const range = readRange(req);
+  const partners = await getAllPartners();
+  const rows = await Promise.all(
+    partners.map(async (p) => {
+      const s = await partnerStats(p, range);
+      return {
+        ...adminPartner(p),
+        clicks: s.clicks.total,
+        copies: s.copies.total,
+        orders: s.perf.orders,
+        sales: s.perf.sales,
+        commission: s.perf.commission,
+      };
+    }),
+  );
+  rows.sort((a, b) => b.sales - a.sales || b.clicks - a.clicks || b.joinedAt.localeCompare(a.joinedAt));
+  return res.status(200).json({ range, partners: rows });
+}
+
+async function handleAdminPartner(req: VercelRequest, res: VercelResponse) {
+  const code = normalizeCode(req.query.code);
+  const partner = code ? await getPartner(code) : null;
+  if (!partner) return res.status(404).json({ error: 'Not found' });
+  const range = readRange(req);
+  const s = await partnerStats(partner, range);
+  const [paypalHistory, allIds] = await Promise.all([
+    kv.lrange(K.paypalHistory(partner.code), 0, 19),
+    kv.zrange<string[]>(K.partnerOrders(partner.code), 0, -1),
+  ]);
+  const allOrders = await getOrders(allIds.map(String));
+  allOrders.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return res.status(200).json({
+    range,
+    partner: { ...adminPartner(partner), consent: partner.consent, statusHistory: partner.statusHistory },
+    performance: { clicks: s.clicks.total, copies: s.copies.total, ...s.perf },
+    links: linkRows(s.clicks.byHandle, s.copies.byHandle, s.orders),
+    orders: allOrders, // 전체 기간
+    paypalHistory,
+  });
+}
+
+async function handleAdminPartnerTest(req: VercelRequest, res: VercelResponse) {
+  const body = (req.body ?? {}) as { code?: unknown; test?: unknown };
+  const code = normalizeCode(body.code);
+  if (!code || typeof body.test !== 'boolean') return res.status(400).json({ error: 'Invalid request' });
+  const test = body.test;
+  const saved = await updatePartner(code, (p) => ({ ...p, test }));
+  if (saved === 'busy') return res.status(409).json({ error: '잠시 후 다시 시도하세요.' });
+  if (!saved) return res.status(404).json({ error: 'Not found' });
+  return res.status(200).json({ partner: adminPartner(saved) });
+}
+
+async function handleAdminPartnerStatus(req: VercelRequest, res: VercelResponse) {
+  const body = (req.body ?? {}) as { code?: unknown; status?: unknown };
+  const code = normalizeCode(body.code);
+  const status = body.status;
+  if (!code || (status !== 'active' && status !== 'suspended' && status !== 'left' && status !== 'removed')) {
+    return res.status(400).json({ error: 'Invalid request' });
+  }
+  const partner = await getPartner(code);
+  if (!partner) return res.status(404).json({ error: 'Not found' });
+  if (partner.status === status) return res.status(200).json({ partner: adminPartner(partner) });
+  const saved = await updatePartner(code, (p) =>
+    p.status === status ? p : { ...p, status, statusHistory: [...p.statusHistory, { at: new Date().toISOString(), from: p.status, to: status }] },
+  );
+  if (saved === 'busy') return res.status(409).json({ error: '잠시 후 다시 시도하세요.' });
+  if (!saved) return res.status(404).json({ error: 'Not found' });
+  return res.status(200).json({ partner: adminPartner(saved) });
+}
+
+// 관리자 수동 무효(Void)·되돌리기 — Shopify 주문을 다시 읽어 바로 재계산한다.
+// 지급이 끝난 주문을 무효하면 다음 지급분에서 차감된다
+async function handleAdminVoid(req: VercelRequest, res: VercelResponse) {
+  const body = (req.body ?? {}) as { orderId?: unknown; void?: unknown };
+  const orderId = typeof body.orderId === 'string' ? body.orderId : '';
+  const existing = orderId ? await kv.get<Commission>(K.order(orderId)) : null;
+  if (!existing) return res.status(404).json({ error: 'Not found' });
+  const makeVoid = body.void === true;
+  if (existing.manualVoid === makeVoid) return res.status(200).json({ order: existing });
+
+  // 지급·수집이 같은 주문을 예전 사본으로 덮어쓰지 않게 같은 잠금을 쓴다
+  if (!(await kv.set(K.syncLock, 'void', { nx: true, ex: 120 }))) return res.status(409).json({ error: '주문 수집·지급 처리 중입니다. 잠시 후 다시 시도하세요.' });
+  try {
+    const data = await adminGraphql<{ order: ShopifyOrderNode | null }>(ORDER_QUERY, { id: orderId });
+    if (!data.order) return res.status(404).json({ error: 'Shopify order not found' });
+    const fresh = (await kv.get<Commission>(K.order(orderId))) ?? existing;
+    const now = new Date().toISOString();
+    await kv.set(K.order(orderId), {
+      ...fresh,
+      manualVoid: makeVoid,
+      updatedAt: now,
+      history: [...fresh.history, { at: now, change: makeVoid ? '관리자 무효' : '관리자 무효 취소' }],
+    } satisfies Commission);
+    await upsertCommission(data.order, new Map());
+    return res.status(200).json({ order: await kv.get<Commission>(K.order(orderId)) });
+  } finally {
+    await kv.del(K.syncLock);
+  }
+}
+
+// 정산 현황: 이번 지급 대상(파트너별) + 최근 지급 기록
+async function handleAdminPayouts(req: VercelRequest, res: VercelResponse) {
+  const win = payoutWindow();
+  const partners = await getAllPartners();
+  const testCodes = new Set(partners.filter((p) => p.test).map((p) => p.code));
+  // PayPal 송금 중인 건을 먼저 하나씩 갱신한다 — 실패로 되돌린 주문이 아래 지급 대상에 바로 잡히게
+  const ids = await kv.zrange<string[]>(K.payouts, 0, 49, { rev: true });
+  const stored = ids.length ? (await kv.mget<(Payout | null)[]>(...ids.map((id) => K.payout(String(id))))).filter((x): x is Payout => !!x) : [];
+  const payouts: Payout[] = [];
+  for (const p of stored.filter((x) => !testCodes.has(x.code))) payouts.push(await refreshPaypalPayout(p).catch(() => p));
+
+  const rows = (
+    await Promise.all(
+      partners.filter((p) => !p.test).map(async (p) => {
+        const [orders, adjustments] = await Promise.all([getAllPartnerOrders(p.code), getAdjustments(p.code)]);
+        const pay = splitPayable(orders, adjustments, win.cutoffMs);
+        if (!pay.items.length && !pay.adjustments.length) return null;
+        return {
+          ...adminPartner(p),
+          orders: pay.items.length,
+          adjustments: pay.adjustments.length,
+          adjustmentAmount: sum(pay.adjustments, 'amount'),
+          amount: pay.amount,
+          block: payoutBlock(p, pay.amount),
+        };
+      }),
+    )
+  ).filter((r): r is NonNullable<typeof r> => !!r);
+  rows.sort((a, b) => b.amount - a.amount);
+  const names = new Map(partners.map((p) => [p.code, p.name]));
+  return res.status(200).json({
+    ...win,
+    minPayout: MIN_PAYOUT,
+    confirmDays: CONFIRM_DAYS,
+    paypalEnabled: paypalConfigured(),
+    paypalMax: PAYPAL_MAX,
+    rows,
+    payouts: payouts.map((x) => ({ ...x, partnerName: names.get(x.code) || '' })),
+  });
+}
+
+// 송금 내역 (송금 CSV·정산 CSV용) — 송금 1건 = 파트너 1명 × 마감 월. month(YYYY-MM, 송금일 KST)를 주면 그 달만
+async function handleAdminPayoutList(req: VercelRequest, res: VercelResponse) {
+  const month = typeof req.query.month === 'string' && /^\d{4}-\d{2}$/.test(req.query.month) ? req.query.month : null;
+  const ids = await kv.zrange<string[]>(K.payouts, 0, -1);
+  const stored = ids.length ? (await kv.mget<(Payout | null)[]>(...ids.map((id) => K.payout(String(id))))).filter((x): x is Payout => !!x) : [];
+  const picked = month ? stored.filter((p) => kstDate(p.paidAt).startsWith(month)) : stored;
+  const partners = new Map((await getAllPartners()).map((p) => [p.code, p]));
+  const refreshed: Payout[] = [];
+  for (const raw of picked.filter((x) => !partners.get(x.code)?.test)) refreshed.push(await refreshPaypalPayout(raw).catch(() => raw));
+  const payouts = await Promise.all(
+    refreshed.map(async (p) => {
+      const [orders, adjustments] = await Promise.all([getOrders(p.orderIds), getAdjustments(p.code)]);
+      const partner = partners.get(p.code);
+      return {
+        ...p,
+        partnerName: partner?.name || '',
+        profile: partner?.profile ?? null,
+        // 실제로 나간 돈만 — 송금 실패로 되돌린 지급은 0 (주문은 다음 지급에 다시 잡힌다)
+        amount: p.revertedAt ? 0 : p.amount,
+        commissionTotal: round2(orders.filter((o) => o.payoutId === p.id).reduce((t, o) => t + (o.paidAmount ?? o.commission), 0)),
+        adjustmentTotal: round2(sum(adjustments.filter((a) => a.payoutId === p.id), 'amount')),
+      };
+    }),
+  );
+  payouts.sort((a, b) => a.paidAt.localeCompare(b.paidAt));
+  return res.status(200).json({ month, payouts });
+}
+
+// ─── PayPal Payouts ───────────────────────────────────────────────────────────
+// 회사 계정(비즈니스)에서 파트너 PayPal 이메일로 USD 송금. 송금 수수료는 회사 부담(약관 5번)
+
+const PAYPAL_API = process.env.PAYPAL_ENV === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com';
+const paypalConfigured = () => !!(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET);
+// 1건 자동 송금 상한(USD) — 넘으면 PayPal에서 직접 보내고 Mark as paid. 코드 오류·관리자 비번 유출 시 피해를 줄인다
+const PAYPAL_MAX = Number(process.env.AFFILIATE_PAYPAL_MAX) > 0 ? Number(process.env.AFFILIATE_PAYPAL_MAX) : 300;
+// 더 바뀌지 않는 상태 — 이 상태가 되면 다시 조회하지 않는다
+const PAYPAL_FINAL = new Set(['SUCCESS', 'FAILED', 'RETURNED', 'REVERSED', 'BLOCKED', 'REFUNDED', 'DENIED']);
+// 돈이 파트너에게 가지 않고 끝난 상태 — 지급을 되돌린다 (UNCLAIMED는 30일 뒤 RETURNED가 되면 그때)
+const PAYPAL_FAILED = new Set(['FAILED', 'RETURNED', 'REVERSED', 'BLOCKED', 'REFUNDED', 'DENIED']);
+
+// 송금 실패 → 그 지급에 묶인 주문·차감을 '확정·미반영'으로 되돌린다. 수집·지급과 같은 잠금이 없으면 다음 조회 때 다시 시도
+async function revertFailedPayout(stale: Payout): Promise<Payout> {
+  if (stale.revertedAt || !(await kv.set(K.syncLock, 'revert', { nx: true, ex: 120 }))) return stale;
+  try {
+    // 다른 요청이 먼저 되돌렸을 수 있다 — 잠금 안에서 최신 기록을 다시 읽는다
+    const p = (await kv.get<Payout>(K.payout(stale.id))) ?? stale;
+    if (p.revertedAt) return p;
+    const now = new Date().toISOString();
+    const all = await getAdjustments(p.code);
+    const revertedOrders = new Set<string>();
+    for (const o of await getOrders(p.orderIds)) {
+      if (o.payoutId !== p.id) continue;
+      revertedOrders.add(o.orderId);
+      // commission은 지금 받을 몫(환불 반영)이라 그대로 두고, 지급 후 차감은 없던 일로 (돈이 안 갔으므로)
+      await kv.set(K.order(o.orderId), {
+        ...o,
+        status: 'confirmed',
+        paidAt: null,
+        payoutId: null,
+        paidAmount: null,
+        clawback: 0,
+        reason: null,
+        updatedAt: now,
+        history: [...o.history, { at: now, change: `PayPal 송금 실패(${p.paypalStatus}) — 지급 취소, 다음 지급 대상` }],
+      } satisfies Commission);
+    }
+    // 이 지급에 반영됐던 예전 차감은 다음 지급으로 되돌리고, 되돌린 주문에서 생긴 미반영 차감은 지운다
+    const relink = all.filter((a) => a.payoutId === p.id);
+    if (relink.length) {
+      await kv.hset(K.adjustments(p.code), Object.fromEntries(relink.map((a) => [a.id, { ...a, payoutId: null }])));
+    }
+    const drop = all.filter((a) => !a.payoutId && revertedOrders.has(a.orderId)).map((a) => a.id);
+    if (drop.length) await kv.hdel(K.adjustments(p.code), ...drop);
+    const next: Payout = { ...p, revertedAt: now };
+    await kv.set(K.payout(p.id), next);
+    return next;
+  } finally {
+    await kv.del(K.syncLock);
+  }
+}
+
+async function paypalFetch<T>(path: string, init: { method: 'GET' | 'POST'; body?: unknown; requestId?: string }): Promise<T> {
+  const basic = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`).toString('base64');
+  const tokenRes = await fetch(`${PAYPAL_API}/v1/oauth2/token`, {
+    method: 'POST',
+    headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=client_credentials',
+  });
+  if (!tokenRes.ok) throw new Error(`PayPal 인증 실패 (${tokenRes.status})`);
+  const { access_token } = (await tokenRes.json()) as { access_token: string };
+  const r = await fetch(`${PAYPAL_API}${path}`, {
+    method: init.method,
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+      'Content-Type': 'application/json',
+      // 같은 지급 id로 다시 보내면 PayPal이 새로 송금하지 않고 처음 결과를 돌려준다
+      ...(init.requestId ? { 'PayPal-Request-Id': init.requestId } : {}),
+    },
+    body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+  });
+  const data = (await r.json().catch(() => ({}))) as T & { name?: string; message?: string };
+  if (!r.ok) throw new Error(`PayPal ${r.status} ${data.name || ''} ${data.message || ''}`.trim());
+  return data;
+}
+
+async function paypalSend(id: string, email: string, amount: number): Promise<{ batchId: string; status: string }> {
+  const data = await paypalFetch<{ batch_header: { payout_batch_id: string; batch_status: string } }>('/v1/payments/payouts', {
+    method: 'POST',
+    requestId: id,
+    body: {
+      sender_batch_header: {
+        sender_batch_id: id,
+        email_subject: 'You have a payout from BITE ME',
+        email_message: 'Thanks for sharing BITE ME. Here is your affiliate commission.',
+      },
+      items: [{
+        recipient_type: 'EMAIL',
+        amount: { value: amount.toFixed(2), currency: 'USD' },
+        receiver: email,
+        note: 'BITE ME affiliate commission',
+        sender_item_id: id,
+      }],
+    },
+  });
+  return { batchId: data.batch_header.payout_batch_id, status: data.batch_header.batch_status };
+}
+
+// 송금 결과(상태·수수료·결제번호)를 PayPal에서 다시 읽어 지급 기록에 반영
+async function refreshPaypalPayout(p: Payout): Promise<Payout> {
+  if (p.method !== 'paypal' || !p.paypalBatchId) return p;
+  // 실패로 끝났는데 아직 되돌리지 못했으면(잠금 충돌) 되돌리기만 다시 시도
+  if (p.paypalStatus && PAYPAL_FAILED.has(p.paypalStatus)) return revertFailedPayout(p);
+  if (p.paypalStatus && PAYPAL_FINAL.has(p.paypalStatus)) return p;
+  const data = await paypalFetch<{
+    items?: { transaction_status?: string; transaction_id?: string; payout_item_fee?: { value?: string } }[];
+  }>(`/v1/payments/payouts/${encodeURIComponent(p.paypalBatchId)}`, { method: 'GET' });
+  const item = data.items?.[0];
+  if (!item) return p;
+  const fee = item.payout_item_fee?.value;
+  const fresh = (await kv.get<Payout>(K.payout(p.id))) ?? p;
+  const next: Payout = {
+    ...fresh,
+    paypalStatus: item.transaction_status || p.paypalStatus,
+    paypalFee: fee !== undefined ? round2(Number(fee)) : p.paypalFee ?? null,
+    paypalTransactionId: item.transaction_id || p.paypalTransactionId || null,
+  };
+  await kv.set(K.payout(p.id), next);
+  return next.paypalStatus && PAYPAL_FAILED.has(next.paypalStatus) ? revertFailedPayout(next) : next;
+}
+
+// 지급: method=manual은 PayPal에서 사람이 먼저 송금한 뒤 기록, method=paypal은 여기서 Payouts API로 송금하고 기록
+async function handleAdminPayoutMark(req: VercelRequest, res: VercelResponse) {
+  const body = (req.body ?? {}) as { code?: unknown; amount?: unknown; method?: unknown };
+  const method = body.method === 'paypal' ? 'paypal' : 'manual';
+  if (method === 'paypal' && !paypalConfigured()) return res.status(400).json({ error: 'PayPal 키가 설정되지 않았습니다.' });
+  const code = normalizeCode(body.code);
+  const expected = Number(body.amount);
+  if (!code || !Number.isFinite(expected)) return res.status(400).json({ error: 'Invalid request' });
+  const partner = await getPartner(code);
+  if (!partner) return res.status(404).json({ error: 'Not found' });
+
+  // 수집과 겹치면 같은 주문을 동시에 고칠 수 있다 — 수집 잠금을 함께 쓴다
+  if (!(await kv.set(K.syncLock, 'payout', { nx: true, ex: 120 }))) return res.status(409).json({ error: '주문 수집 중입니다. 잠시 후 다시 시도하세요.' });
+  try {
+    const win = payoutWindow();
+    const [orders, adjustments] = await Promise.all([getAllPartnerOrders(code), getAdjustments(code)]);
+    const pay = splitPayable(orders, adjustments, win.cutoffMs);
+    if (partner.test) return res.status(409).json({ error: '테스트 파트너는 지급 대상이 아닙니다.' });
+    const block = payoutBlock(partner, pay.amount);
+    if (block !== 'ready') return res.status(409).json({ error: `지급 대상이 아닙니다 (${block})` });
+    if (round2(expected) !== pay.amount) return res.status(409).json({ error: `금액이 바뀌었습니다 (${pay.amount}). 새로고침 후 확인하세요.` });
+    if (method === 'paypal' && pay.amount > PAYPAL_MAX) {
+      return res.status(409).json({ error: `자동 송금 상한(USD ${PAYPAL_MAX}) 초과입니다. PayPal에서 직접 보낸 뒤 Mark as paid를 누르세요.` });
+    }
+
+    // 지급 id는 (마감 월·파트너·같은 달 몇 번째)로 정한다 — 송금 뒤 기록이 실패해 다시 눌러도 같은 id라 PayPal이 두 번 보내지 않는다
+    const prevIds = await kv.zrange<string[]>(K.partnerPayouts(code), 0, -1);
+    const prev = prevIds.length ? await kv.mget<(Payout | null)[]>(...prevIds.map((x) => K.payout(String(x)))) : [];
+    const id = `${win.period}-${code}-${prev.filter((x) => x?.period === win.period).length + 1}`;
+    let sent: { batchId: string; status: string } | null = null;
+    if (method === 'paypal') {
+      try {
+        sent = await paypalSend(id, partner.paypalEmail!, pay.amount);
+      } catch (e) {
+        // 송금 요청이 거절되면 아무것도 바꾸지 않는다
+        return res.status(502).json({ error: `PayPal 송금 실패: ${(e as Error).message}` });
+      }
+    }
+
+    const now = new Date().toISOString();
+    const payout: Payout = {
+      id,
+      code,
+      period: win.period,
+      amount: pay.amount,
+      paypalEmail: partner.paypalEmail!,
+      paidAt: now,
+      orderIds: pay.items.map((o) => o.orderId),
+      adjustmentIds: pay.adjustments.map((a) => a.id),
+      method,
+      // 배치 상태(batch_status)가 SUCCESS여도 항목은 UNCLAIMED·FAILED일 수 있다 — 항목 상태는 조회 때 채운다
+      ...(sent ? { paypalBatchId: sent.batchId, paypalStatus: 'PENDING', paypalFee: null, paypalTransactionId: null } : {}),
+    };
+    await kv.set(K.payout(id), payout);
+    for (const o of pay.items) {
+      await kv.set(K.order(o.orderId), {
+        ...o,
+        status: 'paid',
+        paidAt: now,
+        payoutId: id,
+        paidAmount: o.commission,
+        clawback: 0,
+        updatedAt: now,
+        history: [...o.history, { at: now, change: `지급 ${win.period} · ${o.commission}` }],
+      } satisfies Commission);
+    }
+    if (pay.adjustments.length) {
+      await kv.hset(K.adjustments(code), Object.fromEntries(pay.adjustments.map((a) => [a.id, { ...a, payoutId: id }])));
+    }
+    await kv.zadd(K.payouts, { score: Date.parse(now), member: id });
+    await kv.zadd(K.partnerPayouts(code), { score: Date.parse(now), member: id });
+    return res.status(200).json({ payout });
+  } finally {
+    await kv.del(K.syncLock);
+  }
+}
+
+// ─── 주문 수집 (정기 작업) ────────────────────────────────────────────────────
+
+interface ShopifyOrderNode {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  cancelledAt: string | null;
+  email: string | null;
+  customAttributes: { key: string; value: string | null }[];
+  currentSubtotalPriceSet: { shopMoney: { amount: string; currencyCode: string } };
+  customer: { id: string; tags: string[] } | null;
+  shippingAddress: { address1: string | null; zip: string | null } | null;
+}
+
+const ORDER_FIELDS = `
+  id name createdAt updatedAt cancelledAt email
+  customAttributes { key value }
+  currentSubtotalPriceSet { shopMoney { amount currencyCode } }
+  customer { id tags }
+  shippingAddress { address1 zip }
+`;
+
+const ORDERS_QUERY = `
+  query($q: String!, $after: String) {
+    orders(first: 100, after: $after, query: $q, sortKey: UPDATED_AT) {
+      pageInfo { hasNextPage endCursor }
+      nodes { ${ORDER_FIELDS} }
+    }
+  }
+`;
+
+const ORDER_QUERY = `query($id: ID!) { order(id: $id) { ${ORDER_FIELDS} } }`;
+
+const addressKey = (a: { address1: string | null; zip: string | null } | null | undefined) => {
+  const line = (a?.address1 || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const zip = (a?.zip || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  return line && zip ? `${line}|${zip}` : '';
+};
+
+// 파트너 기본 배송지 (본인 구매 판별용) — 수집 1회 안에서만 캐시
+async function partnerAddressKey(p: Partner, cache: Map<string, string>): Promise<string> {
+  if (cache.has(p.customerId)) return cache.get(p.customerId)!;
+  let key = '';
+  try {
+    const data = await adminGraphql<{ customer: { defaultAddress: { address1: string | null; zip: string | null } | null } | null }>(
+      `query($id: ID!) { customer(id: $id) { defaultAddress { address1 zip } } }`,
+      { id: p.customerId },
+    );
+    key = addressKey(data.customer?.defaultAddress);
+  } catch {
+    key = '';
+  }
+  cache.set(p.customerId, key);
+  return key;
+}
+
+// 주문 시각 기준 파트너 상태 — 상태 변경 이력을 최근부터 거꾸로 되돌린다
+function statusAt(p: Partner, iso: string): PartnerStatus {
+  const t = new Date(iso).getTime();
+  let s = p.status;
+  for (let i = p.statusHistory.length - 1; i >= 0; i--) {
+    if (new Date(p.statusHistory[i].at).getTime() > t) s = p.statusHistory[i].from;
+  }
+  return s;
+}
+
+// 서버에서도 귀속 기한(클릭 후 30일)을 확인한다. 클릭 시각이 없거나 주문보다 늦으면 귀속하지 않는다
+function withinTrackingWindow(clickedAt: string | null, orderCreatedAt: string): boolean {
+  const click = clickedAt ? Date.parse(clickedAt) : NaN;
+  const order = Date.parse(orderCreatedAt);
+  if (Number.isNaN(click) || Number.isNaN(order)) return false;
+  const diff = order - click;
+  return diff >= -CLOCK_SKEW_MS && diff <= TRACKING_DAYS * 24 * 60 * 60 * 1000;
+}
+
+function attr(node: ShopifyOrderNode, key: string): string | null {
+  return node.customAttributes.find((a) => a.key === key)?.value ?? null;
+}
+
+// 주문 1건 → 커미션 1줄. 같은 주문을 다시 읽으면 바뀐 값만 이력에 남기고 덮는다
+async function upsertCommission(node: ShopifyOrderNode, addrCache: Map<string, string>): Promise<'new' | 'updated' | 'same' | 'skip'> {
+  const code = normalizeCode(attr(node, '_aff'));
+  if (!code) return 'skip';
+  const partner = await getPartner(code);
+  if (!partner) return 'skip'; // 없는 코드 (조작·오타)
+
+  const existing = await kv.get<Commission>(K.order(node.id));
+  if (!existing && !withinTrackingWindow(attr(node, '_aff_at'), node.createdAt)) return 'skip';
+  const baseAmount = round2(Number(node.currentSubtotalPriceSet.shopMoney.amount) || 0);
+  const rate = existing?.rate ?? COMMISSION_RATE; // 요율은 처음 기록한 값으로 고정
+
+  // 상태 판정 (우선순위: 취소 > 관리자 무효 > 본인 구매 > B2B > 주문 시각에 파트너 정지 > 대기)
+  const orderEmail = (node.email || '').toLowerCase();
+  const isSelf =
+    node.customer?.id === partner.customerId ||
+    (!!orderEmail && orderEmail === partner.email) ||
+    (!!addressKey(node.shippingAddress) && addressKey(node.shippingAddress) === (await partnerAddressKey(partner, addrCache)));
+  const isB2B = (node.customer?.tags || []).some((t) => t.trim().toUpperCase() === 'B2B');
+
+  let status: CommissionStatus = 'pending';
+  let reason: string | null = null;
+  if (node.cancelledAt) [status, reason] = ['void', 'cancelled'];
+  else if (existing?.manualVoid) [status, reason] = ['void', 'manual'];
+  else if (isSelf) [status, reason] = ['excluded', 'self'];
+  else if (isB2B) [status, reason] = ['excluded', 'b2b'];
+  else if (statusAt(partner, node.createdAt) !== 'active') [status, reason] = ['excluded', 'partner-suspended'];
+
+  // 정상 주문은 주문 + CONFIRM_DAYS가 지나면 확정 (한 번 확정되면 일수 설정이 바뀌어도 유지)
+  const dueAt = new Date(Date.parse(node.createdAt) + CONFIRM_DAYS * DAY_MS);
+  if (status === 'pending' && (existing?.status === 'confirmed' || Date.now() >= dueAt.getTime())) status = 'confirmed';
+  const earned = round2(baseAmount * rate);
+  const commission = status === 'pending' || status === 'confirmed' ? earned : 0;
+  const confirmedAt = status === 'confirmed' ? existing?.confirmedAt || dueAt.toISOString() : null;
+  const now = new Date().toISOString();
+
+  if (existing?.status === 'paid') return settlePaidOrder(existing, node, baseAmount, commission, reason, now);
+
+  if (!existing) {
+    const record: Commission = {
+      orderId: node.id,
+      orderName: node.name,
+      createdAt: node.createdAt,
+      code,
+      handle: normalizeHandle(attr(node, '_aff_p')),
+      clickedAt: attr(node, '_aff_at'),
+      customerEmail: orderEmail || null,
+      guest: !node.customer,
+      baseAmount,
+      currency: node.currentSubtotalPriceSet.shopMoney.currencyCode,
+      rate,
+      commission,
+      status,
+      reason,
+      manualVoid: false,
+      updatedAt: now,
+      history: [{ at: now, change: `수집: ${status}${reason ? `(${reason})` : ''} · 기준 ${baseAmount} · 커미션 ${commission}` }],
+      confirmedAt,
+    };
+    const score = new Date(node.createdAt).getTime();
+    await kv.set(K.order(node.id), record);
+    await kv.zadd(K.orders, { score, member: node.id });
+    await kv.zadd(K.partnerOrders(code), { score, member: node.id });
+    return 'new';
+  }
+
+  const changes: string[] = [];
+  if (existing.baseAmount !== baseAmount) changes.push(`기준 금액 ${existing.baseAmount} → ${baseAmount}`);
+  if (existing.status !== status || existing.reason !== reason) {
+    changes.push(`상태 ${existing.status}${existing.reason ? `(${existing.reason})` : ''} → ${status}${reason ? `(${reason})` : ''}`);
+  }
+  if (existing.commission !== commission) changes.push(`커미션 ${existing.commission} → ${commission}`);
+  if (!changes.length) return 'same';
+
+  await kv.set(K.order(node.id), {
+    ...existing,
+    baseAmount,
+    status,
+    reason,
+    commission,
+    confirmedAt,
+    updatedAt: now,
+    history: [...existing.history, { at: now, change: changes.join(' · ') }],
+  } satisfies Commission);
+  return 'updated';
+}
+
+// 지급이 끝난 주문이 나중에 환불·취소·무효되면 차이만큼 차감 줄을 만든다 (되돌려지면 차감도 그만큼 되돌림)
+async function settlePaidOrder(
+  existing: Commission, node: ShopifyOrderNode, baseAmount: number, target: number, reason: string | null, now: string,
+): Promise<'updated' | 'same'> {
+  const paid = existing.paidAmount ?? existing.commission;
+  const clawback = existing.clawback ?? 0;
+  let delta = round2(target - (paid + clawback));
+  if (delta > 0) delta = Math.min(delta, -clawback); // 차감 되돌림은 이미 차감한 만큼까지만
+  const changes: string[] = [];
+  if (existing.baseAmount !== baseAmount) changes.push(`기준 금액 ${existing.baseAmount} → ${baseAmount}`);
+  if (delta !== 0) changes.push(`지급 후 ${delta < 0 ? '차감' : '차감 되돌림'} ${delta}${reason ? ` (${reason})` : ''}`);
+  if (!changes.length && existing.commission === target) return 'same';
+
+  if (delta !== 0) {
+    const adj: Adjustment = {
+      id: `${node.id.split('/').pop()}-${Date.now().toString(36)}`,
+      code: existing.code,
+      orderId: existing.orderId,
+      orderName: existing.orderName,
+      amount: delta,
+      at: now,
+      note: reason || (target < paid ? 'refund' : 'restore'),
+      payoutId: null,
+    };
+    await kv.hset(K.adjustments(existing.code), { [adj.id]: adj });
+  }
+  const nextClawback = round2(clawback + delta);
+  await kv.set(K.order(node.id), {
+    ...existing,
+    baseAmount,
+    commission: target,
+    clawback: nextClawback,
+    reason: nextClawback < 0 ? 'clawback' : null,
+    updatedAt: now,
+    history: changes.length ? [...existing.history, { at: now, change: changes.join(' · ') }] : existing.history,
+  } satisfies Commission);
+  return 'updated';
+}
+
+// Shopify 쪽 변화 없이 시간이 지나 확정되는 주문 — 매 수집 때 확정 시점이 지난 대기 주문을 확정으로
+async function confirmDueOrders(): Promise<number> {
+  const max = Date.now() - CONFIRM_DAYS * DAY_MS;
+  const ids = await kv.zrange<string[]>(K.orders, max - 90 * DAY_MS, max, { byScore: true });
+  const due = (await getOrders(ids.map(String))).filter((o) => o.status === 'pending');
+  const now = new Date().toISOString();
+  for (const o of due) {
+    await kv.set(K.order(o.orderId), {
+      ...o,
+      status: 'confirmed',
+      confirmedAt: new Date(Date.parse(o.createdAt) + CONFIRM_DAYS * DAY_MS).toISOString(),
+      updatedAt: now,
+      history: [...o.history, { at: now, change: `확정 (주문 후 ${CONFIRM_DAYS}일)` }],
+    } satisfies Commission);
+  }
+  return due.length;
+}
+
+async function runSync(): Promise<Record<string, number | string>> {
+  // 겹쳐 실행되지 않게 잠금 (최대 5분)
+  if (!(await kv.set(K.syncLock, '1', { nx: true, ex: 300 }))) return { skipped: 'locked' };
+  try {
+    const startedAt = new Date();
+    const cursor = (await kv.get<string>(K.syncCursor)) || SYNC_START;
+    const since = new Date(new Date(cursor).getTime() - SYNC_OVERLAP_MS).toISOString();
+    const q = `updated_at:>='${since}'`;
+
+    const stats = { scanned: 0, new: 0, updated: 0, same: 0, skip: 0 };
+    const addrCache = new Map<string, string>();
+    let after: string | null = null;
+    do {
+      const data: { orders: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: ShopifyOrderNode[] } } =
+        await adminGraphql(ORDERS_QUERY, { q, after });
+      for (const node of data.orders.nodes) {
+        stats.scanned += 1;
+        stats[await upsertCommission(node, addrCache)] += 1;
+      }
+      // 페이지마다 진행 위치 저장 — 중간에 시간 초과가 나도 다음 수집은 여기서 이어간다 (수정 시각 오름차순)
+      const last = data.orders.nodes[data.orders.nodes.length - 1];
+      if (last && data.orders.pageInfo.hasNextPage) await kv.set(K.syncCursor, last.updatedAt);
+      after = data.orders.pageInfo.hasNextPage ? data.orders.pageInfo.endCursor : null;
+    } while (after);
+
+    await kv.set(K.syncCursor, startedAt.toISOString());
+    const confirmed = await confirmDueOrders();
+    return { since, ...stats, confirmed };
+  } finally {
+    await kv.del(K.syncLock);
+  }
+}
+
+async function handleSync(req: VercelRequest, res: VercelResponse) {
+  const ua = String(req.headers['user-agent'] || '');
+  const isCron = !!req.headers['x-vercel-cron'] || ua.startsWith('vercel-cron/');
+  const cronSecret = process.env.CRON_SECRET;
+  const bearerOk = !!cronSecret && req.headers.authorization === `Bearer ${cronSecret}`;
+  // CRON_SECRET이 있으면 Vercel이 정기 작업에 Bearer로 붙여 보낸다 — 그때는 헤더만으로는 통과시키지 않는다
+  const cronOk = cronSecret ? bearerOk : isCron;
+  if (!cronOk && !isAdmin(req)) return res.status(401).json({ error: 'Unauthorized' });
+  // 두 프로젝트가 vercel.json cron을 공유한다 — 자동 수집은 B2B 사이트(biteme.one)에서만
+  if (isCron && process.env.SITE_MODE === 'b2c') return res.status(200).json({ skipped: 'cron runs on biteme.one' });
+  const result = await runSync();
+  return res.status(200).json({ ok: true, ...result });
+}
+
+// ─── 라우터 ───────────────────────────────────────────────────────────────────
+
+type Handler = (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
+
+const CUSTOMER_ROUTES: Record<string, { method: 'GET' | 'POST'; fn: Handler }> = {
+  me: { method: 'GET', fn: handleMe },
+  join: { method: 'POST', fn: handleJoin },
+  copy: { method: 'POST', fn: handleCopy },
+  click: { method: 'POST', fn: handleClick },
+  dashboard: { method: 'GET', fn: handleDashboard },
+  paypal: { method: 'POST', fn: handlePaypal },
+};
+
+const ADMIN_ROUTES: Record<string, { method: 'GET' | 'POST'; fn: Handler }> = {
+  'admin-summary': { method: 'GET', fn: handleAdminSummary },
+  'admin-orders': { method: 'GET', fn: handleAdminOrders },
+  'admin-partners': { method: 'GET', fn: handleAdminPartners },
+  'admin-partner': { method: 'GET', fn: handleAdminPartner },
+  'admin-partner-status': { method: 'POST', fn: handleAdminPartnerStatus },
+  'admin-void': { method: 'POST', fn: handleAdminVoid },
+  'admin-payouts': { method: 'GET', fn: handleAdminPayouts },
+  'admin-payout-mark': { method: 'POST', fn: handleAdminPayoutMark },
+  'admin-partner-test': { method: 'POST', fn: handleAdminPartnerTest },
+  'admin-payout-list': { method: 'GET', fn: handleAdminPayoutList },
+};
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const action = String(req.query.action || '');
+  try {
+    if (action === 'sync') return await handleSync(req, res);
+
+    const adminRoute = ADMIN_ROUTES[action];
+    if (adminRoute) {
+      if (req.method !== adminRoute.method) return res.status(405).json({ error: 'Method not allowed' });
+      if (!isAdmin(req)) return res.status(401).json({ error: 'Unauthorized' });
+      return await adminRoute.fn(req, res);
+    }
+
+    const route = CUSTOMER_ROUTES[action];
+    if (!route) return res.status(404).json({ error: 'Not found' });
+    // 고객용 기능은 B2C 사이트 전용
+    if (process.env.SITE_MODE !== 'b2c') return res.status(404).json({ error: 'Not found' });
+    if (req.method !== route.method) return res.status(405).json({ error: 'Method not allowed' });
+    if (req.method === 'POST' && isCrossOrigin(req)) return res.status(403).json({ error: 'Forbidden' });
+    return await route.fn(req, res);
+  } catch (error) {
+    console.error(`[Affiliate Program] ${action} error:`, error);
+    return res.status(500).json({ error: 'Server error' });
+  }
+}

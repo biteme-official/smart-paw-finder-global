@@ -9,6 +9,7 @@ import { instagramProxyMiddleware } from "./server/instagram-proxy";
 import { customerProxyMiddleware } from "./server/customer-proxy";
 import { affiliateProxyMiddleware } from "./server/affiliate-proxy";
 import { popupSubscribeProxyMiddleware } from "./server/popup-subscribe-proxy";
+import { affiliateProgramProxyMiddleware } from "./server/affiliate-program-proxy";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -42,6 +43,7 @@ export default defineConfig(({ mode }) => {
           server.middlewares.use(instagramProxyMiddleware());
           server.middlewares.use(affiliateProxyMiddleware());
           server.middlewares.use(popupSubscribeProxyMiddleware());
+          server.middlewares.use(affiliateProgramProxyMiddleware());
         },
       },
     ].filter(Boolean),

@@ -13,6 +13,7 @@ import { fetchProductByHandle, formatPrice, createStorefrontCheckout, ShopifyPro
 import { PriceTag } from "@/components/ui/PriceTag";
 import { trackViewItem, trackAddToCart, shopifyToGA4Item } from "@/lib/ga4-ecommerce";
 import { trackViewContentCapi } from "@/lib/meta-capi";
+import { klaviyoViewedProduct } from "@/lib/klaviyo";
 import { useCartStore } from "@/stores/cartStore";
 import { useFavoriteAction } from "@/hooks/useFavoriteAction";
 import { toast } from "sonner";
@@ -24,7 +25,8 @@ import { RecommendedProducts } from "@/components/product/RecommendedProducts";
 import { ReviewWidget } from "@/components/product/ReviewWidget";
 import { GeoDetail, GEO_DETAIL_HANDLES } from "@/components/product/GeoDetail";
 import { ScrollToTop } from "@/components/ui/ScrollToTop";
-import { SITE_URL } from "@/lib/site";
+import { SITE_URL, IS_B2C_SITE } from "@/lib/site";
+import { AffiliateShareRow } from "@/components/affiliate/AffiliateShareRow";
 import { cleanDescriptionHtml, cleanDescriptionText } from "@/lib/product-description";
 
 // Product detail skeleton component
@@ -164,6 +166,16 @@ export default function ProductDetail() {
         if (data) {
           const variant = data.variants.edges[0]?.node;
           trackViewItem(shopifyToGA4Item(data, variant));
+
+          // Klaviyo: Viewed Product + 최근 본 상품 (최근 본 상품 자동 메일용)
+          klaviyoViewedProduct({
+            id: data.id,
+            title: data.title,
+            handle: data.handle,
+            vendor: data.vendor,
+            productType: data.productType,
+            imageUrl: variant?.image?.url || data.images.edges[0]?.node.url,
+          }, variant?.price);
 
           // Meta CAPI: ViewContent — 커스텀 프론트엔드라 Shopify 자동 픽셀이
           // 닿지 않는 페이지라 서버사이드로 직접 전송 (content_id는 상품 피드의 g:id와 동일한 variant 숫자 id)
@@ -609,6 +621,11 @@ export default function ProductDetail() {
 
       {/* Product Info */}
       <div className="px-4 pt-4">
+        {/* B2C 어필리에이트 — 예상 커미션 + Copy link */}
+        {IS_B2C_SITE && (
+          <AffiliateShareRow handle={product.handle} minPrice={parseFloat(product.priceRange.minVariantPrice.amount)} />
+        )}
+
         {/* Title & Price */}
         <div className="mb-4">
           <nav aria-label="breadcrumb" className="mb-1 text-xs text-muted-foreground">
