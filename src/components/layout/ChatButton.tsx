@@ -1,5 +1,5 @@
 import { MessageCircleMore } from "lucide-react";
-import { SUPPORT_CHAT_URL } from "@/lib/support-chat";
+import { SUPPORT_CHAT_URL, openSupportChat } from "@/lib/support-chat";
 
 // 오른쪽 아래 채팅 버튼 — 글자 없는 바잇미 로고 주황(#FE6100) 원형(PC 56px / 모바일 48px), 새 탭으로 Shopify 채팅 페이지를 연다.
 // 위치: "맨 위로 가기" 버튼(ScrollToTop: 40px, 아래 160px·오른쪽 28px)과 가운데 세로줄을 맞추고 16px 간격으로 바로 아래에 둔다.
@@ -8,6 +8,7 @@ export function ChatButton() {
   return (
     <a
       href={SUPPORT_CHAT_URL}
+      onClick={openSupportChat}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with us"

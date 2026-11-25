@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { IS_B2C_SITE } from "@/lib/site";
-import { SUPPORT_CHAT_URL } from "@/lib/support-chat";
+import { SUPPORT_CHAT_URL, openSupportChat } from "@/lib/support-chat";
 
 const SUPPORT_LINKS = [
   { label: "Shipping & Returns", to: "/refund-policy" },
@@ -89,7 +89,7 @@ function AboutContactColumn() {
           {IS_B2C_SITE && (
             <>
               Consumer Inquiry:{" "}
-              <a href={SUPPORT_CHAT_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">
+              <a href={SUPPORT_CHAT_URL} onClick={openSupportChat} target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">
                 Chat with us
               </a>
               <br />

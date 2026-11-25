@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Mail, MapPin, Clock, MessageCircle } from "lucide-react";
-import { SUPPORT_CHAT_URL } from "@/lib/support-chat";
+import { SUPPORT_CHAT_URL, openSupportChat } from "@/lib/support-chat";
 import { IS_B2C_SITE } from "@/lib/site";
 import contactImage from "@/assets/contact-dog.jpg";
 
@@ -38,6 +38,7 @@ const ContactUs = () => {
                 <li>
                   <a
                     href={SUPPORT_CHAT_URL}
+                    onClick={openSupportChat}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-start gap-4 group"
