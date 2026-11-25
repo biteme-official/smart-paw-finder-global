@@ -3,6 +3,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Mail, MapPin, Clock, MessageCircle } from "lucide-react";
 import { SUPPORT_CHAT_URL } from "@/lib/support-chat";
+import { IS_B2C_SITE } from "@/lib/site";
 import contactImage from "@/assets/contact-dog.jpg";
 
 const ContactUs = () => {
@@ -32,27 +33,29 @@ const ContactUs = () => {
 
             <ul className="space-y-6">
 
-              {/* Chat CTA (Shopify Inbox) — highlighted */}
-              <li>
-                <a
-                  href={SUPPORT_CHAT_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-start gap-4 group"
-                >
-                  <span className="shrink-0 w-10 h-10 rounded-full bg-foreground flex items-center justify-center text-background shadow-sm group-hover:opacity-80 transition-opacity">
-                    <MessageCircle className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <div className="pt-1.5">
-                    <p className="font-semibold text-foreground group-hover:underline">
-                      Chat with us
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Opens in a new tab · We reply M–F 10am – 7pm KST
-                    </p>
-                  </div>
-                </a>
-              </li>
+              {/* Chat CTA (Shopify Inbox) — highlighted, B2C 사이트 전용 */}
+              {IS_B2C_SITE && (
+                <li>
+                  <a
+                    href={SUPPORT_CHAT_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-start gap-4 group"
+                  >
+                    <span className="shrink-0 w-10 h-10 rounded-full bg-foreground flex items-center justify-center text-background shadow-sm group-hover:opacity-80 transition-opacity">
+                      <MessageCircle className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <div className="pt-1.5">
+                      <p className="font-semibold text-foreground group-hover:underline">
+                        Chat with us
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Opens in a new tab · We reply M–F 10am – 7pm KST
+                      </p>
+                    </div>
+                  </a>
+                </li>
+              )}
 
               {/* Email */}
               <li className="flex items-start gap-4">

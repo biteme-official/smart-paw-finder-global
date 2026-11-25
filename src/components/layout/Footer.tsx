@@ -85,11 +85,16 @@ function AboutContactColumn() {
           <br />
           Business Inquiry: mates@biteme.co.kr
           <br />
-          Consumer Inquiry:{" "}
-          <a href={SUPPORT_CHAT_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">
-            Chat with us
-          </a>
-          <br />
+          {/* 고객 문의 채팅 — B2C 사이트 전용 */}
+          {IS_B2C_SITE && (
+            <>
+              Consumer Inquiry:{" "}
+              <a href={SUPPORT_CHAT_URL} target="_blank" rel="noopener noreferrer" className="underline hover:text-white transition-colors">
+                Chat with us
+              </a>
+              <br />
+            </>
+          )}
           We're here M–F 10am – 7pm KST
         </p>
       </div>

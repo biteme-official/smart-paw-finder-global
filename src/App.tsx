@@ -160,7 +160,8 @@ const App = () => (
           <Route path="/collections" element={<Navigate to="/" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
-        <ChatButton />
+        {/* 고객 문의 채팅(Shopify Inbox) — B2C 사이트 전용. B2B는 이메일 문의만 */}
+        {IS_B2C_SITE && <ChatButton />}
         <PetProfilePrompt />
         {/* 첫구매 쿠폰 · 이메일 수집 팝업 — B2C 사이트 전용 */}
         {IS_B2C_SITE && <EmailPopup />}
