@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { fetchProductByHandle, formatPrice, createStorefrontCheckout, ShopifyProduct } from "@/lib/shopify";
 import { PriceTag } from "@/components/ui/PriceTag";
-import { trackViewItem, trackAddToCart, shopifyToGA4Item } from "@/lib/ga4-ecommerce";
+import { trackViewItem, trackAddToCart, trackBeginCheckout, shopifyToGA4Item } from "@/lib/ga4-ecommerce";
 import { trackViewContentCapi } from "@/lib/meta-capi";
 import { klaviyoViewedProduct } from "@/lib/klaviyo";
 import { useCartStore } from "@/stores/cartStore";
@@ -146,6 +146,7 @@ export default function ProductDetail() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const thumbnailRef = useRef<HTMLDivElement>(null);
+  const viewItemSentRef = useRef<ShopifyProduct['node'] | null>(null);
   const addItem = useCartStore(state => state.addItem);
   const totalCartItems = useCartStore(state => state.getTotalItems());
   const { toggleFavorite, checkFavorite } = useFavoriteAction();
@@ -162,10 +163,9 @@ export default function ProductDetail() {
       try {
         const data = await fetchProductByHandle(id);
         setProduct(data);
-        // GA4: view_item event
+        // GA4 view_item은 아래 제목 설정 effect에서 보낸다 (페이지 제목이 이 상품으로 바뀐 뒤)
         if (data) {
           const variant = data.variants.edges[0]?.node;
-          trackViewItem(shopifyToGA4Item(data, variant));
 
           // Klaviyo: Viewed Product + 최근 본 상품 (최근 본 상품 자동 메일용)
           klaviyoViewedProduct({
@@ -323,6 +323,14 @@ export default function ProductDetail() {
     };
 
     document.title = title;
+
+    // GA4: view_item — 제목을 바꾼 직후에 보내야 이벤트의 페이지 제목이 이전 화면이 아닌 이 상품으로 찍힌다.
+    // 같은 상품 데이터로 effect가 다시 돌면(geo 등 재실행) 한 번만 보낸다.
+    if (viewItemSentRef.current !== product) {
+      viewItemSentRef.current = product;
+      trackViewItem(shopifyToGA4Item(product, product.variants.edges[0]?.node));
+    }
+
     set('link[rel="canonical"]', 'href', url, () => { const l = document.createElement('link'); l.rel = 'canonical'; return l; });
     set('meta[name="description"]', 'content', description, meta('name', 'description'));
     set('meta[property="og:title"]', 'content', title, meta('property', 'og:title'));
@@ -449,6 +457,11 @@ export default function ProductDetail() {
     if (!variant) return;
 
     setIsBuyingNow(true);
+
+    // GA4: begin_checkout (Buy Now는 장바구니 창을 거치지 않으므로 여기서 보냄)
+    const ga4Item = shopifyToGA4Item(product, variant, quantity);
+    trackBeginCheckout([ga4Item], variant.price.currencyCode, (ga4Item.price || 0) * quantity);
+
     try {
       const checkoutUrl = await createStorefrontCheckout([
         { variantId: variant.id, quantity },

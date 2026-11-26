@@ -6,6 +6,7 @@ import { useCartStore } from "@/stores/cartStore";
 import { Button } from "@/components/ui/button";
 import { ProductOptionDialog } from "@/components/shop/ProductOptionDialog";
 import { toast } from "sonner";
+import { trackAddToCart, shopifyToGA4Item } from "@/lib/ga4-ecommerce";
 
 type ProductNode = ShopifyProduct["node"];
 
@@ -283,6 +284,8 @@ export function InstagramReels() {
         quantityAvailable: null,
         selectedOptions: variant.selectedOptions,
       });
+      // GA4: add_to_cart (옵션 없는 상품 바로 담기. 옵션 있는 상품은 ProductOptionDialog에서 보냄)
+      trackAddToCart(shopifyToGA4Item(product, variant, 1));
       toast.success("Added to cart", { description: product.title, position: "top-center" });
     } else {
       setSelectedProduct({ node: product } as ShopifyProduct);
