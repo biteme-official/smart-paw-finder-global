@@ -13,6 +13,7 @@ import {
 import { Minus, Plus, Check, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { trackAddToCart, shopifyToGA4Item } from '@/lib/ga4-ecommerce';
 
 interface ProductOptionDialogProps {
   product: ShopifyProduct | null;
@@ -63,6 +64,9 @@ export const ProductOptionDialog = ({ product, open, onOpenChange }: ProductOpti
       quantityAvailable: variant.quantityAvailable ?? null,
       selectedOptions: variant.selectedOptions,
     });
+
+    // GA4: add_to_cart (상품 카드·릴스에서 옵션 선택 창으로 담기)
+    trackAddToCart(shopifyToGA4Item(productNode, variant, quantity));
 
     toast.success('Added to cart', {
       description: `${productNode.title} x ${quantity}`,
