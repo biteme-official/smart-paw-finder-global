@@ -7,6 +7,7 @@ import { useCartStore } from "@/stores/cartStore";
 import { useTranslation } from "@/hooks/useTranslation";
 import { Confetti } from "@/components/checkout/Confetti";
 import { trackPurchase } from "@/lib/ga4-ecommerce";
+import { IS_B2C_SITE } from "@/lib/site";
 
 export default function CheckoutReturn() {
   const navigate = useNavigate();
@@ -17,7 +18,9 @@ export default function CheckoutReturn() {
     // sessionStorage에서 먼저 제거(새로고침 시 중복 발사 방지), 그 다음 이벤트 발사
     const raw = sessionStorage.getItem('bm_pending_purchase');
     sessionStorage.removeItem('bm_pending_purchase');
-    if (raw) {
+    // B2C 사이트는 여기서 purchase를 보내지 않는다: Shopify 맞춤 픽셀이 결제 완료 시
+    // 실제 주문번호·금액으로 보내므로, 여기서도 보내면 구매가 두 번 잡힌다.
+    if (raw && !IS_B2C_SITE) {
       try {
         const { txnId, items, currency, value, shipping } = JSON.parse(raw);
         trackPurchase(txnId, items, currency, value, shipping);

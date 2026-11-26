@@ -1397,9 +1397,10 @@ export async function createStorefrontCheckout(items: { variantId: string; quant
    }
 
    // B2C 어필리에이트: 파트너 링크로 들어온 고객이면 주문 속성(_aff 등, 결제 화면에 안 보임)으로 코드 전달
+   // B2C 사이트 주문 표시(_site=b2c, 결제 화면에 안 보임): 스토어를 B2B·B2C가 같이 쓰므로
+   // Shopify 맞춤 픽셀이 이 표시가 있는 주문만 B2C GA4(G-LKM994B6GS)로 보낸다.
    if (IS_B2C_SITE) {
-     const affiliateAttributes = getAttributionCartAttributes();
-     if (affiliateAttributes.length) input.attributes = affiliateAttributes;
+     input.attributes = [{ key: '_site', value: 'b2c' }, ...getAttributionCartAttributes()];
    }
 
    // B2C 사이트는 고객 정보를 넘기지 않는다 — 넘기면 B2B 태그 고객에게 Shopify 자동 도매 할인이 붙는다.
